@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var roundsText = ""
     @State private var volume = 1.0
     @State private var launchAtLogin = false
+    @State private var loginStatus: LaunchAtLogin.Status = .inactive
     @State private var floating = true
     @State private var loginHint: String?
     @State private var blockedApps: [BlockedApp] = []
@@ -113,10 +114,12 @@ struct SettingsView: View {
                         try LaunchAtLogin.setEnabled(newValue)
                         loginHint = nil
                     } catch {
-                        launchAtLogin = LaunchAtLogin.isEnabled
                         loginHint = "macOS hat das abgelehnt. Manuell: Systemeinstellungen → Allgemein → Anmeldeobjekte → \"+\" → Timer.app."
                     }
+                    launchAtLogin = LaunchAtLogin.isEnabled
+                    loginStatus = LaunchAtLogin.status
                 }
+            loginStatusLine
             if let hint = loginHint {
                 Text(hint)
                     .font(.caption2)
@@ -129,6 +132,31 @@ struct SettingsView: View {
                     NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
                 }
         }
+    }
+
+    /// Live status under the login toggle; the approval state deep-links to
+    /// the Login Items pane.
+    @ViewBuilder private var loginStatusLine: some View {
+        switch loginStatus {
+        case .active:
+            loginStatusText("Status: Aktiv")
+        case .activeLaunchAgent:
+            loginStatusText("Status: Aktiv (LaunchAgent)")
+        case .requiresApproval:
+            loginStatusText("Status: Wartet auf Freigabe")
+            Button("Systemeinstellungen öffnen") {
+                LaunchAtLogin.openLoginItemsSettings()
+            }
+            .controlSize(.small)
+        case .inactive:
+            EmptyView()
+        }
+    }
+
+    private func loginStatusText(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
     }
 
     private var focusBlockSection: some View {
@@ -360,6 +388,7 @@ struct SettingsView: View {
         roundsText = String(config.rounds)
         volume = preferences.alarmVolume
         launchAtLogin = LaunchAtLogin.isEnabled
+        loginStatus = LaunchAtLogin.status
         floating = preferences.floatingEnabled
         blockedApps = preferences.blockedApps
         blockedDomains = preferences.blockedDomains
