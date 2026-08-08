@@ -61,4 +61,49 @@ func runStatsStoreTests() {
         try expectEqual(days[6].seconds, 1800, accuracy: 0.5, "today last")
         try expectEqual(days[3].seconds, 0, accuracy: 0.5, "empty day is zero")
     }
+
+    // MARK: - v14: all-time + active days
+
+    test("all-time and active days are zero on an empty store") {
+        let stats = freshStats()
+        try expectEqual(stats.allTimeSeconds(), 0, accuracy: 0.5, "no buckets")
+        try expectEqual(stats.activeDayCount(), 0, "no active days")
+    }
+
+    test("a single day counts once in all-time and active days") {
+        let stats = freshStats()
+        stats.add(focusFrom: date("2026-08-07 10:00:00"), to: date("2026-08-07 10:25:00"))
+        stats.add(focusFrom: date("2026-08-07 14:00:00"), to: date("2026-08-07 14:05:00"))
+        try expectEqual(stats.allTimeSeconds(), 1800, accuracy: 0.5, "25+5 min")
+        try expectEqual(stats.activeDayCount(), 1, "same day counts once")
+    }
+
+    test("all-time spans every stored day independent of today") {
+        let stats = freshStats()
+        // Days far outside any current week/7-day window must count fully.
+        stats.add(focusFrom: date("2020-01-01 09:00:00"), to: date("2020-01-01 09:30:00"))
+        stats.add(focusFrom: date("2023-06-15 09:00:00"), to: date("2023-06-15 09:30:00"))
+        stats.add(focusFrom: date("2026-08-07 09:00:00"), to: date("2026-08-07 09:30:00"))
+        try expectEqual(stats.allTimeSeconds(), 5400, accuracy: 0.5, "3 x 30 min")
+        try expectEqual(stats.activeDayCount(), 3, "three distinct days")
+    }
+
+    test("a midnight-crossing segment activates both days") {
+        let stats = freshStats()
+        stats.add(focusFrom: date("2026-08-06 23:50:00"), to: date("2026-08-07 00:20:00"))
+        try expectEqual(stats.allTimeSeconds(), 1800, accuracy: 0.5, "full 30 min")
+        try expectEqual(stats.activeDayCount(), 2, "both sides of midnight")
+    }
+
+    test("zero-value buckets do not count as active days") {
+        let suite = "StatsStoreTests"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        // Simulates a legacy/stray bucket stored as 0 — must not be "active".
+        defaults.set(["2026-08-01": 0.0], forKey: "focusStatsBuckets")
+        let stats = StatsStore(defaults: defaults)
+        stats.add(focusFrom: date("2026-08-07 10:00:00"), to: date("2026-08-07 10:25:00"))
+        try expectEqual(stats.allTimeSeconds(), 1500, accuracy: 0.5, "only real seconds")
+        try expectEqual(stats.activeDayCount(), 1, "zero bucket ignored")
+    }
 }

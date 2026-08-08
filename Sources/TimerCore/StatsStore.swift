@@ -66,6 +66,18 @@ public final class StatsStore {
         return total
     }
 
+    /// v14: all-time focus seconds — the sum of every stored day bucket
+    /// (data exists since v1 and is kept forever). Independent of the clock.
+    public func allTimeSeconds() -> Double {
+        buckets.values.reduce(0, +)
+    }
+
+    /// v14: number of days with focus time. A bucket stored as 0 does not
+    /// count as active — only days with > 0 seconds.
+    public func activeDayCount() -> Int {
+        buckets.values.filter { $0 > 0 }.count
+    }
+
     /// Seven day stats, oldest first, ending with the day containing `now`.
     public func last7Days(now: Date = Date()) -> [DayStat] {
         (0..<7).reversed().compactMap { offset in
