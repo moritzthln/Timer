@@ -61,15 +61,20 @@ final class StatusBarController {
             guard let self else { return }
             self.showPopover()
             if self.preferences.soundEnabled {
-                SoundPlayer.playCompletionChime(volume: self.preferences.alarmVolume)
+                SoundPlayer.playMajorAlarm(volume: self.preferences.alarmVolume)
             }
         }
 
-        engine.onPhaseChange = { [weak self] _ in
+        engine.onPhaseChange = { [weak self] landed in
             guard let self else { return }
             self.showPopover()
-            if self.preferences.soundEnabled {
-                SoundPlayer.playCompletionChime(volume: self.preferences.alarmVolume)
+            guard self.preferences.soundEnabled else { return }
+            // Landing in focus means a break just ended (gentle nudge back to
+            // work); landing in a break means a focus phase was completed.
+            if case .pomodoro(phase: .focus, _) = landed {
+                SoundPlayer.playMinorChime(volume: self.preferences.alarmVolume)
+            } else {
+                SoundPlayer.playMajorAlarm(volume: self.preferences.alarmVolume)
             }
         }
     }

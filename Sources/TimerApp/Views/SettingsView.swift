@@ -98,7 +98,7 @@ struct SettingsView: View {
                         preferences.alarmVolume = newValue
                     }
                 Button("Test") {
-                    SoundPlayer.playCompletionChime(volume: preferences.alarmVolume)
+                    SoundPlayer.playMajorAlarm(volume: preferences.alarmVolume)
                 }
             }
         }

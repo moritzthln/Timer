@@ -12,6 +12,9 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/TimerApp "$APP/Contents/MacOS/TimerApp"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 
+mkdir -p "$APP/Contents/Resources/Sounds"
+cp Resources/Sounds/*.caf "$APP/Contents/Resources/Sounds/"
+
 if [ ! -f Resources/AppIcon.icns ]; then
   echo "▸ Generating app icon…"
   swift Scripts/generate_icon.swift dist/AppIcon.iconset
