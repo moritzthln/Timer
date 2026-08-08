@@ -166,6 +166,19 @@ Lives in the menu bar only — no Dock icon, no window.
   outside focus windows to ~0.15 (the wash and edge lines stay). A day
   or week without focus sessions shows the fully dimmed timeline plus
   "Keine Fokus-Sessions in diesem Zeitraum".
+- v13 — promoted websites: a configurable domain list (Settings →
+  Aktivität → "Eigene Einträge (Websites)", defaults `instagram.com`
+  and `youtube.com`, both removable) whose usage appears as first-class
+  rows in the app list instead of hiding inside the browser: label =
+  the domain, cross-browser total (Safari + Chrome + Arc merge),
+  subdomains match automatically (`m.youtube.com` → `youtube.com`),
+  palette color and 7-day sparkline like any app row, clipped like the
+  rest under "Nur Fokus-Zeit". The browsers' rows show the remainder
+  (their domain breakdowns omit promoted domains), so nothing counts
+  twice. The list change is display-time only — history follows the
+  current list automatically. Promoted rows have no timeline
+  drill-down (the timeline draws app segments); clicking them does
+  nothing.
 - **Privacy:** everything stays on this Mac — one JSON file per day
   under `~/Library/Application Support/Timer/activity/` (and, since
   v10, focus intervals under `…/Timer/focus/`), no network, ever.
@@ -240,8 +253,11 @@ stored value when you leave the field:
 - **Hotkeys:** three recorder fields (popover, quick-start, extend);
   duplicate combos are rejected with an inline hint.
 - **Aktivität:** "Tracking pausieren" toggle (pausing fully stops the
-  polling — no background wakeups while paused) and the idle threshold
-  "Inaktiv nach (min)" (1–30, default 5).
+  polling — no background wakeups while paused), the idle threshold
+  "Inaktiv nach (min)" (1–30, default 5), and v13 "Eigene Einträge
+  (Websites)" — the promoted-websites list (same domain UI as the
+  block list: Enter or "Hinzufügen" commits, rows removable, the list
+  shows exactly what was stored; an emptied list stays empty).
 
 ## Build & install
 
