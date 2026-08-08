@@ -124,9 +124,33 @@ Lives in the menu bar only — no Dock icon, no window.
   refine from start/mid/end to hourly and quarter-hourly, and hovering
   an app segment shows "App · 9:12–9:47 (35 min)". Zoom resets on date
   change and window reopen.
+- v10 — week view: a "Tag | Woche" switcher tops the tab (defaults to
+  Tag on every window open). Woche shows the ISO week (Mon–Sun) with a
+  ‹ KW 32 · 4.–10. August › header (forward stops at the current week):
+  seven slim day rows sharing **one** time axis — from the week's
+  earliest first-activity to its latest last-activity, so columns align
+  vertically — with hour ticks under the bottom row only, the week
+  presence total ("Diese Woche · aktiv 32 h 10 min"), and the app list
+  aggregated over the week (same rows, week-aggregated domains). App
+  colors rank over week totals, so one app keeps one color in all seven
+  rows. Clicking a day row jumps to that day's day view. No zoom inside
+  the week view; empty days stay as blank rows.
+- v10 — drill-down + sparklines: clicking an app row selects it — its
+  timeline segments stay at full opacity while all other apps dim
+  (day bar and all seven week rows); click again or elsewhere to
+  deselect, and navigation or view switches reset the selection. Every
+  app row carries a small 7-bar sparkline (the 7 days ending on the
+  displayed day, or the displayed week), scaled to that app's own
+  7-day maximum.
+- v10 — focus traces: a thin accent line under the timelines marks
+  where focus sessions (timer or pomodoro focus) ran; in the day view
+  it zooms with the bar and shows "Fokus · 14:02–14:31" on hover.
+  Traces exist from v10 onward — earlier focus time was only counted,
+  not logged as intervals, and is not backfilled.
 - **Privacy:** everything stays on this Mac — one JSON file per day
-  under `~/Library/Application Support/Timer/activity/`, no network,
-  ever. macOS exposes only the *age* of the last input, never what was
+  under `~/Library/Application Support/Timer/activity/` (and, since
+  v10, focus intervals under `…/Timer/focus/`), no network, ever.
+  macOS exposes only the *age* of the last input, never what was
   typed or clicked.
 - **Honest limits:** tracking runs only while the app runs (enable
   launch at login); Firefox has no automation interface and appears as

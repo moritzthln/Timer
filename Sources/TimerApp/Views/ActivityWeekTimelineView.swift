@@ -64,8 +64,8 @@ struct ActivityWeekTimelineView: View {
             ForEach(days) { day in
                 row(day, axis: axis)
             }
-            if axis != nil {
-                tickLabels(axis: axis!)
+            if let axis {
+                tickLabels(axis: axis)
             } else {
                 Spacer().frame(height: Self.ticksHeight)
             }

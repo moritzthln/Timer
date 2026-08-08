@@ -26,7 +26,7 @@ struct WeekData {
     }
 
     /// ISO week math (Monday-start), local time zone.
-    static var calendar: Calendar = {
+    static let calendar: Calendar = {
         var cal = Calendar(identifier: .iso8601)
         cal.timeZone = TimeZone.current
         return cal
