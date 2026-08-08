@@ -5,11 +5,23 @@ public struct AppUsage: Equatable {
     public let name: String
     public let totalSeconds: Double
     public let segments: [ActivitySegment]
+
+    public init(bundleID: String, name: String, totalSeconds: Double, segments: [ActivitySegment]) {
+        self.bundleID = bundleID
+        self.name = name
+        self.totalSeconds = totalSeconds
+        self.segments = segments
+    }
 }
 
 public struct SiteUsage: Equatable {
     public let domain: String
     public let totalSeconds: Double
+
+    public init(domain: String, totalSeconds: Double) {
+        self.domain = domain
+        self.totalSeconds = totalSeconds
+    }
 }
 
 public struct DaySummary: Equatable {
