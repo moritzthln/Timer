@@ -12,6 +12,7 @@
     <key>CFBundleShortVersionString</key><string>1.0.0</string>
     <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
+    <key>NSAppleEventsUsageDescription</key><string>Timer liest die Adresse des aktiven Browser-Tabs für die Website-Statistik und den Fokus-Block.</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
 </dict>
