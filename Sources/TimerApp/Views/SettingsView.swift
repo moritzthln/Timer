@@ -11,6 +11,19 @@ struct SettingsView: View {
     let preferences: Preferences
     @ObservedObject var focusMode: FocusModeController
 
+    /// v9: identity of every numeric field, for focus-loss snap-back.
+    private enum NumberField: Hashable {
+        case preset(Int)
+        case pomodoroFocus, pomodoroBreak, pomodoroLongBreak, pomodoroRounds
+        case idleThreshold
+    }
+
+    /// Clamp ranges mirroring Preferences (values outside are not live-saved).
+    private static let minuteRange = 1...720
+    private static let roundsRange = 1...12
+    private static let idleRange = 1...30
+
+    @FocusState private var focusedNumberField: NumberField?
     @State private var presetTexts: [String] = []
     @State private var focusText = ""
     @State private var breakText = ""
@@ -53,6 +66,9 @@ struct SettingsView: View {
             .padding(20)
         }
         .frame(width: 360, height: 700)
+        // v9: leaving a numeric field snaps pending (unsaved) input back to
+        // the stored value — in-range input was already live-saved.
+        .onChange(of: focusedNumberField) { _ in reloadNumberTexts() }
         .onAppear(perform: load)
     }
 
@@ -60,12 +76,16 @@ struct SettingsView: View {
         section("Presets (Minuten)") {
             HStack(spacing: 6) {
                 ForEach(0..<4, id: \.self) { index in
-                    TextField("", text: presetBinding(index))
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
-                        .multilineTextAlignment(.center)
-                        .frame(width: 44)
-                        .onSubmit(commitPresets)
+                    TextField("", text: liveSaving(
+                        presetBinding(index), range: Self.minuteRange,
+                        store: { storePreset(index, value: $0) }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .multilineTextAlignment(.center)
+                    .frame(width: 44)
+                    .focused($focusedNumberField, equals: .preset(index))
+                    .onSubmit(commitPresets)
                 }
             }
         }
@@ -76,19 +96,35 @@ struct SettingsView: View {
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
                 GridRow {
                     Text("Fokus (min)")
-                    numberField($focusText, commit: commitPomodoro)
+                    numberField(
+                        $focusText, field: .pomodoroFocus, range: Self.minuteRange,
+                        store: { storePomodoro(\.focusMinutes, value: $0) },
+                        commit: commitPomodoro
+                    )
                 }
                 GridRow {
                     Text("Pause (min)")
-                    numberField($breakText, commit: commitPomodoro)
+                    numberField(
+                        $breakText, field: .pomodoroBreak, range: Self.minuteRange,
+                        store: { storePomodoro(\.breakMinutes, value: $0) },
+                        commit: commitPomodoro
+                    )
                 }
                 GridRow {
                     Text("Lange Pause (min)")
-                    numberField($longBreakText, commit: commitPomodoro)
+                    numberField(
+                        $longBreakText, field: .pomodoroLongBreak, range: Self.minuteRange,
+                        store: { storePomodoro(\.longBreakMinutes, value: $0) },
+                        commit: commitPomodoro
+                    )
                 }
                 GridRow {
                     Text("Runden bis lange Pause")
-                    numberField($roundsText, commit: commitPomodoro)
+                    numberField(
+                        $roundsText, field: .pomodoroRounds, range: Self.roundsRange,
+                        store: { storePomodoro(\.rounds, value: $0) },
+                        commit: commitPomodoro
+                    )
                 }
             }
         }
@@ -346,10 +382,17 @@ struct SettingsView: View {
                 }
             HStack {
                 Text("Inaktiv nach (min)")
-                numberField($idleText) {
-                    if let value = Int(idleText) { preferences.idleThresholdMinutes = value }
-                    idleText = String(preferences.idleThresholdMinutes)
-                }
+                numberField(
+                    $idleText, field: .idleThreshold, range: Self.idleRange,
+                    store: { value in
+                        preferences.idleThresholdMinutes = value
+                        return preferences.idleThresholdMinutes
+                    },
+                    commit: {
+                        if let value = Int(idleText) { preferences.idleThresholdMinutes = value }
+                        idleText = String(preferences.idleThresholdMinutes)
+                    }
+                )
             }
         }
     }
@@ -442,13 +485,65 @@ struct SettingsView: View {
         }
     }
 
-    private func numberField(_ text: Binding<String>, commit: @escaping () -> Void) -> some View {
-        TextField("", text: text)
+    private func numberField(
+        _ text: Binding<String>, field: NumberField, range: ClosedRange<Int>,
+        store: @escaping (Int) -> Int, commit: @escaping () -> Void
+    ) -> some View {
+        TextField("", text: liveSaving(text, range: range, store: store))
             .textFieldStyle(.roundedBorder)
             .font(.system(.body, design: .monospaced))
             .multilineTextAlignment(.center)
             .frame(width: 60)
+            .focused($focusedNumberField, equals: field)
             .onSubmit(commit)
+    }
+
+    /// v9 live-save: every keystroke that parses into the clamp range is
+    /// written to Preferences immediately and the field re-reads what stuck
+    /// (write-through); anything else stays pending in the field until focus
+    /// loss snaps it back to the stored value. `store` writes one value and
+    /// returns the stored result.
+    private func liveSaving(
+        _ text: Binding<String>, range: ClosedRange<Int>, store: @escaping (Int) -> Int
+    ) -> Binding<String> {
+        Binding(
+            get: { text.wrappedValue },
+            set: { newValue in
+                text.wrappedValue = newValue
+                // Re-read: the inner binding may have filtered the input.
+                guard let value = Int(text.wrappedValue), range.contains(value) else { return }
+                text.wrappedValue = String(store(value))
+            }
+        )
+    }
+
+    private func storePreset(_ index: Int, value: Int) -> Int {
+        var values = preferences.presets
+        guard values.indices.contains(index) else { return value }
+        values[index] = value
+        preferences.presets = values
+        return preferences.presets[index]
+    }
+
+    private func storePomodoro(
+        _ keyPath: WritableKeyPath<PomodoroConfig, Int>, value: Int
+    ) -> Int {
+        var config = preferences.pomodoroConfig
+        config[keyPath: keyPath] = value
+        preferences.pomodoroConfig = config
+        return preferences.pomodoroConfig[keyPath: keyPath]
+    }
+
+    /// Focus-change snap-back: all numeric fields re-read their stored
+    /// values, discarding pending input that never parsed into range.
+    private func reloadNumberTexts() {
+        presetTexts = preferences.presets.map(String.init)
+        let config = preferences.pomodoroConfig
+        focusText = String(config.focusMinutes)
+        breakText = String(config.breakMinutes)
+        longBreakText = String(config.longBreakMinutes)
+        roundsText = String(config.rounds)
+        idleText = String(preferences.idleThresholdMinutes)
     }
 
     private func presetBinding(_ index: Int) -> Binding<String> {
@@ -463,12 +558,7 @@ struct SettingsView: View {
     }
 
     private func load() {
-        presetTexts = preferences.presets.map(String.init)
-        let config = preferences.pomodoroConfig
-        focusText = String(config.focusMinutes)
-        breakText = String(config.breakMinutes)
-        longBreakText = String(config.longBreakMinutes)
-        roundsText = String(config.rounds)
+        reloadNumberTexts()
         volume = preferences.alarmVolume
         launchAtLogin = LaunchAtLogin.isEnabled
         loginStatus = LaunchAtLogin.status
@@ -480,7 +570,6 @@ struct SettingsView: View {
         hotkeyQuickStart = preferences.hotkeyQuickStart
         hotkeyExtend = preferences.hotkeyExtend
         trackingPaused = preferences.trackingPaused
-        idleText = String(preferences.idleThresholdMinutes)
         dndEnabled = preferences.dndEnabled
         dndOnName = preferences.dndShortcutOn
         dndOffName = preferences.dndShortcutOff
