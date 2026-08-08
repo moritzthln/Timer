@@ -48,7 +48,10 @@ Lives in the menu bar only — no Dock icon, no window.
 ### Popover footer
 
 - Left: the **Fokus-Block** shield toggle (icon + caption, green when
-  armed).
+  armed). While the shield is on, a small two-segment mode control
+  "Blockieren | Nur Erlaubte" appears next to it (the shield collapses
+  to its icon to make room); tooltips explain both modes, the choice
+  persists.
 - Right: a chart button opening the stats window, and an "⋯" menu with
   "Ton", "Floating Display", "Einstellungen…", and "Timer beenden ⌘Q".
 - The old "Heute … · Woche …" caption line is gone — stats live in the
@@ -67,15 +70,28 @@ Lives in the menu bar only — no Dock icon, no window.
 ### Focus block
 
 - Arm the **Fokus-Block** shield toggle at the left of the popover
-  footer (the state sticks). While a focus session runs, blocklisted
-  apps are terminated and blocklisted websites' tabs are closed, each with
-  a short "Geblockt: …" toast at the top of the screen.
-- Blocklists live in Settings → Fokus-Block: the "App hinzufügen"
+  footer (the state sticks). The shield has two modes (v15), chosen via
+  the "Blockieren | Nur Erlaubte" control next to it:
+  - **Blockieren** (default, today's behavior): while a focus session
+    runs, blocklisted apps are terminated and blocklisted websites' tabs
+    are closed, each with a short "Geblockt: …" toast at the top of the
+    screen.
+  - **Nur Erlaubte**: everything *except* the allowed list is blocked —
+    regular apps not on the allowed list are terminated and browser tabs
+    on non-allowed sites are closed ("Nicht erlaubt: …" toast). The
+    Timer itself, Finder, and System Settings are always allowed;
+    internal/new-tab pages are never closed. Each part guards
+    independently: an empty allowed-apps list blocks no apps, an empty
+    allowed-domains list closes no tabs. Mode changes during a session
+    apply from the next launch/poll.
+- Both lists live in Settings → Fokus-Block, split into "Blockieren"
+  and "Nur Erlaubte" subsections with the same UI: the "App hinzufügen"
   button opens a menu of running apps (or "Andere…" from /Applications),
   the domain field takes entries like `instagram.com` (subdomains match
   automatically) via Enter or "Hinzufügen". Adding the first entry to an
-  empty blocklist arms the shield automatically; the section header
-  shows the live shield state ("Schild: an/aus").
+  empty blocklist arms the shield automatically; the first entry into an
+  empty allowlist also switches the mode to "Nur Erlaubte". The section
+  header shows the live shield state ("Schild: an/aus").
 - Website blocking polls the frontmost tab of Safari, Google Chrome, and
   Arc every 2 s via AppleScript — macOS asks for the automation
   permission per browser on first contact; a denied browser is skipped
@@ -253,12 +269,17 @@ stored value when you leave the field:
   minutes rounded up — "25m", "1h 5m"), and "Nur Symbol" hiding the
   time entirely (each state keeps a distinguishable icon; caption
   recommends the floating display).
-- **Fokus-Block:** blocked apps ("App hinzufügen" menu + "Andere…" file
-  picker; the Timer itself, Finder, and the default browser are not
-  blockable) and blocked domains (Enter or "Hinzufügen" commits; the
-  list shows exactly what was stored). The first entry arms the shield
-  automatically, the header shows "Schild: an/aus", and captions explain
-  when blocking is active and the automation permission.
+- **Fokus-Block:** two subsections since v15. "Blockieren" holds the
+  blocked apps ("App hinzufügen" menu + "Andere…" file picker; the
+  Timer itself, Finder, and the default browser are not blockable) and
+  blocked domains (Enter or "Hinzufügen" commits; the list shows
+  exactly what was stored). "Nur Erlaubte" holds the allowed apps and
+  domains with the identical UI (the always-allowed Timer/Finder/System
+  Settings are hidden from its picker; browsers are pickable) plus the
+  caption "Leere Liste = dieser Teil blockt nichts." The first entry
+  arms the shield automatically — an allowlist entry also switches the
+  mode —, the header shows "Schild: an/aus", and captions explain when
+  blocking is active and the automation permission.
 - **Nicht stören:** the DND toggle, the two shortcut dropdowns with a
   refresh button, setup instructions, and the two test buttons.
 - **Hotkeys:** three recorder fields (popover, quick-start, extend);
