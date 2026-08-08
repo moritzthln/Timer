@@ -7,11 +7,15 @@ final class StatusBarController {
     private let statusItem: NSStatusItem
     private let popover = NSPopover()
     private let engine: TimerEngine
+    private let preferences: Preferences
     private let rightClickMenu = NSMenu()
+    private let floatingController: FloatingPanelController
     private var cancellable: AnyCancellable?
 
     init(engine: TimerEngine, preferences: Preferences) {
         self.engine = engine
+        self.preferences = preferences
+        floatingController = FloatingPanelController(engine: engine, preferences: preferences)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         popover.contentViewController = NSHostingController(
@@ -68,6 +72,8 @@ final class StatusBarController {
     }
 
     private func toggleFloating() {
+        preferences.floatingEnabled.toggle()
+        floatingController.updateVisibility()
     }
 
     // MARK: - Click handling
