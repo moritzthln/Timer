@@ -1,7 +1,23 @@
 import AppKit
-import SwiftUI
 
-// Temporary smoke entry point — replaced in Task 6.
 let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
 app.setActivationPolicy(.accessory)
-print("smoke ok")
+
+// Hidden main menu so ⌘Q works while the popover is key.
+let mainMenu = NSMenu()
+let appMenuItem = NSMenuItem()
+let appMenu = NSMenu()
+appMenu.addItem(
+    NSMenuItem(
+        title: "Quit Timer",
+        action: #selector(NSApplication.terminate(_:)),
+        keyEquivalent: "q"
+    )
+)
+appMenuItem.submenu = appMenu
+mainMenu.addItem(appMenuItem)
+app.mainMenu = mainMenu
+
+app.run()
