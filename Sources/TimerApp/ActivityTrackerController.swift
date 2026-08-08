@@ -181,4 +181,11 @@ final class ActivityTrackerController {
     func flush() {
         closeAll(at: Date())
     }
+
+    /// Persists open segments immediately without closing them, so the
+    /// quality recorder reads up-to-date data (otherwise the last ≤ 60 s
+    /// of the open app segment would be missing from the calculation).
+    func flushNow() {
+        persistOpenSegments()
+    }
 }
