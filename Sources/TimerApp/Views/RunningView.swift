@@ -37,6 +37,7 @@ struct RunningView: View {
                         engine.pause()
                     }
                 }
+                Button("+5") { engine.extend(minutes: 5) }
                 if isPomodoro {
                     Button("Skip") { engine.skip() }
                 }

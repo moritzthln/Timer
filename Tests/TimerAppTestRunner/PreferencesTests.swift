@@ -155,6 +155,16 @@ func runPreferencesTests() {
         try expectNil(prefs.hotkeyPopover, "cleared stays cleared, not default")
     }
 
+    test("extend hotkey defaults to none and roundtrips") {
+        let prefs = freshPrefs()
+        try expectNil(prefs.hotkeyExtend, "opt-in: no default combo")
+        let combo = HotkeyCombo(keyCode: 14, carbonModifiers: 6144)
+        prefs.hotkeyExtend = combo
+        try expectEqual(prefs.hotkeyExtend, combo, "roundtrip")
+        prefs.hotkeyExtend = nil
+        try expectNil(prefs.hotkeyExtend, "cleared")
+    }
+
     test("trackingPaused defaults to false and roundtrips") {
         let prefs = freshPrefs()
         try expect(!prefs.trackingPaused, "default running")

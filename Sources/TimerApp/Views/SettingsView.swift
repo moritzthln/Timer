@@ -26,6 +26,7 @@ struct SettingsView: View {
     @State private var shieldEnabled = false
     @State private var hotkeyPopover: HotkeyCombo?
     @State private var hotkeyQuickStart: HotkeyCombo?
+    @State private var hotkeyExtend: HotkeyCombo?
     @State private var hotkeyHint: String?
     @State private var trackingPaused = false
     @State private var idleText = "5"
@@ -225,27 +226,28 @@ struct SettingsView: View {
                 GridRow {
                     Text("Popover öffnen")
                     HotkeyRecorderField(combo: hotkeyPopover) { newCombo in
-                        guard newCombo == nil || newCombo != hotkeyQuickStart else {
-                            hotkeyHint = "Kombination ist schon vergeben."
-                            return
+                        assignHotkey(newCombo, conflicts: [hotkeyQuickStart, hotkeyExtend]) {
+                            hotkeyPopover = $0
+                            preferences.hotkeyPopover = $0
                         }
-                        hotkeyHint = nil
-                        hotkeyPopover = newCombo
-                        preferences.hotkeyPopover = newCombo
-                        NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
                     }
                 }
                 GridRow {
                     Text("Sofort-Start")
                     HotkeyRecorderField(combo: hotkeyQuickStart) { newCombo in
-                        guard newCombo == nil || newCombo != hotkeyPopover else {
-                            hotkeyHint = "Kombination ist schon vergeben."
-                            return
+                        assignHotkey(newCombo, conflicts: [hotkeyPopover, hotkeyExtend]) {
+                            hotkeyQuickStart = $0
+                            preferences.hotkeyQuickStart = $0
                         }
-                        hotkeyHint = nil
-                        hotkeyQuickStart = newCombo
-                        preferences.hotkeyQuickStart = newCombo
-                        NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
+                    }
+                }
+                GridRow {
+                    Text("Verlängern (+5 min)")
+                    HotkeyRecorderField(combo: hotkeyExtend) { newCombo in
+                        assignHotkey(newCombo, conflicts: [hotkeyPopover, hotkeyQuickStart]) {
+                            hotkeyExtend = $0
+                            preferences.hotkeyExtend = $0
+                        }
                     }
                 }
             }
@@ -255,6 +257,20 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Shared recorder commit: rejects combos already used by another row,
+    /// stores via `commit`, and lets the running app re-register.
+    private func assignHotkey(
+        _ combo: HotkeyCombo?, conflicts: [HotkeyCombo?], commit: (HotkeyCombo?) -> Void
+    ) {
+        if let combo, conflicts.contains(combo) {
+            hotkeyHint = "Kombination ist schon vergeben."
+            return
+        }
+        hotkeyHint = nil
+        commit(combo)
+        NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
     }
 
     private var activitySection: some View {
@@ -350,6 +366,7 @@ struct SettingsView: View {
         shieldEnabled = preferences.focusBlockEnabled
         hotkeyPopover = preferences.hotkeyPopover
         hotkeyQuickStart = preferences.hotkeyQuickStart
+        hotkeyExtend = preferences.hotkeyExtend
         trackingPaused = preferences.trackingPaused
         idleText = String(preferences.idleThresholdMinutes)
         dndEnabled = preferences.dndEnabled

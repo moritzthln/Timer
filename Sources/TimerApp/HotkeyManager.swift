@@ -7,6 +7,7 @@ final class HotkeyManager {
     enum Action: UInt32 {
         case openPopover = 1
         case quickStart = 2
+        case extend = 3
     }
 
     var onAction: ((Action) -> Void)?
@@ -14,11 +15,12 @@ final class HotkeyManager {
     private var refs: [UInt32: EventHotKeyRef] = [:]
     private var handlerInstalled = false
 
-    func apply(popover: HotkeyCombo?, quickStart: HotkeyCombo?) {
+    func apply(popover: HotkeyCombo?, quickStart: HotkeyCombo?, extend: HotkeyCombo?) {
         installHandlerIfNeeded()
         unregisterAll()
         if let popover { register(popover, as: .openPopover) }
         if let quickStart { register(quickStart, as: .quickStart) }
+        if let extend { register(extend, as: .extend) }
     }
 
     private func register(_ combo: HotkeyCombo, as action: Action) {

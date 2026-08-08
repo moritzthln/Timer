@@ -336,6 +336,93 @@ func runTimerEngineTests() {
         try expectEqual(total, 60, accuracy: 0.001, "break not credited")
     }
 
+    test("extend grows a running timer's end, total, and persistence") {
+        let prefs = freshEnginePrefs()
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { start })
+        engine.start(minutes: 25)
+        engine.extend(minutes: 5)
+        guard case .running(let end, let total, let kind) = engine.phase else {
+            throw AssertionError(description: "expected .running, got \(engine.phase)")
+        }
+        try expectEqual(total, 1800, "total grew by 300")
+        try expectEqual(end, start.addingTimeInterval(1800), "endDate grew by 300")
+        try expectEqual(kind, .single, "kind unchanged")
+        try expectEqual(prefs.persistedRun?.endDate, end, "re-persisted endDate")
+        try expectEqual(prefs.persistedRun?.total, 1800, "re-persisted total")
+    }
+
+    test("extend while paused grows remaining and total without persisting") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        engine.start(minutes: 25)
+        current = current.addingTimeInterval(100)
+        engine.pause()
+        engine.extend(minutes: 5)
+        try expectEqual(
+            engine.phase,
+            .paused(remaining: 1700, total: 1800, kind: .single),
+            "remaining and total grew by 300"
+        )
+        try expectNil(prefs.persistedRun, "paused runs stay unpersisted")
+    }
+
+    test("extend clamps the total at 720 minutes") {
+        let prefs = freshEnginePrefs()
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { start })
+        engine.start(minutes: 718)
+        engine.extend(minutes: 5)
+        guard case .running(let end, let total, _) = engine.phase else {
+            throw AssertionError(description: "expected .running, got \(engine.phase)")
+        }
+        try expectEqual(total, 720 * 60, "clamped total")
+        try expectEqual(end, start.addingTimeInterval(720 * 60), "end grew by the clamped 2 min only")
+        engine.extend(minutes: 5)
+        guard case .running(_, let unchangedTotal, _) = engine.phase else {
+            throw AssertionError(description: "expected .running, got \(engine.phase)")
+        }
+        try expectEqual(unchangedTotal, 720 * 60, "already at cap: no-op")
+    }
+
+    test("extend is a no-op when idle or finished") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        engine.extend(minutes: 5)
+        try expectEqual(engine.phase, .idle, "idle unchanged")
+        try expectNil(prefs.persistedRun, "nothing persisted from idle")
+        engine.start(minutes: 1)
+        current = current.addingTimeInterval(60)
+        engine.tick()
+        engine.extend(minutes: 5)
+        try expectEqual(engine.phase, .finished, "finished unchanged")
+        try expectNil(prefs.persistedRun, "nothing persisted from finished")
+    }
+
+    test("extend lengthens only the current pomodoro phase") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        engine.startPomodoro(config: PomodoroConfig(focusMinutes: 1, breakMinutes: 1, longBreakMinutes: 2, rounds: 2))
+        engine.extend(minutes: 5)
+        try expectEqual(
+            engine.phase,
+            .running(endDate: Date(timeIntervalSince1970: 1_000_000 + 360), total: 360,
+                     kind: .pomodoro(phase: .focus, round: 1)),
+            "focus phase grew to six minutes"
+        )
+        current = current.addingTimeInterval(361)
+        engine.tick()
+        try expectEqual(
+            engine.phase,
+            .running(endDate: Date(timeIntervalSince1970: 1_000_000 + 420), total: 60,
+                     kind: .pomodoro(phase: .shortBreak, round: 1)),
+            "break keeps its configured length, starting at the extended boundary"
+        )
+    }
+
     test("focus segments: skip mid-focus credits elapsed") {
         let prefs = freshEnginePrefs()
         var current = Date(timeIntervalSince1970: 1_000_000)

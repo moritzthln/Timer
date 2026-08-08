@@ -37,7 +37,7 @@ struct FloatingView: View {
             .opacity(hovering ? 0.25 : 1)
 
             if hovering {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Button(engine.isPaused ? "Weiter" : "Pause") {
                         if engine.isPaused {
                             engine.resume()
@@ -45,6 +45,7 @@ struct FloatingView: View {
                             engine.pause()
                         }
                     }
+                    Button("+5") { engine.extend(minutes: 5) }
                     Button("Stopp") { engine.stop() }
                 }
                 .controlSize(.small)

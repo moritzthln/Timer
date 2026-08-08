@@ -82,11 +82,15 @@ final class StatusBarController {
                 self.showPopover()
             case .quickStart:
                 self.quickStart()
+            case .extend:
+                // Only meaningful while running/paused; no-ops otherwise.
+                self.engine.extend(minutes: 5)
             }
         }
         hotkeys.apply(
             popover: preferences.hotkeyPopover,
-            quickStart: preferences.hotkeyQuickStart
+            quickStart: preferences.hotkeyQuickStart,
+            extend: preferences.hotkeyExtend
         )
     }
 
@@ -129,7 +133,8 @@ final class StatusBarController {
             self?.floatingController.updateVisibility()
             self?.hotkeys.apply(
                 popover: self?.preferences.hotkeyPopover ?? nil,
-                quickStart: self?.preferences.hotkeyQuickStart ?? nil
+                quickStart: self?.preferences.hotkeyQuickStart ?? nil,
+                extend: self?.preferences.hotkeyExtend ?? nil
             )
             self?.refresh()
         }

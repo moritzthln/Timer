@@ -157,6 +157,37 @@ public final class TimerEngine: ObservableObject {
         phase = .idle
     }
 
+    /// Grows the current phase by `minutes` — single timers and the current
+    /// pomodoro phase alike (following phases keep their configured length).
+    /// Running: endDate and total grow and the run is re-persisted; paused:
+    /// remaining and total grow (paused runs stay unpersisted, matching
+    /// `pause()`). The total is clamped to 720 minutes — the added time
+    /// shrinks accordingly. No-op on idle, finished, and at the cap.
+    public func extend(minutes: Int) {
+        guard minutes > 0 else { return }
+        switch phase {
+        case .running(let endDate, let total, let kind):
+            guard let added = Self.clampedExtension(total: total, minutes: minutes) else { return }
+            let end = endDate.addingTimeInterval(added)
+            phase = .running(endDate: end, total: total + added, kind: kind)
+            preferences.persistRun(
+                PersistedRun(endDate: end, total: total + added, kind: kind, config: activeConfig)
+            )
+        case .paused(let remaining, let total, let kind):
+            guard let added = Self.clampedExtension(total: total, minutes: minutes) else { return }
+            phase = .paused(remaining: remaining + added, total: total + added, kind: kind)
+        case .idle, .finished:
+            return
+        }
+    }
+
+    /// Seconds to actually add so the total never exceeds 720 min; nil when
+    /// already at the cap.
+    private static func clampedExtension(total: TimeInterval, minutes: Int) -> TimeInterval? {
+        let added = min(TimeInterval(720 * 60), total + TimeInterval(minutes * 60)) - total
+        return added > 0 ? added : nil
+    }
+
     /// Advances state. Called every 0.5 s by the ticker; tests call it directly.
     public func tick() {
         guard case .running(let endDate, _, let kind) = phase else { return }

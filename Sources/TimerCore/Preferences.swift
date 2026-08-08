@@ -61,6 +61,7 @@ public final class Preferences {
         static let focusBlockEnabled = "focusBlockEnabled"
         static let hotkeyPopover = "hotkeyPopover"
         static let hotkeyQuickStart = "hotkeyQuickStart"
+        static let hotkeyExtend = "hotkeyExtend"
         static let trackingPaused = "trackingPaused"
         static let idleThresholdMinutes = "idleThresholdMinutes"
         static let dndEnabled = "dndEnabled"
@@ -309,6 +310,16 @@ public final class Preferences {
     public var hotkeyQuickStart: HotkeyCombo? {
         get { hotkey(forKey: Key.hotkeyQuickStart, defaultCombo: Self.defaultHotkeyQuickStart) }
         set { setHotkey(newValue, forKey: Key.hotkeyQuickStart) }
+    }
+
+    /// v8: opt-in, so never-set and explicitly-cleared both mean "no combo"
+    /// (avoids collisions with other apps by default).
+    public var hotkeyExtend: HotkeyCombo? {
+        get {
+            guard let data = defaults.data(forKey: Key.hotkeyExtend), !data.isEmpty else { return nil }
+            return try? JSONDecoder().decode(HotkeyCombo.self, from: data)
+        }
+        set { setHotkey(newValue, forKey: Key.hotkeyExtend) }
     }
 
     // MARK: - Activity tracking
