@@ -23,6 +23,7 @@ struct SettingsView: View {
     @State private var blockedApps: [BlockedApp] = []
     @State private var blockedDomains: [String] = []
     @State private var newDomain = ""
+    @State private var shieldEnabled = false
     @State private var hotkeyPopover: HotkeyCombo?
     @State private var hotkeyQuickStart: HotkeyCombo?
     @State private var hotkeyHint: String?
@@ -133,61 +134,91 @@ struct SettingsView: View {
     }
 
     private var focusBlockSection: some View {
-        section("Fokus-Block") {
+        VStack(alignment: .leading, spacing: 6) {
+            focusBlockHeader
             VStack(alignment: .leading, spacing: 4) {
-                ForEach(blockedApps, id: \.bundleID) { app in
-                    HStack {
-                        Text(app.name).font(.system(size: 12))
-                        Spacer()
-                        Button {
-                            blockedApps.removeAll { $0.bundleID == app.bundleID }
-                            preferences.blockedApps = blockedApps
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                    }
-                }
-                Menu("App hinzufügen") {
-                    ForEach(runningUserApps(), id: \.bundleID) { candidate in
-                        Button(candidate.name) {
-                            addBlockedApp(candidate)
-                        }
-                    }
-                    Divider()
-                    Button("Andere…", action: pickAppFromDisk)
-                }
-                .menuStyle(.borderlessButton)
-                .font(.system(size: 11))
-
-                ForEach(blockedDomains, id: \.self) { domain in
-                    HStack {
-                        Text(domain).font(.system(size: 12, design: .monospaced))
-                        Spacer()
-                        Button {
-                            blockedDomains.removeAll { $0 == domain }
-                            preferences.blockedDomains = blockedDomains
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                    }
-                }
-                HStack {
-                    TextField("instagram.com", text: $newDomain)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11, design: .monospaced))
-                        .onSubmit(addDomain)
-                    Button("Hinzufügen", action: addDomain)
-                        .controlSize(.small)
-                }
-                Text("Website-Block braucht die Automation-Berechtigung (macOS fragt beim ersten Mal).")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                blockedAppList
+                blockedDomainList
+                focusBlockCaptions
             }
+        }
+    }
+
+    /// Header row doubles as live state display, so the settings window
+    /// itself reveals whether the shield would block right now.
+    private var focusBlockHeader: some View {
+        HStack {
+            Text("Fokus-Block")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            Spacer()
+            Text(shieldEnabled ? "Schild: an" : "Schild: aus")
+                .font(.caption)
+                .foregroundStyle(shieldEnabled ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+        }
+    }
+
+    private var blockedAppList: some View {
+        Group {
+            ForEach(blockedApps, id: \.bundleID) { app in
+                HStack {
+                    Text(app.name).font(.system(size: 12))
+                    Spacer()
+                    Button {
+                        blockedApps.removeAll { $0.bundleID == app.bundleID }
+                        preferences.blockedApps = blockedApps
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            // v7: plain bordered button + programmatic NSMenu; the previous
+            // SwiftUI Menu with .menuStyle(.borderlessButton) never opened.
+            Button("App hinzufügen", action: showAppPicker)
+                .controlSize(.small)
+        }
+    }
+
+    private var blockedDomainList: some View {
+        Group {
+            ForEach(blockedDomains, id: \.self) { domain in
+                HStack {
+                    Text(domain).font(.system(size: 12, design: .monospaced))
+                    Spacer()
+                    Button {
+                        blockedDomains.removeAll { $0 == domain }
+                        preferences.blockedDomains = blockedDomains
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            HStack {
+                TextField("instagram.com", text: $newDomain)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11, design: .monospaced))
+                    .onSubmit(commitDomains)
+                Button("Hinzufügen", action: commitDomains)
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private var focusBlockCaptions: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Aktiv während Fokus-Sessions, wenn das Schild im Popover an ist.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Website-Block braucht die Automation-Berechtigung (macOS fragt beim ersten Mal).")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -332,6 +363,7 @@ struct SettingsView: View {
         floating = preferences.floatingEnabled
         blockedApps = preferences.blockedApps
         blockedDomains = preferences.blockedDomains
+        shieldEnabled = preferences.focusBlockEnabled
         hotkeyPopover = preferences.hotkeyPopover
         hotkeyQuickStart = preferences.hotkeyQuickStart
         trackingPaused = preferences.trackingPaused
@@ -343,9 +375,53 @@ struct SettingsView: View {
 
     // MARK: - Focus block helpers
 
-    private struct AppCandidate {
-        let bundleID: String
-        let name: String
+    /// NSMenuItem holds its target weakly; `showAppPicker` keeps an instance
+    /// alive for the synchronous popup so selections reach the closures.
+    private final class AppPickerTarget: NSObject {
+        let onPick: (BlockedApp) -> Void
+        let onOther: () -> Void
+
+        init(onPick: @escaping (BlockedApp) -> Void, onOther: @escaping () -> Void) {
+            self.onPick = onPick
+            self.onOther = onOther
+        }
+
+        @objc func pick(_ sender: NSMenuItem) {
+            guard let candidate = sender.representedObject as? BlockedApp else { return }
+            onPick(candidate)
+        }
+
+        @objc func other() { onOther() }
+    }
+
+    /// Pops a programmatic NSMenu at the mouse (i.e. at the clicked button).
+    private func showAppPicker() {
+        let menu = NSMenu()
+        let target = AppPickerTarget(
+            onPick: { addBlockedApp($0) },
+            onOther: { pickAppFromDisk() }
+        )
+        for candidate in runningUserApps() {
+            let item = NSMenuItem(
+                title: candidate.name,
+                action: #selector(AppPickerTarget.pick(_:)),
+                keyEquivalent: ""
+            )
+            item.target = target
+            item.representedObject = candidate
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        let other = NSMenuItem(
+            title: "Andere…", action: #selector(AppPickerTarget.other), keyEquivalent: ""
+        )
+        other.target = target
+        menu.addItem(other)
+        // popUp runs its own tracking loop and sends the selected item's
+        // action before returning; keep the weakly-referenced target alive.
+        withExtendedLifetime(target) {
+            _ = menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        }
     }
 
     private static func defaultBrowserBundleID() -> String? {
@@ -355,27 +431,34 @@ struct SettingsView: View {
         return Bundle(url: url)?.bundleIdentifier
     }
 
-    private func runningUserApps() -> [AppCandidate] {
-        // Spec: the Timer itself, Finder, and the default browser are not blockable.
-        let excluded = Set([
+    /// Spec: the Timer itself, Finder, and the default browser are not blockable.
+    private static func unblockableBundleIDs() -> Set<String> {
+        Set([
             Bundle.main.bundleIdentifier ?? "",
             "com.apple.finder",
-            Self.defaultBrowserBundleID() ?? "",
+            defaultBrowserBundleID() ?? "",
         ])
+    }
+
+    private func runningUserApps() -> [BlockedApp] {
+        let excluded = Self.unblockableBundleIDs()
         return NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .compactMap { app in
                 guard let id = app.bundleIdentifier, let name = app.localizedName,
                       !excluded.contains(id),
                       !blockedApps.contains(where: { $0.bundleID == id }) else { return nil }
-                return AppCandidate(bundleID: id, name: name)
+                return BlockedApp(bundleID: id, name: name)
             }
             .sorted { $0.name < $1.name }
     }
 
-    private func addBlockedApp(_ candidate: AppCandidate) {
-        blockedApps.append(BlockedApp(bundleID: candidate.bundleID, name: candidate.name))
-        preferences.blockedApps = blockedApps
+    /// Commits through Preferences (dedupe + arm-on-first-entry live there)
+    /// and re-reads the stored state so the list shows what actually stuck.
+    private func addBlockedApp(_ app: BlockedApp) {
+        preferences.addBlockedApp(app)
+        blockedApps = preferences.blockedApps
+        shieldEnabled = preferences.focusBlockEnabled
     }
 
     private func pickAppFromDisk() {
@@ -385,27 +468,19 @@ struct SettingsView: View {
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url,
               let bundle = Bundle(url: url),
-              let id = bundle.bundleIdentifier else { return }
-        // Same guard as the running-apps menu: Timer, Finder, and the
-        // default browser are not blockable.
-        let excluded = Set([
-            Bundle.main.bundleIdentifier ?? "",
-            "com.apple.finder",
-            Self.defaultBrowserBundleID() ?? "",
-        ])
-        guard !excluded.contains(id) else { return }
-        let name = url.deletingPathExtension().lastPathComponent
-        guard !blockedApps.contains(where: { $0.bundleID == id }) else { return }
-        blockedApps.append(BlockedApp(bundleID: id, name: name))
-        preferences.blockedApps = blockedApps
+              let id = bundle.bundleIdentifier,
+              !Self.unblockableBundleIDs().contains(id) else { return }
+        addBlockedApp(BlockedApp(bundleID: id, name: url.deletingPathExtension().lastPathComponent))
     }
 
-    private func addDomain() {
-        guard let sanitized = Preferences.sanitizeDomain(newDomain),
-              !blockedDomains.contains(sanitized) else { return }
-        blockedDomains.append(sanitized)
-        preferences.blockedDomains = blockedDomains
-        newDomain = ""
+    /// Single commit path for Enter and the button: Preferences sanitizes,
+    /// dedupes, and stores; the list re-reads what actually persisted
+    /// (write-through verification) and the field only clears on success.
+    private func commitDomains() {
+        let stored = preferences.addBlockedDomain(newDomain)
+        blockedDomains = preferences.blockedDomains
+        shieldEnabled = preferences.focusBlockEnabled
+        if stored != nil { newDomain = "" }
     }
 
     private func commitGoal() {
