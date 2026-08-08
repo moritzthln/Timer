@@ -10,12 +10,14 @@ final class StatusBarController {
     private let preferences: Preferences
     private let rightClickMenu = NSMenu()
     private let floatingController: FloatingPanelController
+    private let settingsController: SettingsWindowController
     private var cancellable: AnyCancellable?
 
     init(engine: TimerEngine, preferences: Preferences) {
         self.engine = engine
         self.preferences = preferences
         floatingController = FloatingPanelController(engine: engine, preferences: preferences)
+        settingsController = SettingsWindowController(preferences: preferences)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         popover.contentViewController = NSHostingController(
@@ -63,12 +65,20 @@ final class StatusBarController {
             }
         }
 
+        NotificationCenter.default.addObserver(
+            forName: .timerSettingsChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.floatingController.updateVisibility()
+        }
+
         refresh()
     }
 
-    // MARK: - Windows (filled in Tasks 7/8)
+    // MARK: - Windows
 
     private func openSettings() {
+        popover.performClose(nil)
+        settingsController.show()
     }
 
     private func toggleFloating() {
