@@ -18,8 +18,6 @@ final class StatusBarController {
     private let statsWindow: StatsWindowController
     private let hotkeys = HotkeyManager()
     private let activityStore = ActivityStore(directory: ActivityStore.defaultDirectory())
-    private let sessionStore = SessionStore(directory: SessionStore.defaultDirectory())
-    private let qualityRecorder: SessionQualityRecorder
     private var activityTracker: ActivityTrackerController?
     private var cancellable: AnyCancellable?
     private var midnightTimer: Foundation.Timer?
@@ -29,15 +27,10 @@ final class StatusBarController {
         self.preferences = preferences
         floatingController = FloatingPanelController(engine: engine, preferences: preferences)
         focusMode = FocusModeController(preferences: preferences)
-        settingsController = SettingsWindowController(
-            preferences: preferences, activity: activityStore, focusMode: focusMode
-        )
+        settingsController = SettingsWindowController(preferences: preferences, focusMode: focusMode)
         focusBlock = FocusBlockController(preferences: preferences, overlay: overlay)
         statsWindow = StatsWindowController(
-            stats: stats, activity: activityStore, sessions: sessionStore, preferences: preferences
-        )
-        qualityRecorder = SessionQualityRecorder(
-            activity: activityStore, sessions: sessionStore, preferences: preferences
+            stats: stats, activity: activityStore, preferences: preferences
         )
         activityTracker = ActivityTrackerController(store: activityStore, preferences: preferences)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -55,12 +48,7 @@ final class StatusBarController {
 
     private func wireEngineCallbacks() {
         engine.onFocusSegmentEnded = { [weak self] segment in
-            guard let self else { return }
-            self.stats.add(focusFrom: segment.start, to: segment.end)
-            // Flush first so the open app segment's latest minute is
-            // persisted, then compute quality from persisted segments.
-            self.activityTracker?.flushNow()
-            self.qualityRecorder.record(start: segment.start, end: segment.end)
+            self?.stats.add(focusFrom: segment.start, to: segment.end)
         }
 
         cancellable = engine.objectWillChange.sink { [weak self] _ in

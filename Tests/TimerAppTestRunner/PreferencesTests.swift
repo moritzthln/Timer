@@ -132,17 +132,6 @@ func runPreferencesTests() {
         try expectEqual(prefs.idleThresholdMinutes, 30, "clamped down")
     }
 
-    test("app categories default empty and roundtrip") {
-        let prefs = freshPrefs()
-        try expectEqual(prefs.appCategories, [:], "default empty")
-        prefs.appCategories = ["com.hnc.Discord": .distracting, "com.apple.dt.Xcode": .productive]
-        try expectEqual(
-            prefs.appCategories,
-            ["com.hnc.Discord": .distracting, "com.apple.dt.Xcode": .productive],
-            "roundtrip"
-        )
-    }
-
     test("daily goal defaults to 180 and clamps 15...960") {
         let prefs = freshPrefs()
         try expectEqual(prefs.dailyGoalMinutes, 180, "default")

@@ -63,7 +63,6 @@ public final class Preferences {
         static let hotkeyQuickStart = "hotkeyQuickStart"
         static let trackingPaused = "trackingPaused"
         static let idleThresholdMinutes = "idleThresholdMinutes"
-        static let appCategories = "appCategories"
         static let dailyGoalMinutes = "dailyGoalMinutes"
         static let streakWeekdaysOnly = "streakWeekdaysOnly"
         static let dndEnabled = "dndEnabled"
@@ -296,20 +295,7 @@ public final class Preferences {
         set { defaults.set(min(30, max(1, newValue)), forKey: Key.idleThresholdMinutes) }
     }
 
-    // MARK: - Quality & goals
-
-    public var appCategories: [String: AppCategory] {
-        get {
-            guard let data = defaults.data(forKey: Key.appCategories),
-                  let categories = try? JSONDecoder().decode([String: AppCategory].self, from: data) else {
-                return [:]
-            }
-            return categories
-        }
-        set {
-            defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.appCategories)
-        }
-    }
+    // MARK: - Goals
 
     public var dailyGoalMinutes: Int {
         get {

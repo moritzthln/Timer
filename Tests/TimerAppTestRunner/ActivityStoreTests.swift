@@ -90,49 +90,4 @@ func runActivityStoreTests() {
         try expectEqual(summary.presenceSeconds, 0, accuracy: 0.5, "discarded")
         try expectNil(summary.firstActivity, "empty day")
     }
-
-    test("interval query clips app segments and skips other kinds") {
-        let store = freshActivityStore()
-        store.append(ActivitySegment(
-            kind: .app(bundleID: "com.apple.dt.Xcode", name: "Xcode"),
-            start: ts("2026-08-07 10:00:00"), end: ts("2026-08-07 11:00:00")
-        ))
-        store.append(ActivitySegment(
-            kind: .presence,
-            start: ts("2026-08-07 10:00:00"), end: ts("2026-08-07 11:00:00")
-        ))
-        store.append(ActivitySegment(
-            kind: .app(bundleID: "com.apple.Safari", name: "Safari"),
-            start: ts("2026-08-07 08:00:00"), end: ts("2026-08-07 09:00:00")
-        ))
-        let window = DateInterval(start: ts("2026-08-07 10:30:00"), end: ts("2026-08-07 12:00:00"))
-        let segments = store.appSegments(overlapping: window)
-        try expectEqual(segments.count, 1, "clipped app segment only")
-        try expectEqual(segments[0].start, ts("2026-08-07 10:30:00"), "clipped start")
-        try expectEqual(segments[0].end, ts("2026-08-07 11:00:00"), "original end")
-    }
-
-    test("interval query touching only the boundary returns nothing") {
-        let store = freshActivityStore()
-        store.append(ActivitySegment(
-            kind: .app(bundleID: "a", name: "A"),
-            start: ts("2026-08-07 09:00:00"), end: ts("2026-08-07 10:00:00")
-        ))
-        let window = DateInterval(start: ts("2026-08-07 10:00:00"), end: ts("2026-08-07 11:00:00"))
-        try expectEqual(store.appSegments(overlapping: window), [], "zero-length overlap dropped")
-    }
-
-    test("interval query crossing midnight consults both day files") {
-        let store = freshActivityStore()
-        store.append(ActivitySegment(
-            kind: .app(bundleID: "a", name: "A"),
-            start: ts("2026-08-06 23:40:00"), end: ts("2026-08-07 00:30:00")
-        )) // the store splits this into both day files on write
-        let window = DateInterval(start: ts("2026-08-06 23:50:00"), end: ts("2026-08-07 00:20:00"))
-        let segments = store.appSegments(overlapping: window)
-        try expectEqual(segments.count, 2, "one piece per day file")
-        let total = segments.reduce(0.0) { $0 + $1.end.timeIntervalSince($1.start) }
-        try expectEqual(total, 1800, accuracy: 0.5, "clipped to the 30-minute window")
-        try expectEqual(segments[0].start, ts("2026-08-06 23:50:00"), "sorted by start")
-    }
 }

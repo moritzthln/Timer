@@ -9,7 +9,6 @@ extension Notification.Name {
 
 struct SettingsView: View {
     let preferences: Preferences
-    let activity: ActivityStore
     @ObservedObject var focusMode: FocusModeController
 
     @State private var presetTexts: [String] = []
@@ -29,7 +28,6 @@ struct SettingsView: View {
     @State private var hotkeyHint: String?
     @State private var trackingPaused = false
     @State private var idleText = "5"
-    @State private var categorizedApps: [CategorizedApp] = []
     @State private var dailyGoalText = "180"
     @State private var weekdaysOnly = true
     @State private var dndEnabled = false
@@ -44,7 +42,6 @@ struct SettingsView: View {
                 focusBlockSection
                 hotkeysSection
                 activitySection
-                categoriesSection
                 goalSection
                 dndSection
             }
@@ -248,40 +245,6 @@ struct SettingsView: View {
         }
     }
 
-    private var categoriesSection: some View {
-        section("Kategorien") {
-            if categorizedApps.isEmpty {
-                Text("Noch keine Aktivitätsdaten — Kategorien erscheinen nach etwas Nutzung.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(categorizedApps) { app in
-                        categoryRow(app)
-                    }
-                }
-            }
-        }
-    }
-
-    private func categoryRow(_ app: CategorizedApp) -> some View {
-        HStack(spacing: 8) {
-            Text(app.name)
-                .font(.system(size: 11))
-                .lineLimit(1)
-                .frame(width: 110, alignment: .leading)
-            Picker("", selection: categoryBinding(app.bundleID)) {
-                Text("Produktiv").tag(AppCategory.productive)
-                Text("Neutral").tag(AppCategory.neutral)
-                Text("Ablenkung").tag(AppCategory.distracting)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .controlSize(.small)
-        }
-    }
-
     private var goalSection: some View {
         section("Ziel") {
             HStack {
@@ -376,7 +339,6 @@ struct SettingsView: View {
         dailyGoalText = String(preferences.dailyGoalMinutes)
         weekdaysOnly = preferences.streakWeekdaysOnly
         dndEnabled = preferences.dndEnabled
-        loadCategorizedApps()
     }
 
     // MARK: - Focus block helpers
@@ -444,56 +406,6 @@ struct SettingsView: View {
         blockedDomains.append(sanitized)
         preferences.blockedDomains = blockedDomains
         newDomain = ""
-    }
-
-    // MARK: - Category helpers
-
-    private struct CategorizedApp: Identifiable {
-        let bundleID: String
-        let name: String
-        var id: String { bundleID }
-    }
-
-    /// Top 8 apps of the last 7 days by frontmost time, plus every app that
-    /// already has an explicit category (bundle ID as name fallback when it
-    /// produced no recent activity).
-    private func loadCategorizedApps() {
-        var totals: [String: (name: String, seconds: Double)] = [:]
-        let calendar = Calendar.current
-        for offset in 0..<7 {
-            guard let day = calendar.date(byAdding: .day, value: -offset, to: Date()) else { continue }
-            for app in activity.daySummary(for: day).apps {
-                var entry = totals[app.bundleID] ?? (name: app.name, seconds: 0)
-                entry.seconds += app.totalSeconds
-                totals[app.bundleID] = entry
-            }
-        }
-        let top = totals.sorted { $0.value.seconds > $1.value.seconds }.prefix(8)
-        var rows = top.map { CategorizedApp(bundleID: $0.key, name: $0.value.name) }
-        for bundleID in preferences.appCategories.keys.sorted()
-        where !rows.contains(where: { $0.bundleID == bundleID }) {
-            rows.append(CategorizedApp(bundleID: bundleID, name: totals[bundleID]?.name ?? bundleID))
-        }
-        categorizedApps = rows
-    }
-
-    /// Shows the resolved category (so blocklisted apps preselect
-    /// "Ablenkung"); a user pick is stored as an explicit category.
-    private func categoryBinding(_ bundleID: String) -> Binding<AppCategory> {
-        Binding(
-            get: {
-                AppCategory.resolve(
-                    bundleID: bundleID,
-                    explicit: preferences.appCategories,
-                    blockedBundleIDs: Set(preferences.blockedApps.map(\.bundleID))
-                )
-            },
-            set: { newValue in
-                var categories = preferences.appCategories
-                categories[bundleID] = newValue
-                preferences.appCategories = categories
-            }
-        )
     }
 
     private func commitGoal() {
