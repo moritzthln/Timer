@@ -18,6 +18,7 @@ final class StatusBarController {
     private let statsWindow: StatsWindowController
     private let hotkeys = HotkeyManager()
     private let activityStore = ActivityStore(directory: ActivityStore.defaultDirectory())
+    private let focusLog = FocusLog(directory: FocusLog.defaultDirectory())
     private var activityTracker: ActivityTrackerController?
     private var cancellable: AnyCancellable?
 
@@ -45,6 +46,8 @@ final class StatusBarController {
     private func wireEngineCallbacks() {
         engine.onFocusSegmentEnded = { [weak self] segment in
             self?.stats.add(focusFrom: segment.start, to: segment.end)
+            // v10: also log the raw interval for the timeline focus traces.
+            self?.focusLog.append(start: segment.start, end: segment.end)
         }
 
         cancellable = engine.objectWillChange.sink { [weak self] _ in
