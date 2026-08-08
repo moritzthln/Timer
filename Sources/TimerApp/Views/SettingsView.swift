@@ -32,6 +32,8 @@ struct SettingsView: View {
     @State private var trackingPaused = false
     @State private var idleText = "5"
     @State private var dndEnabled = false
+    @State private var menuBarFormat = MenuBarTimeFormat.standard
+    @State private var menuBarIconOnly = false
 
     var body: some View {
         ScrollView {
@@ -40,6 +42,7 @@ struct SettingsView: View {
                 pomodoroSection
                 alarmSection
                 generalSection
+                menuBarSection
                 focusBlockSection
                 hotkeysSection
                 activitySection
@@ -157,6 +160,36 @@ struct SettingsView: View {
         Text(text)
             .font(.caption2)
             .foregroundStyle(.secondary)
+    }
+
+    private var menuBarSection: some View {
+        section("Menüleiste") {
+            HStack {
+                Text("Zeitformat")
+                Picker("", selection: $menuBarFormat) {
+                    Text("Standard").tag(MenuBarTimeFormat.standard)
+                    Text("Kompakt").tag(MenuBarTimeFormat.compact)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .disabled(menuBarIconOnly)
+                .onChange(of: menuBarFormat) { newValue in
+                    preferences.menuBarTimeFormat = newValue
+                    NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
+                }
+            }
+            Toggle("Nur Symbol", isOn: $menuBarIconOnly)
+                .onChange(of: menuBarIconOnly) { newValue in
+                    preferences.menuBarShowTime = !newValue
+                    NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
+                }
+            if menuBarIconOnly {
+                Text("Ohne Zeit in der Menüleiste empfiehlt sich das Floating Display.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private var focusBlockSection: some View {
@@ -399,6 +432,8 @@ struct SettingsView: View {
         trackingPaused = preferences.trackingPaused
         idleText = String(preferences.idleThresholdMinutes)
         dndEnabled = preferences.dndEnabled
+        menuBarFormat = preferences.menuBarTimeFormat
+        menuBarIconOnly = !preferences.menuBarShowTime
     }
 
     // MARK: - Focus block helpers

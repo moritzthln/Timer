@@ -65,6 +65,8 @@ public final class Preferences {
         static let trackingPaused = "trackingPaused"
         static let idleThresholdMinutes = "idleThresholdMinutes"
         static let dndEnabled = "dndEnabled"
+        static let menuBarTimeFormat = "menuBarTimeFormat"
+        static let menuBarShowTime = "menuBarShowTime"
     }
 
     public init(defaults: UserDefaults = .standard) {
@@ -340,5 +342,20 @@ public final class Preferences {
     public var dndEnabled: Bool {
         get { defaults.object(forKey: Key.dndEnabled) as? Bool ?? false }
         set { defaults.set(newValue, forKey: Key.dndEnabled) }
+    }
+
+    // MARK: - Menu bar
+
+    public var menuBarTimeFormat: MenuBarTimeFormat {
+        get {
+            let raw = defaults.string(forKey: Key.menuBarTimeFormat) ?? ""
+            return MenuBarTimeFormat(rawValue: raw) ?? .standard
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.menuBarTimeFormat) }
+    }
+
+    public var menuBarShowTime: Bool {
+        get { defaults.object(forKey: Key.menuBarShowTime) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.menuBarShowTime) }
     }
 }

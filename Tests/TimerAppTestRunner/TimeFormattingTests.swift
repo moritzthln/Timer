@@ -26,4 +26,16 @@ func runTimeFormattingTests() {
         try expectEqual(TimeFormatting.wording(seconds: 7200), "2 h 0 min")
         try expectEqual(TimeFormatting.wording(seconds: 59), "0 min")
     }
+
+    test("compact rounds whole minutes up and spells hours") {
+        try expectEqual(TimeFormatting.compact(seconds: 0), "0m")
+        try expectEqual(TimeFormatting.compact(seconds: 1), "1m")
+        try expectEqual(TimeFormatting.compact(seconds: 60), "1m")
+        try expectEqual(TimeFormatting.compact(seconds: 61), "2m")
+        try expectEqual(TimeFormatting.compact(seconds: 1477), "25m")
+        try expectEqual(TimeFormatting.compact(seconds: 3599), "60m")
+        try expectEqual(TimeFormatting.compact(seconds: 3600), "1h 0m")
+        try expectEqual(TimeFormatting.compact(seconds: 3900), "1h 5m")
+        try expectEqual(TimeFormatting.compact(seconds: -5), "0m")
+    }
 }

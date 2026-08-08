@@ -181,6 +181,16 @@ func runPreferencesTests() {
         try expectEqual(prefs.idleThresholdMinutes, 30, "clamped down")
     }
 
+    test("menu bar prefs default to standard format with visible time") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.menuBarTimeFormat, .standard, "format default")
+        prefs.menuBarTimeFormat = .compact
+        try expectEqual(prefs.menuBarTimeFormat, .compact, "format roundtrip")
+        try expect(prefs.menuBarShowTime, "show-time default true")
+        prefs.menuBarShowTime = false
+        try expect(!prefs.menuBarShowTime, "show-time roundtrip")
+    }
+
     test("dnd defaults off and roundtrips") {
         let prefs = freshPrefs()
         try expect(!prefs.dndEnabled, "dnd default false")

@@ -213,7 +213,8 @@ final class StatusBarController {
     private func refresh() {
         guard let button = statusItem.button else { return }
         let presentation = MenuBarPresentation.make(
-            phase: engine.phase, remainingSeconds: engine.remainingSeconds
+            phase: engine.phase, remainingSeconds: engine.remainingSeconds,
+            format: preferences.menuBarTimeFormat, showTime: preferences.menuBarShowTime
         )
         button.image = presentation.symbol.flatMap {
             NSImage(systemSymbolName: $0, accessibilityDescription: "Timer")

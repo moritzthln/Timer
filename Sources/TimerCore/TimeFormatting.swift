@@ -18,4 +18,15 @@ public enum TimeFormatting {
         }
         return "\(minutes) min"
     }
+
+    /// Compact menu bar format: whole minutes rounded up — "25m", and
+    /// "1h 5m" from one hour of actual remaining time on (v8).
+    public static func compact(seconds: Int) -> String {
+        let s = max(0, seconds)
+        let minutes = (s + 59) / 60
+        if s >= 3600 {
+            return "\(minutes / 60)h \(minutes % 60)m"
+        }
+        return "\(minutes)m"
+    }
 }
