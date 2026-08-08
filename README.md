@@ -155,6 +155,17 @@ Lives in the menu bar only — no Dock icon, no window.
   moving synchronously while the day labels stay fixed; a single click
   on a row (or its label) still jumps to that day. Zoom resets on week
   navigation and view switches.
+- v12 — focus-only filter: a "Nur Fokus-Zeit" checkbox next to the
+  Tag | Woche switcher (per window session; survives switches and
+  navigation, resets on reopen) narrows the whole tab to what
+  overlapped focus sessions: app and domain durations are clipped to
+  the focus intervals (week: summed over the seven days), rows with no
+  focus time disappear and "Sonstige" folds the clipped rest, the
+  header line shows the focus total ("Fokus-Zeit · 2 h 25 min"),
+  sparklines use clipped seconds, and the timelines dim everything
+  outside focus windows to ~0.15 (the wash and edge lines stay). A day
+  or week without focus sessions shows the fully dimmed timeline plus
+  "Keine Fokus-Sessions in diesem Zeitraum".
 - **Privacy:** everything stays on this Mac — one JSON file per day
   under `~/Library/Application Support/Timer/activity/` (and, since
   v10, focus intervals under `…/Timer/focus/`), no network, ever.
