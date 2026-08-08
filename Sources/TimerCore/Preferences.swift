@@ -240,8 +240,15 @@ public final class Preferences {
 
     // MARK: - Hotkeys
 
-    private func hotkey(forKey key: String) -> HotkeyCombo? {
-        guard let data = defaults.data(forKey: key) else { return nil }
+    /// Spec defaults: ⌃⌥T opens the popover, ⌃⌥S quick-starts.
+    /// carbonModifiers 6144 = controlKey (4096) | optionKey (2048).
+    public static let defaultHotkeyPopover = HotkeyCombo(keyCode: 17, carbonModifiers: 6144)
+    public static let defaultHotkeyQuickStart = HotkeyCombo(keyCode: 1, carbonModifiers: 6144)
+
+    /// Never-set → default combo; explicitly cleared (empty-data marker) → nil.
+    private func hotkey(forKey key: String, defaultCombo: HotkeyCombo) -> HotkeyCombo? {
+        guard let data = defaults.data(forKey: key) else { return defaultCombo }
+        guard !data.isEmpty else { return nil }
         return try? JSONDecoder().decode(HotkeyCombo.self, from: data)
     }
 
@@ -249,17 +256,17 @@ public final class Preferences {
         if let combo {
             defaults.set(try? JSONEncoder().encode(combo), forKey: key)
         } else {
-            defaults.removeObject(forKey: key)
+            defaults.set(Data(), forKey: key)
         }
     }
 
     public var hotkeyPopover: HotkeyCombo? {
-        get { hotkey(forKey: Key.hotkeyPopover) }
+        get { hotkey(forKey: Key.hotkeyPopover, defaultCombo: Self.defaultHotkeyPopover) }
         set { setHotkey(newValue, forKey: Key.hotkeyPopover) }
     }
 
     public var hotkeyQuickStart: HotkeyCombo? {
-        get { hotkey(forKey: Key.hotkeyQuickStart) }
+        get { hotkey(forKey: Key.hotkeyQuickStart, defaultCombo: Self.defaultHotkeyQuickStart) }
         set { setHotkey(newValue, forKey: Key.hotkeyQuickStart) }
     }
 }

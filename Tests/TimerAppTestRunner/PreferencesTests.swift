@@ -99,12 +99,13 @@ func runPreferencesTests() {
         try expect(prefs.focusBlockEnabled, "on")
     }
 
-    test("hotkeys roundtrip and clear") {
+    test("hotkeys default to spec combos, roundtrip, and clear explicitly") {
         let prefs = freshPrefs()
-        try expectNil(prefs.hotkeyPopover, "default nil")
-        prefs.hotkeyPopover = HotkeyCombo(keyCode: 17, carbonModifiers: 6144)
-        try expectEqual(prefs.hotkeyPopover, HotkeyCombo(keyCode: 17, carbonModifiers: 6144), "roundtrip")
+        try expectEqual(prefs.hotkeyPopover, HotkeyCombo(keyCode: 17, carbonModifiers: 6144), "default ⌃⌥T")
+        try expectEqual(prefs.hotkeyQuickStart, HotkeyCombo(keyCode: 1, carbonModifiers: 6144), "default ⌃⌥S")
+        prefs.hotkeyPopover = HotkeyCombo(keyCode: 40, carbonModifiers: 6144)
+        try expectEqual(prefs.hotkeyPopover, HotkeyCombo(keyCode: 40, carbonModifiers: 6144), "roundtrip custom")
         prefs.hotkeyPopover = nil
-        try expectNil(prefs.hotkeyPopover, "cleared")
+        try expectNil(prefs.hotkeyPopover, "cleared stays cleared, not default")
     }
 }
