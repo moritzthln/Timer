@@ -17,6 +17,10 @@ struct ActivityWeekTimelineView: View {
     let colorFor: (String) -> Color
     /// v10 drill-down: with a selection, other apps' segments dim to 0.15.
     let selectedBundleID: String?
+    /// v12: with the filter on, each row's segments outside that day's focus
+    /// intervals dim to ~0.15 (`FocusDimMask`), multiplying with the
+    /// drill-down dimming.
+    let focusOnly: Bool
     let onOpenDay: (Date) -> Void
 
     static let rowHeight: CGFloat = 16
@@ -139,12 +143,36 @@ struct ActivityWeekTimelineView: View {
         ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 3).fill(.quaternary.opacity(0.6))
             if let axis {
-                segments(day, axis: axis, width: width)
+                segmentLayer(day, axis: axis, width: width)
                 FocusBarOverlay(fractions: focusFractions(day, axis: axis), width: width)
             }
         }
         .frame(width: width, height: Self.rowHeight)
         .clipShape(RoundedRectangle(cornerRadius: 3))
+    }
+
+    /// The row's app segments as one layer, so the v12 focus mask can dim
+    /// the regions outside that day's focus intervals without touching the
+    /// track background, the wash or the edge lines.
+    private func segmentLayer(
+        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval), width: CGFloat
+    ) -> some View {
+        ZStack(alignment: .leading) {
+            segments(day, axis: axis, width: width)
+        }
+        .frame(width: width, height: Self.rowHeight, alignment: .leading)
+        .mask(alignment: .leading) { dimMask(day, axis: axis, width: width) }
+    }
+
+    @ViewBuilder
+    private func dimMask(
+        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval), width: CGFloat
+    ) -> some View {
+        if focusOnly {
+            FocusDimMask(fractions: focusFractions(day, axis: axis), width: width)
+        } else {
+            Rectangle()
+        }
     }
 
     private func segments(

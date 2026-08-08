@@ -7,11 +7,11 @@ struct ActivityWeekView: View {
     let store: ActivityStore
     let focusLog: FocusLog
     @Binding var anchor: Date
+    /// v12: the "Nur Fokus-Zeit" filter (owned by the tab root).
+    let focusOnly: Bool
     let onOpenDay: (Date) -> Void
 
     @State private var data: WeekData?
-    /// Sparkline data over the displayed week's seven days.
-    @State private var sparkSeries: [String: [Double]] = [:]
     /// v10 drill-down; resets on week navigation and view switch (the mode
     /// switch rebuilds this view, so plain view state is exactly per-visit).
     @State private var selectedBundleID: String?
@@ -50,20 +50,25 @@ struct ActivityWeekView: View {
                     days: data.days,
                     colorFor: color(for:),
                     selectedBundleID: selectedBundleID,
+                    focusOnly: focusOnly,
                     onOpenDay: onOpenDay
                 )
                 .id(weekStart)
                 if data.hasActivity {
-                    presenceLine(data)
-                    ActivityAppListView(
-                        apps: data.apps,
-                        sitesByBrowser: data.sitesByBrowser,
-                        colorFor: color(for:),
-                        sparkSeries: sparkSeries,
-                        sparkHelp: rangeString,
-                        selectedBundleID: selectedBundleID,
-                        onSelect: toggleSelection
-                    )
+                    if focusOnly { focusLine(data) } else { presenceLine(data) }
+                    if focusOnly, weekHasNoFocus(data) {
+                        emptyFocusMessage
+                    } else {
+                        ActivityAppListView(
+                            apps: listApps(data),
+                            sitesByBrowser: listSites(data),
+                            colorFor: color(for:),
+                            sparkSeries: sparkSeries,
+                            sparkHelp: rangeString,
+                            selectedBundleID: selectedBundleID,
+                            onSelect: toggleSelection
+                        )
+                    }
                 } else {
                     Text("Keine Daten für diese Woche")
                         .font(.caption)
@@ -124,13 +129,49 @@ struct ActivityWeekView: View {
     }
 
     private func reload() {
-        let loaded = WeekData.load(store: store, focusLog: focusLog, weekOf: anchor)
-        data = loaded
-        sparkSeries = ActivitySparklineView.series(from: loaded.days.map(\.summary))
+        data = WeekData.load(store: store, focusLog: focusLog, weekOf: anchor)
     }
 
     private func toggleSelection(_ bundleID: String) {
         selectedBundleID = selectedBundleID == bundleID ? nil : bundleID
+    }
+
+    // MARK: - Filtered values (v12)
+
+    private func listApps(_ data: WeekData) -> [AppUsage] {
+        focusOnly ? ActivityFocusFilter.apps(data.days) : data.apps
+    }
+
+    private func listSites(_ data: WeekData) -> [String: [SiteUsage]] {
+        focusOnly ? ActivityFocusFilter.sites(data.days) : data.sitesByBrowser
+    }
+
+    /// Sparkline data over the displayed week's seven days (clipped to each
+    /// day's focus intervals while the filter is on).
+    private var sparkSeries: [String: [Double]] {
+        guard let data else { return [:] }
+        return focusOnly
+            ? ActivityFocusFilter.sparkSeries(
+                summaries: data.days.map(\.summary), focus: data.days.map(\.focus)
+            )
+            : ActivitySparklineView.series(from: data.days.map(\.summary))
+    }
+
+    private func weekHasNoFocus(_ data: WeekData) -> Bool {
+        data.days.allSatisfy(\.focus.isEmpty)
+    }
+
+    /// v12 empty state: activity exists, focus does not — the week rows
+    /// above stay (dimmed entirely) and this message replaces the app list.
+    private var emptyFocusMessage: some View {
+        Group {
+            Text("Keine Fokus-Sessions in diesem Zeitraum")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 30)
+            Spacer(minLength: 0)
+        }
     }
 
     // MARK: - Content
@@ -143,6 +184,23 @@ struct ActivityWeekView: View {
             Spacer()
             Text("\(scopeLabel) · aktiv \(TimeFormatting.wording(seconds: data.presenceSeconds))")
                 .font(.system(size: 13, design: .monospaced))
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    /// v12: replaces the presence line while the filter is on — the sum of
+    /// the seven days' focus intervals.
+    private func focusLine(_ data: WeekData) -> some View {
+        HStack {
+            Text("Fokus-Zeit")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(TimeFormatting.wording(seconds: data.days.reduce(0) {
+                $0 + ActivityFocusFilter.focusSeconds($1.focus)
+            }))
+            .font(.system(size: 13, design: .monospaced))
         }
         .padding(10)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))

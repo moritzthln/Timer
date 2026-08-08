@@ -7,15 +7,20 @@ struct ActivityDayView: View {
     let store: ActivityStore
     let focusLog: FocusLog
     @Binding var day: Date
+    /// v12: the "Nur Fokus-Zeit" filter (owned by the tab root).
+    let focusOnly: Bool
 
-    @State private var summary: DaySummary?
-    @State private var focusIntervals: [FocusInterval] = []
-    /// Sparkline data: per-app seconds over the 7 days ending on `day`,
-    /// loaded once per day navigation.
-    @State private var sparkSeries: [String: [Double]] = [:]
+    /// The 7 window days ending on `day` (last = the displayed day):
+    /// summaries and focus intervals, loaded once per day navigation — the
+    /// data behind the list, the sparklines, and the clipped filter values.
+    @State private var windowSummaries: [DaySummary] = []
+    @State private var windowFocus: [[FocusInterval]] = []
     /// v10 drill-down; resets on date navigation and view switch (the mode
     /// switch rebuilds this view, so plain view state is exactly per-visit).
     @State private var selectedBundleID: String?
+
+    private var summary: DaySummary? { windowSummaries.last }
+    private var focusIntervals: [FocusInterval] { windowFocus.last ?? [] }
 
     /// Structural minimum of the day mode: header + presence line + fixed
     /// timeline + list minimum + three 12 pt gaps.
@@ -44,17 +49,21 @@ struct ActivityDayView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             if let summary, summary.firstActivity != nil {
-                presenceLine(summary)
+                if focusOnly { focusLine } else { presenceLine(summary) }
                 timeline(summary)
-                ActivityAppListView(
-                    apps: summary.apps,
-                    sitesByBrowser: summary.sitesByBrowser,
-                    colorFor: { colorFor(bundleID: $0, in: summary) },
-                    sparkSeries: sparkSeries,
-                    sparkHelp: "Letzte 7 Tage",
-                    selectedBundleID: selectedBundleID,
-                    onSelect: toggleSelection
-                )
+                if focusOnly, focusIntervals.isEmpty {
+                    emptyFocusMessage
+                } else {
+                    ActivityAppListView(
+                        apps: listApps(summary),
+                        sitesByBrowser: listSites(summary),
+                        colorFor: { colorFor(bundleID: $0, in: summary) },
+                        sparkSeries: sparkSeries,
+                        sparkHelp: "Letzte 7 Tage",
+                        selectedBundleID: selectedBundleID,
+                        onSelect: toggleSelection
+                    )
+                }
             } else {
                 Text("Keine Daten für diesen Tag")
                     .font(.caption)
@@ -65,6 +74,41 @@ struct ActivityDayView: View {
             }
         }
         .onAppear(perform: reload)
+    }
+
+    // MARK: - Filtered values (v12)
+
+    private func listApps(_ summary: DaySummary) -> [AppUsage] {
+        focusOnly
+            ? ActivityFocusFilter.apps(summary, intervals: focusIntervals)
+            : summary.apps
+    }
+
+    private func listSites(_ summary: DaySummary) -> [String: [SiteUsage]] {
+        focusOnly
+            ? ActivityFocusFilter.sites(summary, intervals: focusIntervals)
+            : summary.sitesByBrowser
+    }
+
+    /// Sparkline data: per-app seconds over the 7 window days (clipped to
+    /// focus intervals while the filter is on).
+    private var sparkSeries: [String: [Double]] {
+        focusOnly
+            ? ActivityFocusFilter.sparkSeries(summaries: windowSummaries, focus: windowFocus)
+            : ActivitySparklineView.series(from: windowSummaries)
+    }
+
+    /// v12 empty state: activity exists, focus does not — the timeline above
+    /// stays (dimmed entirely) and this message replaces the app list.
+    private var emptyFocusMessage: some View {
+        Group {
+            Text("Keine Fokus-Sessions in diesem Zeitraum")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 30)
+            Spacer(minLength: 0)
+        }
     }
 
     private var header: some View {
@@ -89,12 +133,11 @@ struct ActivityDayView: View {
     }
 
     private func reload() {
-        summary = store.daySummary(for: day)
-        focusIntervals = focusLog.intervals(onDay: day)
         let window = ((-6)...0).compactMap {
             Calendar.current.date(byAdding: .day, value: $0, to: day)
         }
-        sparkSeries = ActivitySparklineView.series(from: window.map(store.daySummary(for:)))
+        windowSummaries = window.map(store.daySummary(for:))
+        windowFocus = window.map(focusLog.intervals(onDay:))
     }
 
     private func toggleSelection(_ bundleID: String) {
@@ -111,6 +154,23 @@ struct ActivityDayView: View {
                 Text("\(Self.hourFormatter.string(from: first)) – \(Self.hourFormatter.string(from: last)) · aktiv \(TimeFormatting.wording(seconds: summary.presenceSeconds))")
                     .font(.system(size: 13, design: .monospaced))
             }
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    /// v12: replaces the presence line while the filter is on — the sum of
+    /// the day's focus intervals.
+    private var focusLine: some View {
+        HStack {
+            Text("Fokus-Zeit")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(TimeFormatting.wording(
+                seconds: ActivityFocusFilter.focusSeconds(focusIntervals)
+            ))
+            .font(.system(size: 13, design: .monospaced))
         }
         .padding(10)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
@@ -133,7 +193,8 @@ struct ActivityDayView: View {
                     first: first, last: last, summary: summary,
                     colorFor: { colorFor(bundleID: $0, in: summary) },
                     selectedBundleID: selectedBundleID,
-                    focusIntervals: focusIntervals
+                    focusIntervals: focusIntervals,
+                    focusOnly: focusOnly
                 )
                 .id(day)
             }

@@ -31,6 +31,9 @@ public struct DaySummary: Equatable {
     public let presenceSegments: [ActivitySegment]
     public let apps: [AppUsage]                    // sorted by total desc
     public let sitesByBrowser: [String: [SiteUsage]] // sorted by total desc
+    /// v12: the day's raw browser-site segments (sorted by start) — the
+    /// focus filter clips domain rows against these.
+    public let siteSegments: [ActivitySegment]
 }
 
 public final class ActivityStore {
@@ -127,6 +130,7 @@ public final class ActivityStore {
 
         var appTotals: [String: (name: String, total: Double, segments: [ActivitySegment])] = [:]
         var siteTotals: [String: [String: Double]] = [:]
+        var siteSegments: [ActivitySegment] = []
         for segment in segments {
             let duration = segment.end.timeIntervalSince(segment.start)
             switch segment.kind {
@@ -139,6 +143,7 @@ public final class ActivityStore {
                 appTotals[bundleID] = entry
             case .site(let domain, let browser):
                 siteTotals[browser, default: [:]][domain, default: 0] += duration
+                siteSegments.append(segment)
             }
         }
 
@@ -160,7 +165,8 @@ public final class ActivityStore {
             presenceSeconds: presenceSeconds,
             presenceSegments: presence,
             apps: apps,
-            sitesByBrowser: sites
+            sitesByBrowser: sites,
+            siteSegments: siteSegments.sorted { $0.start < $1.start }
         )
     }
 }

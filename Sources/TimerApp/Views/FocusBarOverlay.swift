@@ -53,3 +53,29 @@ struct FocusBarOverlay: View {
         return (CGFloat(start / span), CGFloat(end / span))
     }
 }
+
+/// v12: the inverse of the overlay — a rendering mask for the segment layer
+/// that keeps focus regions at full strength and multiplies everything
+/// outside down to ~0.15 (so it combines multiplicatively with the
+/// drill-down dimming). Applied to the segments only; the track background,
+/// the wash and the edge lines stay as they are. With no fractions the whole
+/// layer dims — the filtered empty state.
+struct FocusDimMask: View {
+    /// Clamped (start, end) fractions of the bar width, each in 0...1.
+    let fractions: [(start: CGFloat, end: CGFloat)]
+    let width: CGFloat
+
+    static let outsideOpacity = 0.15
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Rectangle().fill(Color.white.opacity(Self.outsideOpacity))
+            ForEach(fractions.indices, id: \.self) { index in
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: max(1, width * (fractions[index].end - fractions[index].start)))
+                    .offset(x: width * fractions[index].start)
+            }
+        }
+    }
+}

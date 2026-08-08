@@ -19,6 +19,9 @@ struct ActivityTimelineView: View {
     /// same axis (so it zooms and pans with the bar). v11: additionally
     /// overlaid on the bar itself as a wash + edge lines (`FocusBarOverlay`).
     let focusIntervals: [FocusInterval]
+    /// v12: with the filter on, segments outside focus intervals dim to
+    /// ~0.15 (`FocusDimMask`), multiplying with the drill-down dimming.
+    let focusOnly: Bool
 
     private static let barHeight: CGFloat = 32
     private static let labelHeight: CGFloat = 12
@@ -51,9 +54,21 @@ struct ActivityTimelineView: View {
     // MARK: - Bar and focus marks
 
     private func bar(width: CGFloat) -> some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 4).fill(.quaternary.opacity(0.6))
+            segmentLayer(width: width)
+            FocusBarOverlay(fractions: focusFractions, width: width)
+        }
+        .frame(width: width, height: Self.barHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+
+    /// The app segments as one layer, so the v12 focus mask can dim the
+    /// regions outside focus intervals without touching the track
+    /// background, the wash or the edge lines.
+    private func segmentLayer(width: CGFloat) -> some View {
         let allSegments = summary.apps.flatMap(\.segments)
         return ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 4).fill(.quaternary.opacity(0.6))
             ForEach(allSegments) { segment in
                 if case .app(let bundleID, let name) = segment.kind {
                     let x = segment.start.timeIntervalSince(first) / span
@@ -66,10 +81,18 @@ struct ActivityTimelineView: View {
                         .help(Self.tooltip(name: name, segment: segment))
                 }
             }
-            FocusBarOverlay(fractions: focusFractions, width: width)
         }
-        .frame(width: width, height: Self.barHeight)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .frame(width: width, height: Self.barHeight, alignment: .leading)
+        .mask(alignment: .leading) { dimMask(width: width) }
+    }
+
+    @ViewBuilder
+    private func dimMask(width: CGFloat) -> some View {
+        if focusOnly {
+            FocusDimMask(fractions: focusFractions, width: width)
+        } else {
+            Rectangle()
+        }
     }
 
     /// v11: the focus intervals as clamped fractions of the presence axis —
