@@ -1,11 +1,18 @@
 import Foundation
 import Combine
 
+public enum PomodoroPhase: Equatable { case focus, shortBreak, longBreak }
+
+public enum SessionKind: Equatable {
+    case single
+    case pomodoro(phase: PomodoroPhase, round: Int) // round is 1-based
+}
+
 public final class TimerEngine: ObservableObject {
     public enum Phase: Equatable {
         case idle
-        case running(endDate: Date, total: TimeInterval)
-        case paused(remaining: TimeInterval, total: TimeInterval)
+        case running(endDate: Date, total: TimeInterval, kind: SessionKind)
+        case paused(remaining: TimeInterval, total: TimeInterval, kind: SessionKind)
         case finished
     }
 
@@ -30,9 +37,9 @@ public final class TimerEngine: ObservableObject {
         switch phase {
         case .idle:
             return preferences.lastMinutes * 60
-        case .running(let endDate, _):
+        case .running(let endDate, _, _):
             return max(0, Int(endDate.timeIntervalSince(now()).rounded(.up)))
-        case .paused(let remaining, _):
+        case .paused(let remaining, _, _):
             return max(0, Int(remaining.rounded(.up)))
         case .finished:
             return 0
@@ -44,11 +51,11 @@ public final class TimerEngine: ObservableObject {
         switch phase {
         case .idle:
             return 0
-        case .running(let endDate, let total):
+        case .running(let endDate, let total, _):
             guard total > 0 else { return 1 }
             let remaining = max(0, endDate.timeIntervalSince(now()))
             return min(1, max(0, 1 - remaining / total))
-        case .paused(let remaining, let total):
+        case .paused(let remaining, let total, _):
             guard total > 0 else { return 1 }
             return min(1, max(0, 1 - remaining / total))
         case .finished:
@@ -57,8 +64,15 @@ public final class TimerEngine: ObservableObject {
     }
 
     public var endDate: Date? {
-        if case .running(let endDate, _) = phase { return endDate }
+        if case .running(let endDate, _, _) = phase { return endDate }
         return nil
+    }
+
+    public var currentKind: SessionKind? {
+        switch phase {
+        case .running(_, _, let kind), .paused(_, _, let kind): return kind
+        case .idle, .finished: return nil
+        }
     }
 
     public var isPaused: Bool {
@@ -73,23 +87,23 @@ public final class TimerEngine: ObservableObject {
         preferences.lastMinutes = clamped
         let total = TimeInterval(clamped * 60)
         let end = now().addingTimeInterval(total)
-        phase = .running(endDate: end, total: total)
+        phase = .running(endDate: end, total: total, kind: .single)
         preferences.persistRunning(endDate: end, total: total)
         startTicker()
     }
 
     public func pause() {
-        guard case .running(let endDate, let total) = phase else { return }
+        guard case .running(let endDate, let total, let kind) = phase else { return }
         let remaining = max(0, endDate.timeIntervalSince(now()))
-        phase = .paused(remaining: remaining, total: total)
+        phase = .paused(remaining: remaining, total: total, kind: kind)
         preferences.clearRunning()
         stopTicker()
     }
 
     public func resume() {
-        guard case .paused(let remaining, let total) = phase else { return }
+        guard case .paused(let remaining, let total, let kind) = phase else { return }
         let end = now().addingTimeInterval(remaining)
-        phase = .running(endDate: end, total: total)
+        phase = .running(endDate: end, total: total, kind: kind)
         preferences.persistRunning(endDate: end, total: total)
         startTicker()
     }
@@ -107,7 +121,7 @@ public final class TimerEngine: ObservableObject {
 
     /// Advances state. Called every 0.5 s by the ticker; tests call it directly.
     public func tick() {
-        guard case .running(let endDate, _) = phase else { return }
+        guard case .running(let endDate, _, _) = phase else { return }
         if now() >= endDate {
             phase = .finished
             preferences.clearRunning()
@@ -124,7 +138,7 @@ public final class TimerEngine: ObservableObject {
     private func restore() {
         guard let run = preferences.persistedRun else { return }
         if run.endDate > now() {
-            phase = .running(endDate: run.endDate, total: run.total)
+            phase = .running(endDate: run.endDate, total: run.total, kind: .single)
             startTicker()
         } else {
             // Expired while the app was not running: finished state, no sound

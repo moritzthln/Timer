@@ -14,7 +14,7 @@ func runTimerEngineTests() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let engine = TimerEngine(preferences: prefs, now: { start })
         engine.start(minutes: 25)
-        guard case .running(let end, let total) = engine.phase else {
+        guard case .running(let end, let total, _) = engine.phase else {
             throw AssertionError(description: "expected .running, got \(engine.phase)")
         }
         try expectEqual(total, 1500, "total")
@@ -60,7 +60,7 @@ func runTimerEngineTests() {
         engine.start(minutes: 25)
         current = current.addingTimeInterval(100)
         engine.pause()
-        try expectEqual(engine.phase, .paused(remaining: 1400, total: 1500), "phase")
+        try expectEqual(engine.phase, .paused(remaining: 1400, total: 1500, kind: .single), "phase")
         try expectNil(prefs.persistedRun, "persistence cleared while paused")
         current = current.addingTimeInterval(500)
         try expectEqual(engine.remainingSeconds, 1400, "paused time must not advance")
@@ -75,7 +75,7 @@ func runTimerEngineTests() {
         engine.pause()
         current = current.addingTimeInterval(999)
         engine.resume()
-        guard case .running(let end, let total) = engine.phase else {
+        guard case .running(let end, let total, _) = engine.phase else {
             throw AssertionError(description: "expected .running, got \(engine.phase)")
         }
         try expectEqual(total, 1500, "total survives pause")
@@ -121,7 +121,7 @@ func runTimerEngineTests() {
         let engine = TimerEngine(preferences: prefs, now: { current })
         try expectEqual(
             engine.phase,
-            .running(endDate: current.addingTimeInterval(300), total: 1500),
+            .running(endDate: current.addingTimeInterval(300), total: 1500, kind: .single),
             "phase restored"
         )
         try expectEqual(engine.remainingSeconds, 300, "remaining")
