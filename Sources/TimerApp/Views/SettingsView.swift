@@ -9,6 +9,8 @@ extension Notification.Name {
 
 struct SettingsView: View {
     let preferences: Preferences
+    let activity: ActivityStore
+    @ObservedObject var focusMode: FocusModeController
 
     @State private var presetTexts: [String] = []
     @State private var focusText = ""
@@ -27,68 +29,83 @@ struct SettingsView: View {
     @State private var hotkeyHint: String?
     @State private var trackingPaused = false
     @State private var idleText = "5"
+    @State private var categorizedApps: [CategorizedApp] = []
+    @State private var dailyGoalText = "180"
+    @State private var weekdaysOnly = true
+    @State private var dndEnabled = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            section("Presets (Minuten)") {
-                HStack(spacing: 6) {
-                    ForEach(0..<6, id: \.self) { index in
-                        TextField("", text: presetBinding(index))
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
-                            .multilineTextAlignment(.center)
-                            .frame(width: 44)
-                            .onSubmit(commitPresets)
-                    }
-                }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                presetsSection
+                pomodoroSection
+                alarmSection
+                generalSection
+                focusBlockSection
+                hotkeysSection
+                activitySection
+                categoriesSection
+                goalSection
+                dndSection
             }
-
-            section("Pomodoro") {
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
-                    GridRow {
-                        Text("Fokus (min)")
-                        numberField($focusText, commit: commitPomodoro)
-                    }
-                    GridRow {
-                        Text("Pause (min)")
-                        numberField($breakText, commit: commitPomodoro)
-                    }
-                    GridRow {
-                        Text("Lange Pause (min)")
-                        numberField($longBreakText, commit: commitPomodoro)
-                    }
-                    GridRow {
-                        Text("Runden bis lange Pause")
-                        numberField($roundsText, commit: commitPomodoro)
-                    }
-                }
-            }
-
-            section("Alarm") {
-                HStack(spacing: 10) {
-                    Image(systemName: "speaker.wave.2")
-                        .foregroundStyle(.secondary)
-                    Slider(value: $volume, in: 0...1)
-                        .onChange(of: volume) { newValue in
-                            preferences.alarmVolume = newValue
-                        }
-                    Button("Test") {
-                        SoundPlayer.playCompletionChime(volume: preferences.alarmVolume)
-                    }
-                }
-            }
-
-            generalSection
-
-            focusBlockSection
-
-            hotkeysSection
-
-            activitySection
+            .padding(20)
         }
-        .padding(20)
-        .frame(width: 360)
+        .frame(width: 360, height: 700)
         .onAppear(perform: load)
+    }
+
+    private var presetsSection: some View {
+        section("Presets (Minuten)") {
+            HStack(spacing: 6) {
+                ForEach(0..<6, id: \.self) { index in
+                    TextField("", text: presetBinding(index))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .multilineTextAlignment(.center)
+                        .frame(width: 44)
+                        .onSubmit(commitPresets)
+                }
+            }
+        }
+    }
+
+    private var pomodoroSection: some View {
+        section("Pomodoro") {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+                GridRow {
+                    Text("Fokus (min)")
+                    numberField($focusText, commit: commitPomodoro)
+                }
+                GridRow {
+                    Text("Pause (min)")
+                    numberField($breakText, commit: commitPomodoro)
+                }
+                GridRow {
+                    Text("Lange Pause (min)")
+                    numberField($longBreakText, commit: commitPomodoro)
+                }
+                GridRow {
+                    Text("Runden bis lange Pause")
+                    numberField($roundsText, commit: commitPomodoro)
+                }
+            }
+        }
+    }
+
+    private var alarmSection: some View {
+        section("Alarm") {
+            HStack(spacing: 10) {
+                Image(systemName: "speaker.wave.2")
+                    .foregroundStyle(.secondary)
+                Slider(value: $volume, in: 0...1)
+                    .onChange(of: volume) { newValue in
+                        preferences.alarmVolume = newValue
+                    }
+                Button("Test") {
+                    SoundPlayer.playCompletionChime(volume: preferences.alarmVolume)
+                }
+            }
+        }
     }
 
     private var generalSection: some View {
@@ -231,6 +248,85 @@ struct SettingsView: View {
         }
     }
 
+    private var categoriesSection: some View {
+        section("Kategorien") {
+            if categorizedApps.isEmpty {
+                Text("Noch keine Aktivitätsdaten — Kategorien erscheinen nach etwas Nutzung.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(categorizedApps) { app in
+                        categoryRow(app)
+                    }
+                }
+            }
+        }
+    }
+
+    private func categoryRow(_ app: CategorizedApp) -> some View {
+        HStack(spacing: 8) {
+            Text(app.name)
+                .font(.system(size: 11))
+                .lineLimit(1)
+                .frame(width: 110, alignment: .leading)
+            Picker("", selection: categoryBinding(app.bundleID)) {
+                Text("Produktiv").tag(AppCategory.productive)
+                Text("Neutral").tag(AppCategory.neutral)
+                Text("Ablenkung").tag(AppCategory.distracting)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+        }
+    }
+
+    private var goalSection: some View {
+        section("Ziel") {
+            HStack {
+                Text("Tagesziel (min)")
+                numberField($dailyGoalText, commit: commitGoal)
+            }
+            Toggle("Wochenenden zählen nicht", isOn: $weekdaysOnly)
+                .onChange(of: weekdaysOnly) { newValue in
+                    preferences.streakWeekdaysOnly = newValue
+                }
+        }
+    }
+
+    private var dndSection: some View {
+        section("Nicht stören") {
+            Toggle("Fokus-Modus koppeln", isOn: $dndEnabled)
+                .disabled(!focusMode.shortcutsAvailable)
+                .onChange(of: dndEnabled) { newValue in
+                    preferences.dndEnabled = newValue
+                }
+            if focusMode.shortcutsAvailable {
+                Text("Lege in der Kurzbefehle-App zwei Kurzbefehle an: 'Timer Fokus an' → Fokus 'Nicht stören' aktivieren, 'Timer Fokus aus' → deaktivieren.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button("Testen: an") { focusMode.test(on: true) }
+                        .controlSize(.small)
+                    Button("Testen: aus") { focusMode.test(on: false) }
+                        .controlSize(.small)
+                }
+                if let status = focusMode.statusMessage {
+                    Text(status)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                Text("Benötigt macOS 12+ (Kurzbefehle).")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -277,6 +373,10 @@ struct SettingsView: View {
         hotkeyQuickStart = preferences.hotkeyQuickStart
         trackingPaused = preferences.trackingPaused
         idleText = String(preferences.idleThresholdMinutes)
+        dailyGoalText = String(preferences.dailyGoalMinutes)
+        weekdaysOnly = preferences.streakWeekdaysOnly
+        dndEnabled = preferences.dndEnabled
+        loadCategorizedApps()
     }
 
     // MARK: - Focus block helpers
@@ -344,6 +444,62 @@ struct SettingsView: View {
         blockedDomains.append(sanitized)
         preferences.blockedDomains = blockedDomains
         newDomain = ""
+    }
+
+    // MARK: - Category helpers
+
+    private struct CategorizedApp: Identifiable {
+        let bundleID: String
+        let name: String
+        var id: String { bundleID }
+    }
+
+    /// Top 8 apps of the last 7 days by frontmost time, plus every app that
+    /// already has an explicit category (bundle ID as name fallback when it
+    /// produced no recent activity).
+    private func loadCategorizedApps() {
+        var totals: [String: (name: String, seconds: Double)] = [:]
+        let calendar = Calendar.current
+        for offset in 0..<7 {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: Date()) else { continue }
+            for app in activity.daySummary(for: day).apps {
+                var entry = totals[app.bundleID] ?? (name: app.name, seconds: 0)
+                entry.seconds += app.totalSeconds
+                totals[app.bundleID] = entry
+            }
+        }
+        let top = totals.sorted { $0.value.seconds > $1.value.seconds }.prefix(8)
+        var rows = top.map { CategorizedApp(bundleID: $0.key, name: $0.value.name) }
+        for bundleID in preferences.appCategories.keys.sorted()
+        where !rows.contains(where: { $0.bundleID == bundleID }) {
+            rows.append(CategorizedApp(bundleID: bundleID, name: totals[bundleID]?.name ?? bundleID))
+        }
+        categorizedApps = rows
+    }
+
+    /// Shows the resolved category (so blocklisted apps preselect
+    /// "Ablenkung"); a user pick is stored as an explicit category.
+    private func categoryBinding(_ bundleID: String) -> Binding<AppCategory> {
+        Binding(
+            get: {
+                AppCategory.resolve(
+                    bundleID: bundleID,
+                    explicit: preferences.appCategories,
+                    blockedBundleIDs: Set(preferences.blockedApps.map(\.bundleID))
+                )
+            },
+            set: { newValue in
+                var categories = preferences.appCategories
+                categories[bundleID] = newValue
+                preferences.appCategories = categories
+            }
+        )
+    }
+
+    private func commitGoal() {
+        if let value = Int(dailyGoalText) { preferences.dailyGoalMinutes = value }
+        dailyGoalText = String(preferences.dailyGoalMinutes)
+        NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
     }
 
     private func commitPresets() {

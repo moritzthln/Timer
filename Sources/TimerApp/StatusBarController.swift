@@ -14,6 +14,7 @@ final class StatusBarController {
     private let stats = StatsStore()
     private let overlay = BlockOverlayController()
     private let focusBlock: FocusBlockController
+    private let focusMode: FocusModeController
     private let statsWindow: StatsWindowController
     private let hotkeys = HotkeyManager()
     private let activityStore = ActivityStore(directory: ActivityStore.defaultDirectory())
@@ -26,7 +27,10 @@ final class StatusBarController {
         self.engine = engine
         self.preferences = preferences
         floatingController = FloatingPanelController(engine: engine, preferences: preferences)
-        settingsController = SettingsWindowController(preferences: preferences)
+        focusMode = FocusModeController(preferences: preferences)
+        settingsController = SettingsWindowController(
+            preferences: preferences, activity: activityStore, focusMode: focusMode
+        )
         focusBlock = FocusBlockController(preferences: preferences, overlay: overlay)
         statsWindow = StatsWindowController(
             stats: stats, activity: activityStore, sessions: sessionStore, preferences: preferences
