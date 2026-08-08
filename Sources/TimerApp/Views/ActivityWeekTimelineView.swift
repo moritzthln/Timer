@@ -3,8 +3,15 @@ import TimerCore
 
 /// v10: seven aligned slim day rows (Mon top ... Sun bottom) sharing one
 /// time-of-day axis — from the earliest first-activity to the latest
-/// last-activity across the week — with coarse hour ticks under the bottom
-/// row only. No zoom here; clicking a row jumps to that day's day view.
+/// last-activity across the week. v11: the v9 zoom mechanic, lifted to the
+/// week container — a fixed day-label column left and ONE shared horizontal
+/// ScrollView right holding all seven tracks, the focus overlays, and the
+/// bottom tick labels, so everything zooms and pans synchronously
+/// (`TimelineZoomContainer`: −/＋/1× buttons, pinch at the pointer,
+/// double-click ×2 on the clicked time). A single click on a row still
+/// jumps to that day (arbitrated after the double-click via
+/// `WeekRowHit` + `ExclusiveGesture`); clicking a day label jumps
+/// immediately. The parent resets zoom per week via `.id(weekStart)`.
 struct ActivityWeekTimelineView: View {
     let days: [WeekDay]
     let colorFor: (String) -> Color
@@ -21,9 +28,11 @@ struct ActivityWeekTimelineView: View {
     static let ticksHeight: CGFloat = 12
     /// Track plus the always-reserved focus trace strip below it.
     static var rowBlockHeight: CGFloat { rowHeight + traceGap + traceHeight }
-    /// Seven row blocks, six gaps between them, one gap above the ticks.
+    /// Controls row + seven row blocks + ticks + eight gaps (controls to
+    /// rows, six between rows, one above the ticks). Zoomed-in overflow is
+    /// handled by the scroll area, so the minimum never grows with zoom.
     static var minHeight: CGFloat {
-        7 * rowBlockHeight + 7 * rowSpacing + ticksHeight
+        TimelineZoom.controlsHeight + 7 * rowBlockHeight + 8 * rowSpacing + ticksHeight
     }
 
     private static let dayFormatter: DateFormatter = {
@@ -60,64 +69,82 @@ struct ActivityWeekTimelineView: View {
 
     var body: some View {
         let axis = self.axis
+        TimelineZoomContainer(
+            spacing: Self.rowSpacing,
+            leadingWidth: Self.labelWidth,
+            leadingGap: Self.labelGap,
+            onSingleClick: jumpToDay(at:),
+            leading: { labelColumn },
+            content: { width, viewportWidth in
+                trackColumn(axis: axis, width: width, viewportWidth: viewportWidth)
+            }
+        )
+        .frame(height: Self.minHeight)
+    }
+
+    /// Single click on the shared content: jump to the clicked row's day.
+    /// Clicks in gaps or on the tick labels do nothing (the double-click
+    /// zoom works there regardless).
+    private func jumpToDay(at point: CGPoint) {
+        guard let index = WeekRowHit.rowIndex(
+            y: point.y, rowHeight: Self.rowBlockHeight,
+            rowSpacing: Self.rowSpacing, rowCount: days.count
+        ), days.indices.contains(index) else { return }
+        onOpenDay(days[index].date)
+    }
+
+    // MARK: - Fixed label column
+
+    /// Day labels never scroll; they stay put while the tracks zoom and
+    /// pan. Clicking a label jumps to that day immediately.
+    private var labelColumn: some View {
         VStack(alignment: .leading, spacing: Self.rowSpacing) {
             ForEach(days) { day in
-                row(day, axis: axis)
+                Text(Self.dayFormatter.string(from: day.date))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .frame(
+                        width: Self.labelWidth, height: Self.rowBlockHeight,
+                        alignment: .leading
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture { onOpenDay(day.date) }
+            }
+        }
+    }
+
+    // MARK: - Shared scroll content
+
+    private func trackColumn(
+        axis: (start: TimeInterval, span: TimeInterval)?, width: CGFloat, viewportWidth: CGFloat
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Self.rowSpacing) {
+            ForEach(days) { day in
+                VStack(alignment: .leading, spacing: Self.traceGap) {
+                    track(day, axis: axis, width: width)
+                    focusTraces(day, axis: axis, width: width)
+                }
             }
             if let axis {
-                tickLabels(axis: axis)
+                tickLabels(axis: axis, width: width, viewportWidth: viewportWidth)
             } else {
                 Spacer().frame(height: Self.ticksHeight)
             }
         }
     }
 
-    // MARK: - Rows
-
-    private func row(_ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)?) -> some View {
-        HStack(spacing: Self.labelGap) {
-            Text(Self.dayFormatter.string(from: day.date))
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-                .frame(width: Self.labelWidth, alignment: .leading)
-            VStack(alignment: .leading, spacing: Self.traceGap) {
-                track(day, axis: axis)
-                focusTraces(day, axis: axis)
+    private func track(
+        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)?, width: CGFloat
+    ) -> some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 3).fill(.quaternary.opacity(0.6))
+            if let axis {
+                segments(day, axis: axis, width: width)
+                FocusBarOverlay(fractions: focusFractions(day, axis: axis), width: width)
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture { onOpenDay(day.date) }
-    }
-
-    private func track(_ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)?) -> some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 3).fill(.quaternary.opacity(0.6))
-                if let axis {
-                    segments(day, axis: axis, width: geo.size.width)
-                    FocusBarOverlay(
-                        fractions: focusFractions(day, axis: axis), width: geo.size.width
-                    )
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 3))
-        }
-        .frame(height: Self.rowHeight)
-    }
-
-    /// v11: the day's focus intervals as clamped fractions of the shared
-    /// week axis — drawn as the wash overlay on the row and as the traces.
-    private func focusFractions(
-        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)
-    ) -> [(start: CGFloat, end: CGFloat)] {
-        let dayStart = Calendar.current.startOfDay(for: day.date)
-        return day.focus.compactMap { interval in
-            FocusBarOverlay.clampedFractions(
-                startOffset: interval.start.timeIntervalSince(dayStart) - axis.start,
-                endOffset: interval.end.timeIntervalSince(dayStart) - axis.start,
-                span: axis.span
-            )
-        }
+        .frame(width: width, height: Self.rowHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 3))
     }
 
     private func segments(
@@ -143,13 +170,28 @@ struct ActivityWeekTimelineView: View {
         return selectedBundleID == bundleID ? 1 : 0.15
     }
 
+    /// v11: the day's focus intervals as clamped fractions of the shared
+    /// week axis — drawn as the wash overlay on the row and as the traces.
+    private func focusFractions(
+        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)
+    ) -> [(start: CGFloat, end: CGFloat)] {
+        let dayStart = Calendar.current.startOfDay(for: day.date)
+        return day.focus.compactMap { interval in
+            FocusBarOverlay.clampedFractions(
+                startOffset: interval.start.timeIntervalSince(dayStart) - axis.start,
+                endOffset: interval.end.timeIntervalSince(dayStart) - axis.start,
+                span: axis.span
+            )
+        }
+    }
+
     /// 3 pt rounded accent marks under each row where focus sessions ran
     /// (v11: grown from 2 pt) — same axis, no tooltips at this size (v10).
     /// The strip is always laid out so the rows keep their block height.
     private func focusTraces(
-        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)?
+        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)?, width: CGFloat
     ) -> some View {
-        GeometryReader { geo in
+        ZStack(alignment: .leading) {
             if let axis {
                 let fractions = focusFractions(day, axis: axis)
                 ForEach(fractions.indices, id: \.self) { index in
@@ -157,33 +199,69 @@ struct ActivityWeekTimelineView: View {
                     Capsule()
                         .fill(Color.accentColor)
                         .frame(width: max(
-                            Self.traceHeight,
-                            geo.size.width * (fraction.end - fraction.start)
+                            Self.traceHeight, width * (fraction.end - fraction.start)
                         ))
-                        .offset(x: geo.size.width * fraction.start)
+                        .offset(x: width * fraction.start)
                 }
             }
         }
-        .frame(height: Self.traceHeight)
+        .frame(width: width, height: Self.traceHeight, alignment: .leading)
     }
 
     // MARK: - Ticks
 
-    /// Coarse start/mid/end labels (the week view has no zoom), indented to
-    /// start under the tracks.
-    private func tickLabels(axis: (start: TimeInterval, span: TimeInterval)) -> some View {
+    /// v11: adaptive tick labels via the shared `TimelineTicks` math on the
+    /// week axis — coarse start/mid/end at 1× (the v10 look), refining to
+    /// hourly and quarter-hourly when zoomed in. They live inside the
+    /// scroll content, so they pan and zoom with the rows.
+    private func tickLabels(
+        axis: (start: TimeInterval, span: TimeInterval), width: CGFloat, viewportWidth: CGFloat
+    ) -> some View {
         let dayStart = Calendar.current.startOfDay(for: days.first?.date ?? Date())
         let start = dayStart.addingTimeInterval(axis.start)
-        return HStack {
-            Text(Self.hourFormatter.string(from: start))
-            Spacer()
-            Text(Self.hourFormatter.string(from: start.addingTimeInterval(axis.span / 2)))
-            Spacer()
-            Text(Self.hourFormatter.string(from: start.addingTimeInterval(axis.span)))
+        let interval = TimelineTicks.tickIntervalMinutes(
+            zoom: width / max(viewportWidth, 1),
+            spanMinutes: axis.span / 60, viewportWidth: viewportWidth
+        )
+        return Group {
+            if let interval {
+                intervalTickLabels(
+                    start: start, axis: axis, width: width, intervalMinutes: interval
+                )
+            } else {
+                coarseTickLabels(start: start, span: axis.span)
+            }
         }
         .font(.system(size: 10))
         .foregroundStyle(.tertiary)
-        .frame(height: Self.ticksHeight)
-        .padding(.leading, Self.labelWidth + Self.labelGap)
+        .frame(width: width, height: Self.ticksHeight, alignment: .topLeading)
+    }
+
+    private func coarseTickLabels(start: Date, span: TimeInterval) -> some View {
+        HStack {
+            Text(Self.hourFormatter.string(from: start))
+            Spacer()
+            Text(Self.hourFormatter.string(from: start.addingTimeInterval(span / 2)))
+            Spacer()
+            Text(Self.hourFormatter.string(from: start.addingTimeInterval(span)))
+        }
+    }
+
+    private func intervalTickLabels(
+        start: Date, axis: (start: TimeInterval, span: TimeInterval),
+        width: CGFloat, intervalMinutes: Int
+    ) -> some View {
+        let offsets = TimelineTicks.tickOffsetsMinutes(
+            startMinuteOfDay: axis.start / 60,
+            spanMinutes: axis.span / 60,
+            intervalMinutes: intervalMinutes
+        )
+        return ZStack(alignment: .topLeading) {
+            ForEach(offsets, id: \.self) { offset in
+                Text(Self.hourFormatter.string(from: start.addingTimeInterval(offset * 60)))
+                    .fixedSize()
+                    .position(x: width * offset / (axis.span / 60), y: Self.ticksHeight / 2)
+            }
+        }
     }
 }

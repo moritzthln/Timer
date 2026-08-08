@@ -43,12 +43,16 @@ struct ActivityWeekView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             if let data {
+                // v11: fresh identity per displayed week, so the zoom
+                // resets on week navigation (and on the Tag/Woche switch
+                // plus window reopen via the rebuilt view tree).
                 ActivityWeekTimelineView(
                     days: data.days,
                     colorFor: color(for:),
                     selectedBundleID: selectedBundleID,
                     onOpenDay: onOpenDay
                 )
+                .id(weekStart)
                 if data.hasActivity {
                     presenceLine(data)
                     ActivityAppListView(
