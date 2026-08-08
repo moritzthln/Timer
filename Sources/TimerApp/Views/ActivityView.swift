@@ -46,14 +46,13 @@ struct ActivityView: View {
             .frame(height: Self.switcherHeight)
             if mode == .day {
                 ActivityDayView(
-                    store: store, focusLog: focusLog, day: $day, focusOnly: focusOnly,
-                    liveFocusStart: liveFocusStart
+                    store: store, focusLog: focusLog, liveFocusStart: liveFocusStart,
+                    day: $day, focusOnly: focusOnly
                 )
             } else {
                 ActivityWeekView(
-                    store: store, focusLog: focusLog, anchor: $weekAnchor,
-                    focusOnly: focusOnly, onOpenDay: openDay,
-                    liveFocusStart: liveFocusStart
+                    store: store, focusLog: focusLog, liveFocusStart: liveFocusStart,
+                    anchor: $weekAnchor, focusOnly: focusOnly, onOpenDay: openDay
                 )
             }
             Text("Alle Daten bleiben lokal auf diesem Mac")
