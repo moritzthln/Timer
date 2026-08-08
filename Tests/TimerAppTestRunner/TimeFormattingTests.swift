@@ -18,4 +18,12 @@ func runTimeFormattingTests() {
     test("clamps negative to zero") {
         try expectEqual(TimeFormatting.format(seconds: -5), "0:00")
     }
+
+    test("wording formats hours and minutes for stats") {
+        try expectEqual(TimeFormatting.wording(seconds: 0), "0 min")
+        try expectEqual(TimeFormatting.wording(seconds: 2700), "45 min")
+        try expectEqual(TimeFormatting.wording(seconds: 5100), "1 h 25 min")
+        try expectEqual(TimeFormatting.wording(seconds: 7200), "2 h 0 min")
+        try expectEqual(TimeFormatting.wording(seconds: 59), "0 min")
+    }
 }
