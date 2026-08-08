@@ -117,7 +117,9 @@ func runTimerEngineTests() {
     test("restore with future end date resumes running") {
         let prefs = freshEnginePrefs()
         let current = Date(timeIntervalSince1970: 1_000_000)
-        prefs.persistRunning(endDate: current.addingTimeInterval(300), total: 1500)
+        prefs.persistRun(PersistedRun(
+            endDate: current.addingTimeInterval(300), total: 1500, kind: .single, config: nil
+        ))
         let engine = TimerEngine(preferences: prefs, now: { current })
         try expectEqual(
             engine.phase,
@@ -130,7 +132,9 @@ func runTimerEngineTests() {
     test("restore with past end date shows finished and clears") {
         let prefs = freshEnginePrefs()
         let current = Date(timeIntervalSince1970: 1_000_000)
-        prefs.persistRunning(endDate: current.addingTimeInterval(-10), total: 1500)
+        prefs.persistRun(PersistedRun(
+            endDate: current.addingTimeInterval(-10), total: 1500, kind: .single, config: nil
+        ))
         let engine = TimerEngine(preferences: prefs, now: { current })
         try expectEqual(engine.phase, .finished, "phase")
         try expectNil(prefs.persistedRun, "stale persistence cleared")

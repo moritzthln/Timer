@@ -24,6 +24,7 @@ public final class TimerEngine: ObservableObject {
     private let preferences: Preferences
     private let now: () -> Date
     private var ticker: Foundation.Timer?
+    private var activeConfig: PomodoroConfig?
 
     public init(preferences: Preferences, now: @escaping () -> Date = { Date() }) {
         self.preferences = preferences
@@ -88,7 +89,7 @@ public final class TimerEngine: ObservableObject {
         let total = TimeInterval(clamped * 60)
         let end = now().addingTimeInterval(total)
         phase = .running(endDate: end, total: total, kind: .single)
-        preferences.persistRunning(endDate: end, total: total)
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: .single, config: nil))
         startTicker()
     }
 
@@ -104,7 +105,7 @@ public final class TimerEngine: ObservableObject {
         guard case .paused(let remaining, let total, let kind) = phase else { return }
         let end = now().addingTimeInterval(remaining)
         phase = .running(endDate: end, total: total, kind: kind)
-        preferences.persistRunning(endDate: end, total: total)
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: activeConfig))
         startTicker()
     }
 
@@ -138,7 +139,8 @@ public final class TimerEngine: ObservableObject {
     private func restore() {
         guard let run = preferences.persistedRun else { return }
         if run.endDate > now() {
-            phase = .running(endDate: run.endDate, total: run.total, kind: .single)
+            phase = .running(endDate: run.endDate, total: run.total, kind: run.kind)
+            activeConfig = run.config
             startTicker()
         } else {
             // Expired while the app was not running: finished state, no sound
