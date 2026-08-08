@@ -19,6 +19,7 @@ final class StatusBarController {
     private let hotkeys = HotkeyManager()
     private let activityStore = ActivityStore(directory: ActivityStore.defaultDirectory())
     private let sessionStore = SessionStore(directory: SessionStore.defaultDirectory())
+    private let qualityRecorder: SessionQualityRecorder
     private var activityTracker: ActivityTrackerController?
     private var cancellable: AnyCancellable?
     private var midnightTimer: Foundation.Timer?
@@ -35,8 +36,11 @@ final class StatusBarController {
         statsWindow = StatsWindowController(
             stats: stats, activity: activityStore, sessions: sessionStore, preferences: preferences
         )
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        qualityRecorder = SessionQualityRecorder(
+            activity: activityStore, sessions: sessionStore, preferences: preferences
+        )
         activityTracker = ActivityTrackerController(store: activityStore, preferences: preferences)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         wireEngineCallbacks()
         wireHotkeys()
@@ -51,7 +55,12 @@ final class StatusBarController {
 
     private func wireEngineCallbacks() {
         engine.onFocusSegmentEnded = { [weak self] segment in
-            self?.stats.add(focusFrom: segment.start, to: segment.end)
+            guard let self else { return }
+            self.stats.add(focusFrom: segment.start, to: segment.end)
+            // Flush first so the open app segment's latest minute is
+            // persisted, then compute quality from persisted segments.
+            self.activityTracker?.flushNow()
+            self.qualityRecorder.record(start: segment.start, end: segment.end)
         }
 
         cancellable = engine.objectWillChange.sink { [weak self] _ in
@@ -60,6 +69,7 @@ final class StatusBarController {
                 guard let self else { return }
                 self.refresh()
                 self.focusBlock.update(phase: self.engine.phase)
+                self.focusMode.update(phase: self.engine.phase)
             }
         }
 
@@ -143,9 +153,10 @@ final class StatusBarController {
 
     // MARK: - Activity tracking
 
-    /// Called from applicationWillTerminate: closes open activity segments.
-    func flushActivity() {
+    /// Final activity flush + best-effort Focus-mode off on quit.
+    func prepareForTermination() {
         activityTracker?.flush()
+        focusMode.deactivateForTermination()
     }
 
     // MARK: - Hotkey actions
