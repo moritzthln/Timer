@@ -9,6 +9,7 @@ import TimerCore
 struct ActivityView: View {
     let store: ActivityStore
     let focusLog: FocusLog
+    var liveFocusStart: () -> Date? = { nil }
 
     enum Mode {
         case day
@@ -45,12 +46,14 @@ struct ActivityView: View {
             .frame(height: Self.switcherHeight)
             if mode == .day {
                 ActivityDayView(
-                    store: store, focusLog: focusLog, day: $day, focusOnly: focusOnly
+                    store: store, focusLog: focusLog, day: $day, focusOnly: focusOnly,
+                    liveFocusStart: liveFocusStart
                 )
             } else {
                 ActivityWeekView(
                     store: store, focusLog: focusLog, anchor: $weekAnchor,
-                    focusOnly: focusOnly, onOpenDay: openDay
+                    focusOnly: focusOnly, onOpenDay: openDay,
+                    liveFocusStart: liveFocusStart
                 )
             }
             Text("Alle Daten bleiben lokal auf diesem Mac")

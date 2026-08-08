@@ -6,6 +6,7 @@ import TimerCore
 struct ActivityDayView: View {
     let store: ActivityStore
     let focusLog: FocusLog
+    var liveFocusStart: () -> Date? = { nil }
     @Binding var day: Date
     /// v12: the "Nur Fokus-Zeit" filter (owned by the tab root).
     let focusOnly: Bool
@@ -137,7 +138,10 @@ struct ActivityDayView: View {
             Calendar.current.date(byAdding: .day, value: $0, to: day)
         }
         windowSummaries = window.map(store.daySummary(for:))
-        windowFocus = window.map(focusLog.intervals(onDay:))
+        let liveStart = liveFocusStart()
+        windowFocus = window.map {
+            LiveFocus.augment(focusLog.intervals(onDay: $0), onDay: $0, liveStart: liveStart)
+        }
     }
 
     private func toggleSelection(_ bundleID: String) {

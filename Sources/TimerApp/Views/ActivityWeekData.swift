@@ -32,7 +32,8 @@ struct WeekData {
         return cal
     }()
 
-    static func load(store: ActivityStore, focusLog: FocusLog, weekOf anchor: Date) -> WeekData {
+    static func load(store: ActivityStore, focusLog: FocusLog, weekOf anchor: Date,
+                     liveFocusStart: Date? = nil) -> WeekData {
         let start = calendar.dateInterval(of: .weekOfYear, for: anchor)?.start
             ?? calendar.startOfDay(for: anchor)
         let days = (0..<7)
@@ -40,7 +41,9 @@ struct WeekData {
             .map {
                 WeekDay(
                     date: $0, summary: store.daySummary(for: $0),
-                    focus: focusLog.intervals(onDay: $0)
+                    focus: LiveFocus.augment(
+                        focusLog.intervals(onDay: $0), onDay: $0, liveStart: liveFocusStart
+                    )
                 )
             }
         return aggregate(days: days)

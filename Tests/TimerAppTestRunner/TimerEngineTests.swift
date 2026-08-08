@@ -434,4 +434,22 @@ func runTimerEngineTests() {
         engine.skip()
         try expectEqual(total, 400, accuracy: 0.001, "elapsed focus credited on skip")
     }
+
+    test("activeFocusStart tracks the open focus segment") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        try expectNil(engine.activeFocusStart, "idle has no open segment")
+        engine.start(minutes: 10)
+        try expectEqual(engine.activeFocusStart, Date(timeIntervalSince1970: 1_000_000), "running exposes start")
+        engine.pause()
+        try expectNil(engine.activeFocusStart, "pause closes the segment")
+        engine.resume()
+        current = current.addingTimeInterval(5)
+        try expect(engine.activeFocusStart != nil, "resume reopens")
+        engine.startPomodoro(config: PomodoroConfig(focusMinutes: 1, breakMinutes: 1, longBreakMinutes: 2, rounds: 2))
+        current = current.addingTimeInterval(61)
+        engine.tick()
+        try expectNil(engine.activeFocusStart, "break phase has no open focus segment")
+    }
 }

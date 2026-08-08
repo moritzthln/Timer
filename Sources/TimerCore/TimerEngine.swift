@@ -36,6 +36,11 @@ public final class TimerEngine: ObservableObject {
     private var activeConfig: PomodoroConfig?
     private var focusSegmentStart: Date?
 
+    /// Start of the currently open focus segment (running focus work only);
+    /// nil while idle, paused, finished, or in a break. Lets the activity
+    /// views count the live session before it is written to the focus log.
+    public var activeFocusStart: Date? { focusSegmentStart }
+
     public init(preferences: Preferences, now: @escaping () -> Date = { Date() }) {
         self.preferences = preferences
         self.now = now

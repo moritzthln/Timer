@@ -6,6 +6,7 @@ import TimerCore
 struct ActivityWeekView: View {
     let store: ActivityStore
     let focusLog: FocusLog
+    var liveFocusStart: () -> Date? = { nil }
     @Binding var anchor: Date
     /// v12: the "Nur Fokus-Zeit" filter (owned by the tab root).
     let focusOnly: Bool
@@ -129,7 +130,10 @@ struct ActivityWeekView: View {
     }
 
     private func reload() {
-        data = WeekData.load(store: store, focusLog: focusLog, weekOf: anchor)
+        data = WeekData.load(
+            store: store, focusLog: focusLog, weekOf: anchor,
+            liveFocusStart: liveFocusStart()
+        )
     }
 
     private func toggleSelection(_ bundleID: String) {

@@ -6,6 +6,7 @@ struct StatsRootView: View {
     let stats: StatsStore
     let activity: ActivityStore
     let focusLog: FocusLog
+    var liveFocusStart: () -> Date? = { nil }
 
     @State private var tab = "fokus"
 
@@ -31,7 +32,7 @@ struct StatsRootView: View {
                 if tab == "fokus" {
                     StatsView(stats: stats)
                 } else {
-                    ActivityView(store: activity, focusLog: focusLog)
+                    ActivityView(store: activity, focusLog: focusLog, liveFocusStart: liveFocusStart)
                 }
             }
             .frame(minWidth: Self.tabMinSize.width, minHeight: Self.tabMinSize.height)
@@ -46,11 +47,14 @@ final class StatsWindowController {
     private let stats: StatsStore
     private let activity: ActivityStore
     private let focusLog: FocusLog
+    private let liveFocusStart: () -> Date?
 
-    init(stats: StatsStore, activity: ActivityStore, focusLog: FocusLog) {
+    init(stats: StatsStore, activity: ActivityStore, focusLog: FocusLog,
+         liveFocusStart: @escaping () -> Date?) {
         self.stats = stats
         self.activity = activity
         self.focusLog = focusLog
+        self.liveFocusStart = liveFocusStart
     }
 
     func show() {
@@ -77,7 +81,8 @@ final class StatsWindowController {
         // frame by restoring it right after.
         let frame = window.frame
         let hosting = NSHostingController(rootView: StatsRootView(
-            stats: stats, activity: activity, focusLog: focusLog
+            stats: stats, activity: activity, focusLog: focusLog,
+            liveFocusStart: liveFocusStart
         ))
         // v9: propagates the SwiftUI minimum size to window.contentMinSize —
         // the window shrinks exactly to where everything still fits, never past.
