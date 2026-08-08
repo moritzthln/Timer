@@ -57,7 +57,7 @@ struct SettingsView: View {
     private var presetsSection: some View {
         section("Presets (Minuten)") {
             HStack(spacing: 6) {
-                ForEach(0..<6, id: \.self) { index in
+                ForEach(0..<4, id: \.self) { index in
                     TextField("", text: presetBinding(index))
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
