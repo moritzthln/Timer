@@ -96,8 +96,11 @@ Lives in the menu bar only — no Dock icon, no window.
 - The chart button in the popover footer opens the stats window
   (freely resizable, default 560 × 560, size and position remembered;
   v9: the minimum size follows the content — the window only shrinks as
-  far as everything stays visible). Its "Fokus" tab shows today/week
-  tiles, a 7-day
+  far as everything stays visible). Its "Fokus" tab shows four metric
+  tiles — Heute · Diese Woche · **Gesamt** (all-time focus total) ·
+  **Ø pro Tag** (all-time ÷ days with focus time, "–" before the first
+  one; hover explains the average) — in one row at the default width,
+  wrapping 2×2 near the window minimum (v14), a 7-day
   bar chart with the minute value above each bar, and below it a
   12-month GitHub-style heatmap with month labels (today outlined).
   Heatmap shades are relative to the busiest day of the visible year —
@@ -179,6 +182,14 @@ Lives in the menu bar only — no Dock icon, no window.
   current list automatically. Promoted rows have no timeline
   drill-down (the timeline draws app segments); clicking them does
   nothing.
+- v14 — usage percentages: every main row of the app list (apps,
+  promoted sites, browser remainders, "Sonstige") shows its share of
+  the displayed period right of the duration — "2 h 41 min · 39 %".
+  The basis is the sum of all rows including the folded rest; with
+  "Nur Fokus-Zeit" on it is the focus-time sum, so shares answer "what
+  fraction of my focus time went where". Whole percents, tiny shares
+  render "<1 %", and the per-domain disclosure rows stay
+  percentage-free.
 - **Privacy:** everything stays on this Mac — one JSON file per day
   under `~/Library/Application Support/Timer/activity/` (and, since
   v10, focus intervals under `…/Timer/focus/`), no network, ever.
