@@ -10,30 +10,6 @@ final class FocusBlockController {
     private var pollTimer: Foundation.Timer?
     private var launchObserver: NSObjectProtocol?
 
-    private struct Browser {
-        let bundleID: String
-        let readURL: String
-        let closeTab: String
-    }
-
-    private static let browsers: [Browser] = [
-        Browser(
-            bundleID: "com.apple.Safari",
-            readURL: "tell application \"Safari\" to return URL of current tab of front window",
-            closeTab: "tell application \"Safari\" to close current tab of front window"
-        ),
-        Browser(
-            bundleID: "com.google.Chrome",
-            readURL: "tell application \"Google Chrome\" to return URL of active tab of front window",
-            closeTab: "tell application \"Google Chrome\" to close active tab of front window"
-        ),
-        Browser(
-            bundleID: "company.thebrowser.Browser",
-            readURL: "tell application \"Arc\" to return URL of active tab of front window",
-            closeTab: "tell application \"Arc\" to close active tab of front window"
-        ),
-    ]
-
     init(preferences: Preferences, overlay: BlockOverlayController) {
         self.preferences = preferences
         self.overlay = overlay
@@ -105,23 +81,14 @@ final class FocusBlockController {
         let domains = preferences.blockedDomains
         guard active, !domains.isEmpty else { return }
         let runningIDs = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-        for browser in Self.browsers where runningIDs.contains(browser.bundleID) {
-            guard let urlString = runAppleScript(browser.readURL),
+        for browser in BrowserScripting.supported where runningIDs.contains(browser.bundleID) {
+            guard let urlString = BrowserScripting.run(browser.readURL),
                   let host = URL(string: urlString)?.host else { continue }
             let matched = domains.first { FocusBlockRules.domainMatches(host: host, entry: $0) }
             if let matched {
-                _ = runAppleScript(browser.closeTab)
+                _ = BrowserScripting.run(browser.closeTab)
                 overlay.show(blocked: matched)
             }
         }
-    }
-
-    /// Returns the string result, or nil on any scripting/permission error.
-    private func runAppleScript(_ source: String) -> String? {
-        guard let script = NSAppleScript(source: source) else { return nil }
-        var error: NSDictionary?
-        let result = script.executeAndReturnError(&error)
-        guard error == nil else { return nil }
-        return result.stringValue
     }
 }

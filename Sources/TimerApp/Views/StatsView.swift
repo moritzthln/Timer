@@ -22,8 +22,6 @@ struct StatsView: View {
             }
             chart
         }
-        .padding(20)
-        .frame(width: 300)
         .onAppear(perform: reload)
     }
 
