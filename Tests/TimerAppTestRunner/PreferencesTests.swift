@@ -229,6 +229,24 @@ func runPreferencesTests() {
         try expectEqual(prefs.promotedSites, ["youtube.com"], "partial list persists as-is")
     }
 
+    test("addPromotedSite sanitizes, dedupes, and returns what stuck") {
+        let prefs = freshPrefs()
+        try expectEqual(
+            prefs.addPromotedSite("https://TikTok.com/foryou"), "tiktok.com",
+            "sanitized form is stored and reported"
+        )
+        try expectEqual(
+            prefs.promotedSites, ["instagram.com", "youtube.com", "tiktok.com"],
+            "appends to the default list"
+        )
+        try expectNil(prefs.addPromotedSite("   "), "whitespace-only dropped")
+        try expectNil(prefs.addPromotedSite("youtube.com"), "duplicate dropped")
+        try expectEqual(
+            prefs.promotedSites, ["instagram.com", "youtube.com", "tiktok.com"],
+            "list unchanged after rejected adds"
+        )
+    }
+
     test("dnd shortcut names default to the v7 fixed names and roundtrip") {
         let prefs = freshPrefs()
         try expectEqual(prefs.dndShortcutOn, "Timer Fokus an", "on default")

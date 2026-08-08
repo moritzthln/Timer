@@ -363,6 +363,19 @@ public final class Preferences {
         }
     }
 
+    /// Sanitizes and appends `raw` to the promoted-sites list. Returns the
+    /// stored domain, or nil when sanitizing dropped the input or the domain
+    /// was already listed — the settings field clears only on success.
+    @discardableResult
+    public func addPromotedSite(_ raw: String) -> String? {
+        guard let sanitized = Self.sanitizeDomain(raw) else { return nil }
+        var sites = promotedSites
+        guard !sites.contains(sanitized) else { return nil }
+        sites.append(sanitized)
+        promotedSites = sites
+        return sanitized
+    }
+
     public var dndEnabled: Bool {
         get { defaults.object(forKey: Key.dndEnabled) as? Bool ?? false }
         set { defaults.set(newValue, forKey: Key.dndEnabled) }
