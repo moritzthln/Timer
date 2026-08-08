@@ -29,8 +29,6 @@ struct SettingsView: View {
     @State private var hotkeyHint: String?
     @State private var trackingPaused = false
     @State private var idleText = "5"
-    @State private var dailyGoalText = "180"
-    @State private var weekdaysOnly = true
     @State private var dndEnabled = false
 
     var body: some View {
@@ -43,7 +41,6 @@ struct SettingsView: View {
                 focusBlockSection
                 hotkeysSection
                 activitySection
-                goalSection
                 dndSection
             }
             .padding(20)
@@ -276,19 +273,6 @@ struct SettingsView: View {
         }
     }
 
-    private var goalSection: some View {
-        section("Ziel") {
-            HStack {
-                Text("Tagesziel (min)")
-                numberField($dailyGoalText, commit: commitGoal)
-            }
-            Toggle("Wochenenden zählen nicht", isOn: $weekdaysOnly)
-                .onChange(of: weekdaysOnly) { newValue in
-                    preferences.streakWeekdaysOnly = newValue
-                }
-        }
-    }
-
     private var dndSection: some View {
         section("Nicht stören") {
             Toggle("Fokus-Modus koppeln", isOn: $dndEnabled)
@@ -368,8 +352,6 @@ struct SettingsView: View {
         hotkeyQuickStart = preferences.hotkeyQuickStart
         trackingPaused = preferences.trackingPaused
         idleText = String(preferences.idleThresholdMinutes)
-        dailyGoalText = String(preferences.dailyGoalMinutes)
-        weekdaysOnly = preferences.streakWeekdaysOnly
         dndEnabled = preferences.dndEnabled
     }
 
@@ -481,12 +463,6 @@ struct SettingsView: View {
         blockedDomains = preferences.blockedDomains
         shieldEnabled = preferences.focusBlockEnabled
         if stored != nil { newDomain = "" }
-    }
-
-    private func commitGoal() {
-        if let value = Int(dailyGoalText) { preferences.dailyGoalMinutes = value }
-        dailyGoalText = String(preferences.dailyGoalMinutes)
-        NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
     }
 
     private func commitPresets() {

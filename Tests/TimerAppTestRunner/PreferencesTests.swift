@@ -171,20 +171,8 @@ func runPreferencesTests() {
         try expectEqual(prefs.idleThresholdMinutes, 30, "clamped down")
     }
 
-    test("daily goal defaults to 180 and clamps 15...960") {
+    test("dnd defaults off and roundtrips") {
         let prefs = freshPrefs()
-        try expectEqual(prefs.dailyGoalMinutes, 180, "default")
-        prefs.dailyGoalMinutes = 5
-        try expectEqual(prefs.dailyGoalMinutes, 15, "clamped up")
-        prefs.dailyGoalMinutes = 2000
-        try expectEqual(prefs.dailyGoalMinutes, 960, "clamped down")
-    }
-
-    test("streak weekdays-only defaults on, dnd defaults off") {
-        let prefs = freshPrefs()
-        try expect(prefs.streakWeekdaysOnly, "weekdays-only default true")
-        prefs.streakWeekdaysOnly = false
-        try expect(!prefs.streakWeekdaysOnly, "roundtrip")
         try expect(!prefs.dndEnabled, "dnd default false")
         prefs.dndEnabled = true
         try expect(prefs.dndEnabled, "dnd roundtrip")

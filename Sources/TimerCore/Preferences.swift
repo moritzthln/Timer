@@ -63,8 +63,6 @@ public final class Preferences {
         static let hotkeyQuickStart = "hotkeyQuickStart"
         static let trackingPaused = "trackingPaused"
         static let idleThresholdMinutes = "idleThresholdMinutes"
-        static let dailyGoalMinutes = "dailyGoalMinutes"
-        static let streakWeekdaysOnly = "streakWeekdaysOnly"
         static let dndEnabled = "dndEnabled"
     }
 
@@ -326,21 +324,6 @@ public final class Preferences {
             return min(30, max(1, value))
         }
         set { defaults.set(min(30, max(1, newValue)), forKey: Key.idleThresholdMinutes) }
-    }
-
-    // MARK: - Goals
-
-    public var dailyGoalMinutes: Int {
-        get {
-            let value = defaults.object(forKey: Key.dailyGoalMinutes) as? Int ?? 180
-            return min(960, max(15, value))
-        }
-        set { defaults.set(min(960, max(15, newValue)), forKey: Key.dailyGoalMinutes) }
-    }
-
-    public var streakWeekdaysOnly: Bool {
-        get { defaults.object(forKey: Key.streakWeekdaysOnly) as? Bool ?? true }
-        set { defaults.set(newValue, forKey: Key.streakWeekdaysOnly) }
     }
 
     public var dndEnabled: Bool {

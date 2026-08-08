@@ -5,7 +5,6 @@ import TimerCore
 struct StatsRootView: View {
     let stats: StatsStore
     let activity: ActivityStore
-    let preferences: Preferences
 
     @State private var tab = "fokus"
 
@@ -18,7 +17,7 @@ struct StatsRootView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             if tab == "fokus" {
-                StatsView(stats: stats, preferences: preferences)
+                StatsView(stats: stats)
             } else {
                 ActivityView(store: activity)
             }
@@ -32,12 +31,10 @@ final class StatsWindowController {
     private var window: NSWindow?
     private let stats: StatsStore
     private let activity: ActivityStore
-    private let preferences: Preferences
 
-    init(stats: StatsStore, activity: ActivityStore, preferences: Preferences) {
+    init(stats: StatsStore, activity: ActivityStore) {
         self.stats = stats
         self.activity = activity
-        self.preferences = preferences
     }
 
     func show() {
@@ -54,7 +51,7 @@ final class StatsWindowController {
         }
         // Fresh view on every open so the numbers reload.
         window?.contentView = NSHostingView(rootView: StatsRootView(
-            stats: stats, activity: activity, preferences: preferences
+            stats: stats, activity: activity
         ))
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)

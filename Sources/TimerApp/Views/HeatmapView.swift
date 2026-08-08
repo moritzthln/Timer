@@ -1,12 +1,12 @@
 import SwiftUI
 import TimerCore
 
-/// GitHub-style goal heatmap: last 12 months, columns = ISO weeks
-/// (Monday-start), rows = Mon–Sun, five intensity levels vs. the daily goal.
-/// Today is outlined; future days of the current week stay blank. No
-/// tooltips (v5). 53 columns × 4 pt cells + 1.5 pt gaps = 290 pt, inside
-/// the 340 pt window (308 pt content width).
-struct GoalHeatmapView: View {
+/// GitHub-style focus heatmap: last 12 months, columns = ISO weeks
+/// (Monday-start), rows = Mon–Sun, five intensity levels relative to the
+/// busiest day of the visible period (`HeatmapScale`, absolute — v8 removed
+/// the daily goal). Today is outlined; future days of the current week stay
+/// blank. No tooltips (v5).
+struct HeatmapView: View {
     struct Day: Identifiable {
         let id: Int
         let date: Date
@@ -51,39 +51,42 @@ struct GoalHeatmapView: View {
         Color.accentColor,
     ]
 
+    /// ISO-8601 (Monday-start) calendar in the local time zone.
+    private static func localISOCalendar() -> Calendar {
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = TimeZone.current
+        return calendar
+    }
+
     /// 53 week columns: the ISO week containing `now` plus the 52 before it.
-    /// Days before install simply look up 0 seconds → level 0 (no data ≠ failure).
-    static func build(
-        now: Date, goalMinutes: Int, secondsByDay: (Date) -> Double
-    ) -> [[Day]] {
-        let calendar = GoalRules.localISOCalendar()
+    /// First pass gathers every day's seconds to find the period maximum,
+    /// second pass maps each day to its `HeatmapScale` level. Days before
+    /// install simply look up 0 seconds → level 0 (no data ≠ failure).
+    static func build(now: Date, secondsByDay: (Date) -> Double) -> [[Day]] {
+        let calendar = localISOCalendar()
         let today = calendar.startOfDay(for: now)
         guard let thisWeek = calendar.dateInterval(of: .weekOfYear, for: now),
               let firstMonday = calendar.date(byAdding: .weekOfYear, value: -52, to: thisWeek.start) else {
             return []
         }
+        var days: [(date: Date, seconds: Double, isFuture: Bool)] = []
+        for offset in 0..<(53 * 7) {
+            guard let date = calendar.date(byAdding: .day, value: offset, to: firstMonday) else { continue }
+            let day = calendar.startOfDay(for: date)
+            let isFuture = day > today
+            days.append((day, isFuture ? 0 : secondsByDay(day), isFuture))
+        }
+        let maxSeconds = days.map(\.seconds).max() ?? 0
         var weeks: [[Day]] = []
-        var id = 0
-        for week in 0...52 {
-            var column: [Day] = []
-            for dayIndex in 0..<7 {
-                guard let date = calendar.date(
-                    byAdding: .day, value: week * 7 + dayIndex, to: firstMonday
-                ) else { continue }
-                let day = calendar.startOfDay(for: date)
-                let isFuture = day > today
-                column.append(Day(
-                    id: id,
-                    date: day,
-                    level: isFuture ? 0 : GoalRules.heatLevel(
-                        seconds: secondsByDay(day), goalMinutes: goalMinutes
-                    ),
-                    isToday: day == today,
-                    isFuture: isFuture
-                ))
-                id += 1
-            }
-            weeks.append(column)
+        for (index, day) in days.enumerated() {
+            if index % 7 == 0 { weeks.append([]) }
+            weeks[weeks.count - 1].append(Day(
+                id: index,
+                date: day.date,
+                level: HeatmapScale.level(seconds: day.seconds, maxSeconds: maxSeconds),
+                isToday: day.date == today,
+                isFuture: day.isFuture
+            ))
         }
         return weeks
     }

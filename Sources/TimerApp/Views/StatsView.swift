@@ -3,13 +3,11 @@ import TimerCore
 
 struct StatsView: View {
     let stats: StatsStore
-    let preferences: Preferences
 
     @State private var today: Double = 0
     @State private var week: Double = 0
     @State private var days: [DayStat] = []
-    @State private var streak = 0
-    @State private var heatWeeks: [[GoalHeatmapView.Day]] = []
+    @State private var heatWeeks: [[HeatmapView.Day]] = []
 
     private static let weekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -21,7 +19,7 @@ struct StatsView: View {
         VStack(alignment: .leading, spacing: 14) {
             metricRow
             chart
-            GoalHeatmapView(weeks: heatWeeks)
+            HeatmapView(weeks: heatWeeks)
         }
         .onAppear(perform: reload)
     }
@@ -32,7 +30,6 @@ struct StatsView: View {
         HStack(spacing: 10) {
             metricTile(title: "Heute", value: today)
             metricTile(title: "Diese Woche", value: week)
-            streakTile
         }
     }
 
@@ -43,24 +40,6 @@ struct StatsView: View {
                 .foregroundStyle(.secondary)
             Text(TimeFormatting.wording(seconds: value))
                 .font(.system(.title3, design: .monospaced).weight(.medium))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    private var streakTile: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Serie")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            HStack(spacing: 3) {
-                Image(systemName: "flame")
-                    .font(.system(size: 13))
-                    .foregroundStyle(streak > 0 ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
-                Text(streak > 0 ? "\(streak)" : "–")
-                    .font(.system(.title3, design: .monospaced).weight(.medium))
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
@@ -96,16 +75,6 @@ struct StatsView: View {
         today = stats.todaySeconds()
         week = stats.weekSeconds()
         days = stats.last7Days()
-        streak = GoalRules.streak(
-            endingAt: Date(),
-            secondsByDay: { stats.seconds(onDayOf: $0) },
-            goalMinutes: preferences.dailyGoalMinutes,
-            weekdaysOnly: preferences.streakWeekdaysOnly
-        )
-        heatWeeks = GoalHeatmapView.build(
-            now: Date(),
-            goalMinutes: preferences.dailyGoalMinutes,
-            secondsByDay: { stats.seconds(onDayOf: $0) }
-        )
+        heatWeeks = HeatmapView.build(now: Date()) { stats.seconds(onDayOf: $0) }
     }
 }
