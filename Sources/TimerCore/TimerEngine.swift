@@ -25,10 +25,16 @@ public final class TimerEngine: ObservableObject {
     /// Not fired for user-initiated skips or restores.
     public var onPhaseChange: ((SessionKind) -> Void)?
 
+    /// Fired whenever a focus segment (single timer or pomodoro focus phase)
+    /// ends: pause, stop, finish, phase advance, or skip. Interval is clamped
+    /// to the phase's end date.
+    public var onFocusSegmentEnded: (((start: Date, end: Date)) -> Void)?
+
     private let preferences: Preferences
     private let now: () -> Date
     private var ticker: Foundation.Timer?
     private var activeConfig: PomodoroConfig?
+    private var focusSegmentStart: Date?
 
     public init(preferences: Preferences, now: @escaping () -> Date = { Date() }) {
         self.preferences = preferences
@@ -96,6 +102,7 @@ public final class TimerEngine: ObservableObject {
         phase = .running(endDate: end, total: total, kind: .single)
         preferences.persistRun(PersistedRun(endDate: end, total: total, kind: .single, config: nil))
         startTicker()
+        openFocusSegmentIfNeeded(kind: .single, at: now())
     }
 
     public func startPomodoro(config: PomodoroConfig) {
@@ -106,17 +113,20 @@ public final class TimerEngine: ObservableObject {
         phase = .running(endDate: end, total: total, kind: kind)
         preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: config))
         startTicker()
+        openFocusSegmentIfNeeded(kind: kind, at: now())
     }
 
     public func skip() {
         guard let kind = currentKind, case .pomodoro = kind,
               let config = activeConfig else { return }
+        closeFocusSegment(cappedAt: nil)
         let next = config.next(after: kind)
         startPhase(next, at: now(), config: config)
     }
 
     public func pause() {
         guard case .running(let endDate, let total, let kind) = phase else { return }
+        closeFocusSegment(cappedAt: endDate)
         let remaining = max(0, endDate.timeIntervalSince(now()))
         phase = .paused(remaining: remaining, total: total, kind: kind)
         preferences.clearRunning()
@@ -129,9 +139,13 @@ public final class TimerEngine: ObservableObject {
         phase = .running(endDate: end, total: total, kind: kind)
         preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: activeConfig))
         startTicker()
+        openFocusSegmentIfNeeded(kind: kind, at: now())
     }
 
     public func stop() {
+        if case .running(let endDate, _, _) = phase {
+            closeFocusSegment(cappedAt: endDate)
+        }
         phase = .idle
         activeConfig = nil
         preferences.clearRunning()
@@ -149,6 +163,7 @@ public final class TimerEngine: ObservableObject {
         if now() >= endDate {
             switch kind {
             case .single:
+                closeFocusSegment(cappedAt: endDate)
                 phase = .finished
                 preferences.clearRunning()
                 stopTicker()
@@ -158,6 +173,7 @@ public final class TimerEngine: ObservableObject {
                     stop()
                     return
                 }
+                closeFocusSegment(cappedAt: endDate)
                 let landed = advancePomodoro(after: kind, boundary: endDate, config: config)
                 onPhaseChange?(landed)
             }
@@ -169,6 +185,28 @@ public final class TimerEngine: ObservableObject {
 
     // MARK: - Private
 
+    private static func isFocusKind(_ kind: SessionKind) -> Bool {
+        switch kind {
+        case .single: return true
+        case .pomodoro(let phase, _): return phase == .focus
+        }
+    }
+
+    /// Called on every transition that leaves a running state.
+    /// `boundary` caps the segment (phase end date); pass nil to cap at now().
+    private func closeFocusSegment(cappedAt boundary: Date?) {
+        guard let start = focusSegmentStart else { return }
+        focusSegmentStart = nil
+        let rawEnd = boundary.map { min($0, now()) } ?? now()
+        let end = max(rawEnd, start)
+        guard end > start else { return }
+        onFocusSegmentEnded?((start: start, end: end))
+    }
+
+    private func openFocusSegmentIfNeeded(kind: SessionKind, at date: Date) {
+        focusSegmentStart = Self.isFocusKind(kind) ? date : nil
+    }
+
     /// Puts the engine into `kind` running from `start` (end = start + duration).
     private func startPhase(_ kind: SessionKind, at start: Date, config: PomodoroConfig) {
         guard case .pomodoro(let phase, _) = kind else { return }
@@ -177,6 +215,7 @@ public final class TimerEngine: ObservableObject {
         self.phase = .running(endDate: end, total: total, kind: kind)
         preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: config))
         startTicker()
+        openFocusSegmentIfNeeded(kind: kind, at: start)
     }
 
     /// Advances past `boundary` into the phase containing `now()`, fast-forwarding
@@ -189,6 +228,10 @@ public final class TimerEngine: ObservableObject {
             guard case .pomodoro(let phase, _) = nextKind else { break }
             let end = start.addingTimeInterval(config.duration(of: phase))
             if end > now() { break }
+            // Fully skipped-over focus phases still count as focus time.
+            if phase == .focus {
+                onFocusSegmentEnded?((start: start, end: end))
+            }
             start = end
             nextKind = config.next(after: nextKind)
         }
@@ -202,6 +245,9 @@ public final class TimerEngine: ObservableObject {
         if run.endDate > now() {
             phase = .running(endDate: run.endDate, total: run.total, kind: run.kind)
             startTicker()
+            // Counting resumes from launch time (time while the app was
+            // closed is not credited).
+            openFocusSegmentIfNeeded(kind: run.kind, at: now())
             return
         }
         switch run.kind {
@@ -214,7 +260,9 @@ public final class TimerEngine: ObservableObject {
                 return
             }
             // Catch up silently (onPhaseChange is not wired during init).
-            advancePomodoro(after: run.kind, boundary: run.endDate, config: config)
+            let landed = advancePomodoro(after: run.kind, boundary: run.endDate, config: config)
+            // Same rule as the direct restore: no credit for app-closed time.
+            openFocusSegmentIfNeeded(kind: landed, at: now())
         }
     }
 

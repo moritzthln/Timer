@@ -278,4 +278,73 @@ func runTimerEngineTests() {
         )
         try expectEqual(changes, 0, "restore never fires callbacks (wired after init anyway)")
     }
+
+    test("focus segments: start→pause credits elapsed time") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        var segments: [(Date, Date)] = []
+        engine.onFocusSegmentEnded = { segments.append($0) }
+        engine.start(minutes: 25)
+        current = current.addingTimeInterval(300)
+        engine.pause()
+        try expectEqual(segments.count, 1, "one segment")
+        try expectEqual(segments[0].1.timeIntervalSince(segments[0].0), 300, accuracy: 0.001, "5 min")
+    }
+
+    test("focus segments: resume→stop credits the second part only") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        var total = 0.0
+        engine.onFocusSegmentEnded = { total += $0.1.timeIntervalSince($0.0) }
+        engine.start(minutes: 25)
+        current = current.addingTimeInterval(300)
+        engine.pause()
+        current = current.addingTimeInterval(1000)
+        engine.resume()
+        current = current.addingTimeInterval(120)
+        engine.stop()
+        try expectEqual(total, 420, accuracy: 0.001, "300 + 120")
+    }
+
+    test("focus segments: single finish credits the full duration, clamped") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        var segments: [(Date, Date)] = []
+        engine.onFocusSegmentEnded = { segments.append($0) }
+        engine.start(minutes: 1)
+        current = current.addingTimeInterval(500) // tick arrives long after the end
+        engine.tick()
+        try expectEqual(segments.count, 1, "one segment")
+        try expectEqual(segments[0].1.timeIntervalSince(segments[0].0), 60, accuracy: 0.001, "clamped to 60")
+    }
+
+    test("focus segments: pomodoro focus credits, break does not") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        var total = 0.0
+        engine.onFocusSegmentEnded = { total += $0.1.timeIntervalSince($0.0) }
+        engine.startPomodoro(config: PomodoroConfig(focusMinutes: 1, breakMinutes: 1, longBreakMinutes: 2, rounds: 2))
+        current = current.addingTimeInterval(61)
+        engine.tick() // focus → break: credit 60
+        try expectEqual(total, 60, accuracy: 0.001, "focus credited")
+        current = current.addingTimeInterval(61)
+        engine.tick() // break → focus: no credit
+        try expectEqual(total, 60, accuracy: 0.001, "break not credited")
+    }
+
+    test("focus segments: skip mid-focus credits elapsed") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        var total = 0.0
+        engine.onFocusSegmentEnded = { total += $0.1.timeIntervalSince($0.0) }
+        engine.startPomodoro(config: PomodoroConfig(focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, rounds: 4))
+        current = current.addingTimeInterval(400)
+        engine.skip()
+        try expectEqual(total, 400, accuracy: 0.001, "elapsed focus credited on skip")
+    }
 }
