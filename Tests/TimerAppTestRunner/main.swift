@@ -3,4 +3,5 @@
 runSmokeTests()
 runTimeFormattingTests()
 runPreferencesTests()
+runTimerEngineTests()
 finishTestRun()
