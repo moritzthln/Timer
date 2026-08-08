@@ -27,50 +27,19 @@ final class StatusBarController {
         statsWindow = StatsWindowController(stats: stats)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
+        wireEngineCallbacks()
+        wireHotkeys()
+        configurePopover()
+        configureStatusItem()
+        observeSettingsChanges()
+        refresh()
+    }
+
+    // MARK: - Setup
+
+    private func wireEngineCallbacks() {
         engine.onFocusSegmentEnded = { [weak self] segment in
             self?.stats.add(focusFrom: segment.start, to: segment.end)
-        }
-
-        hotkeys.onAction = { [weak self] action in
-            guard let self else { return }
-            switch action {
-            case .openPopover:
-                self.showPopover()
-            case .quickStart:
-                self.quickStart()
-            }
-        }
-        hotkeys.apply(
-            popover: preferences.hotkeyPopover,
-            quickStart: preferences.hotkeyQuickStart
-        )
-
-        popover.contentViewController = NSHostingController(
-            rootView: TimerView(
-                engine: engine, preferences: preferences, stats: stats,
-                onOpenSettings: { [weak self] in self?.openSettings() },
-                onToggleFloating: { [weak self] in self?.toggleFloating() },
-                onOpenStats: { [weak self] in
-                    self?.popover.performClose(nil)
-                    self?.statsWindow.show()
-                }
-            )
-        )
-        popover.behavior = .transient
-
-        rightClickMenu.addItem(
-            NSMenuItem(
-                title: "Timer beenden",
-                action: #selector(NSApplication.terminate(_:)),
-                keyEquivalent: "q"
-            )
-        )
-
-        if let button = statusItem.button {
-            button.target = self
-            button.action = #selector(handleClick)
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.imagePosition = .imageLeading
         }
 
         cancellable = engine.objectWillChange.sink { [weak self] _ in
@@ -85,19 +54,69 @@ final class StatusBarController {
         engine.onFinish = { [weak self] in
             guard let self else { return }
             self.showPopover()
-            if preferences.soundEnabled {
-                SoundPlayer.playCompletionChime(volume: preferences.alarmVolume)
+            if self.preferences.soundEnabled {
+                SoundPlayer.playCompletionChime(volume: self.preferences.alarmVolume)
             }
         }
 
         engine.onPhaseChange = { [weak self] _ in
             guard let self else { return }
             self.showPopover()
-            if preferences.soundEnabled {
-                SoundPlayer.playCompletionChime(volume: preferences.alarmVolume)
+            if self.preferences.soundEnabled {
+                SoundPlayer.playCompletionChime(volume: self.preferences.alarmVolume)
             }
         }
+    }
 
+    private func wireHotkeys() {
+        hotkeys.onAction = { [weak self] action in
+            guard let self else { return }
+            switch action {
+            case .openPopover:
+                self.showPopover()
+            case .quickStart:
+                self.quickStart()
+            }
+        }
+        hotkeys.apply(
+            popover: preferences.hotkeyPopover,
+            quickStart: preferences.hotkeyQuickStart
+        )
+    }
+
+    private func configurePopover() {
+        popover.contentViewController = NSHostingController(
+            rootView: TimerView(
+                engine: engine, preferences: preferences, stats: stats,
+                onOpenSettings: { [weak self] in self?.openSettings() },
+                onToggleFloating: { [weak self] in self?.toggleFloating() },
+                onOpenStats: { [weak self] in
+                    self?.popover.performClose(nil)
+                    self?.statsWindow.show()
+                }
+            )
+        )
+        popover.behavior = .transient
+    }
+
+    private func configureStatusItem() {
+        rightClickMenu.addItem(
+            NSMenuItem(
+                title: "Timer beenden",
+                action: #selector(NSApplication.terminate(_:)),
+                keyEquivalent: "q"
+            )
+        )
+
+        if let button = statusItem.button {
+            button.target = self
+            button.action = #selector(handleClick)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            button.imagePosition = .imageLeading
+        }
+    }
+
+    private func observeSettingsChanges() {
         NotificationCenter.default.addObserver(
             forName: .timerSettingsChanged, object: nil, queue: .main
         ) { [weak self] _ in
@@ -107,8 +126,6 @@ final class StatusBarController {
                 quickStart: self?.preferences.hotkeyQuickStart ?? nil
             )
         }
-
-        refresh()
     }
 
     // MARK: - Hotkey actions
