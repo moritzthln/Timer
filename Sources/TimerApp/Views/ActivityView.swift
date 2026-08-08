@@ -102,41 +102,20 @@ struct ActivityView: View {
         return Self.palette[min(rank, Self.palette.count - 1)]
     }
 
+    /// v9: the zoomable timeline lives in its own sub-view; the `.id(day)`
+    /// tag gives it a fresh identity per date, so zoom resets to 1× on every
+    /// date change (and on window reopen via the rebuilt view tree).
     private func timeline(_ summary: DaySummary) -> some View {
-        guard let first = summary.firstActivity, let last = summary.lastActivity,
-              last > first else {
-            return AnyView(EmptyView())
+        Group {
+            if let first = summary.firstActivity, let last = summary.lastActivity,
+               last > first {
+                ActivityTimelineView(
+                    first: first, last: last, summary: summary,
+                    colorFor: { colorFor(bundleID: $0, in: summary) }
+                )
+                .id(day)
+            }
         }
-        let span = last.timeIntervalSince(first)
-        let allSegments = summary.apps.flatMap(\.segments)
-        return AnyView(VStack(spacing: 3) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4).fill(.quaternary.opacity(0.6))
-                    ForEach(allSegments) { segment in
-                        if case .app(let bundleID, _) = segment.kind {
-                            let x = segment.start.timeIntervalSince(first) / span
-                            let w = segment.end.timeIntervalSince(segment.start) / span
-                            Rectangle()
-                                .fill(colorFor(bundleID: bundleID, in: summary))
-                                .frame(width: max(1, geo.size.width * w))
-                                .offset(x: geo.size.width * x)
-                        }
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-            .frame(height: 32)
-            HStack {
-                Text(Self.hourFormatter.string(from: first))
-                Spacer()
-                Text(Self.hourFormatter.string(from: first.addingTimeInterval(span / 2)))
-                Spacer()
-                Text(Self.hourFormatter.string(from: last))
-            }
-            .font(.system(size: 10))
-            .foregroundStyle(.tertiary)
-        })
     }
 
     /// v8: the list takes the full remaining window height before scrolling.
