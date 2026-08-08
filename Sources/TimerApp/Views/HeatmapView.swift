@@ -5,7 +5,9 @@ import TimerCore
 /// (Monday-start), rows = Mon–Sun, five intensity levels relative to the
 /// busiest day of the visible period (`HeatmapScale`, absolute — v8 removed
 /// the daily goal). Today is outlined; future days of the current week stay
-/// blank. No tooltips (v5).
+/// blank. v8: cells derive their size from the available width (width ÷ 53
+/// columns) and month labels run along the top, both scaling with the
+/// resizable stats window.
 struct HeatmapView: View {
     struct Day: Identifiable {
         let id: Int
@@ -16,11 +18,66 @@ struct HeatmapView: View {
     }
 
     let weeks: [[Day]]
+    let width: CGFloat
 
-    private static let cellSize: CGFloat = 4
     private static let spacing: CGFloat = 1.5
 
+    private var cellSize: CGFloat {
+        let columns = CGFloat(max(1, weeks.count))
+        return max(3, (width - (columns - 1) * Self.spacing) / columns)
+    }
+
+    private var labelFontSize: CGFloat {
+        min(11, max(8, cellSize + 1))
+    }
+
     var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            monthLabelRow
+            grid
+        }
+    }
+
+    // MARK: - Month labels
+
+    /// One label per month boundary (column whose Monday starts a new
+    /// month); boundaries closer than three columns to the previous label
+    /// are skipped so labels never overlap.
+    private var monthLabels: [(index: Int, text: String)] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        let calendar = Calendar.current
+        var labels: [(Int, String)] = []
+        var lastMonth = -1
+        var lastLabelIndex = -3
+        for (index, week) in weeks.enumerated() {
+            guard let monday = week.first?.date else { continue }
+            let month = calendar.component(.month, from: monday)
+            guard month != lastMonth else { continue }
+            lastMonth = month
+            guard index - lastLabelIndex >= 3 else { continue }
+            labels.append((index, formatter.string(from: monday)))
+            lastLabelIndex = index
+        }
+        return labels
+    }
+
+    private var monthLabelRow: some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(monthLabels, id: \.index) { label in
+                Text(label.text)
+                    .font(.system(size: labelFontSize))
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+                    .offset(x: CGFloat(label.index) * (cellSize + Self.spacing))
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: labelFontSize + 3, alignment: .topLeading)
+    }
+
+    // MARK: - Grid
+
+    private var grid: some View {
         HStack(alignment: .top, spacing: Self.spacing) {
             ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
                 VStack(spacing: Self.spacing) {
@@ -34,12 +91,16 @@ struct HeatmapView: View {
     }
 
     private func cell(_ day: Day) -> some View {
-        RoundedRectangle(cornerRadius: 1)
+        let radius = min(2, max(1, cellSize / 4))
+        return RoundedRectangle(cornerRadius: radius)
             .fill(day.isFuture ? Color.clear : Self.levelColors[day.level])
-            .frame(width: Self.cellSize, height: Self.cellSize)
+            .frame(width: cellSize, height: cellSize)
             .overlay {
-                RoundedRectangle(cornerRadius: 1)
-                    .strokeBorder(day.isToday ? Color.primary : Color.clear, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: radius)
+                    .strokeBorder(
+                        day.isToday ? Color.primary : Color.clear,
+                        lineWidth: max(0.5, cellSize / 10)
+                    )
             }
     }
 
@@ -50,6 +111,8 @@ struct HeatmapView: View {
         Color.accentColor.opacity(0.75),
         Color.accentColor,
     ]
+
+    // MARK: - Data
 
     /// ISO-8601 (Monday-start) calendar in the local time zone.
     private static func localISOCalendar() -> Calendar {

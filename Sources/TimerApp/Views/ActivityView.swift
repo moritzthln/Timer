@@ -47,12 +47,14 @@ struct ActivityView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 30)
+                Spacer(minLength: 0)
             }
             Text("Alle Daten bleiben lokal auf diesem Mac")
-                .font(.system(size: 9))
+                .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .center)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
         .onAppear(perform: reload)
     }
 
@@ -83,15 +85,15 @@ struct ActivityView: View {
     private func presenceLine(_ summary: DaySummary) -> some View {
         HStack {
             Text("Am PC")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
             if let first = summary.firstActivity, let last = summary.lastActivity {
                 Text("\(Self.hourFormatter.string(from: first)) – \(Self.hourFormatter.string(from: last)) · aktiv \(TimeFormatting.wording(seconds: summary.presenceSeconds))")
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 13, design: .monospaced))
             }
         }
-        .padding(8)
+        .padding(10)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
     }
 
@@ -107,7 +109,7 @@ struct ActivityView: View {
         }
         let span = last.timeIntervalSince(first)
         let allSegments = summary.apps.flatMap(\.segments)
-        return AnyView(VStack(spacing: 2) {
+        return AnyView(VStack(spacing: 3) {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4).fill(.quaternary.opacity(0.6))
@@ -124,7 +126,7 @@ struct ActivityView: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             }
-            .frame(height: 22)
+            .frame(height: 32)
             HStack {
                 Text(Self.hourFormatter.string(from: first))
                 Spacer()
@@ -132,33 +134,34 @@ struct ActivityView: View {
                 Spacer()
                 Text(Self.hourFormatter.string(from: last))
             }
-            .font(.system(size: 8))
+            .font(.system(size: 10))
             .foregroundStyle(.tertiary)
         })
     }
 
+    /// v8: the list takes the full remaining window height before scrolling.
     private func appList(_ summary: DaySummary) -> some View {
         let maxTotal = summary.apps.first?.totalSeconds ?? 1
         let visible = summary.apps.filter { $0.totalSeconds >= 60 }
         let restSeconds = summary.apps.filter { $0.totalSeconds < 60 }
             .reduce(0) { $0 + $1.totalSeconds }
         return ScrollView {
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 9) {
                 ForEach(visible, id: \.bundleID) { app in
                     appRow(app, maxTotal: maxTotal, summary: summary)
                 }
                 if restSeconds >= 60 {
                     HStack {
-                        Text("Sonstige").font(.system(size: 11)).foregroundStyle(.secondary)
+                        Text("Sonstige").font(.system(size: 13)).foregroundStyle(.secondary)
                         Spacer()
                         Text(TimeFormatting.wording(seconds: restSeconds))
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.system(size: 13, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }
                 }
             }
         }
-        .frame(maxHeight: 220)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private func appRow(_ app: AppUsage, maxTotal: Double, summary: DaySummary) -> some View {
@@ -168,14 +171,14 @@ struct ActivityView: View {
                 appRowHeader(app, maxTotal: maxTotal, summary: summary)
             } else {
                 DisclosureGroup {
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 4) {
                         ForEach(sites, id: \.domain) { site in
                             HStack {
                                 Text(site.domain)
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .font(.system(size: 12, design: .monospaced))
                                 Spacer()
                                 Text(TimeFormatting.wording(seconds: site.totalSeconds))
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .font(.system(size: 12, design: .monospaced))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -189,20 +192,20 @@ struct ActivityView: View {
     }
 
     private func appRowHeader(_ app: AppUsage, maxTotal: Double, summary: DaySummary) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(app.name).font(.system(size: 11))
+                Text(app.name).font(.system(size: 13))
                 Spacer()
                 Text(TimeFormatting.wording(seconds: app.totalSeconds))
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
             GeometryReader { geo in
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle(cornerRadius: 3)
                     .fill(colorFor(bundleID: app.bundleID, in: summary))
                     .frame(width: max(2, geo.size.width * app.totalSeconds / maxTotal))
             }
-            .frame(height: 4)
+            .frame(height: 6)
         }
     }
 }
