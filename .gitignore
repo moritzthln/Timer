@@ -1,0 +1,16 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Build output
+*.app
+dist/
+
+# macOS
+.DS_Store
+
+# Secrets (none expected, but per workspace policy)
+.env*
+!.env.example
+*-secret*
+*-key*
