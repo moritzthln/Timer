@@ -5,7 +5,6 @@ import TimerCore
 struct SetupView: View {
     @ObservedObject var engine: TimerEngine
     let preferences: Preferences
-    let stats: StatsStore // dead since the caption line is gone; removed in the wiring task
     var onOpenSettings: () -> Void
     var onToggleFloating: () -> Void
     var onOpenStats: () -> Void
