@@ -124,4 +124,34 @@ func runPreferencesTests() {
         prefs.idleThresholdMinutes = 99
         try expectEqual(prefs.idleThresholdMinutes, 30, "clamped down")
     }
+
+    test("app categories default empty and roundtrip") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.appCategories, [:], "default empty")
+        prefs.appCategories = ["com.hnc.Discord": .distracting, "com.apple.dt.Xcode": .productive]
+        try expectEqual(
+            prefs.appCategories,
+            ["com.hnc.Discord": .distracting, "com.apple.dt.Xcode": .productive],
+            "roundtrip"
+        )
+    }
+
+    test("daily goal defaults to 180 and clamps 15...960") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.dailyGoalMinutes, 180, "default")
+        prefs.dailyGoalMinutes = 5
+        try expectEqual(prefs.dailyGoalMinutes, 15, "clamped up")
+        prefs.dailyGoalMinutes = 2000
+        try expectEqual(prefs.dailyGoalMinutes, 960, "clamped down")
+    }
+
+    test("streak weekdays-only defaults on, dnd defaults off") {
+        let prefs = freshPrefs()
+        try expect(prefs.streakWeekdaysOnly, "weekdays-only default true")
+        prefs.streakWeekdaysOnly = false
+        try expect(!prefs.streakWeekdaysOnly, "roundtrip")
+        try expect(!prefs.dndEnabled, "dnd default false")
+        prefs.dndEnabled = true
+        try expect(prefs.dndEnabled, "dnd roundtrip")
+    }
 }

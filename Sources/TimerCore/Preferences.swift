@@ -63,6 +63,10 @@ public final class Preferences {
         static let hotkeyQuickStart = "hotkeyQuickStart"
         static let trackingPaused = "trackingPaused"
         static let idleThresholdMinutes = "idleThresholdMinutes"
+        static let appCategories = "appCategories"
+        static let dailyGoalMinutes = "dailyGoalMinutes"
+        static let streakWeekdaysOnly = "streakWeekdaysOnly"
+        static let dndEnabled = "dndEnabled"
     }
 
     public init(defaults: UserDefaults = .standard) {
@@ -285,5 +289,38 @@ public final class Preferences {
             return min(30, max(1, value))
         }
         set { defaults.set(min(30, max(1, newValue)), forKey: Key.idleThresholdMinutes) }
+    }
+
+    // MARK: - Quality & goals
+
+    public var appCategories: [String: AppCategory] {
+        get {
+            guard let data = defaults.data(forKey: Key.appCategories),
+                  let categories = try? JSONDecoder().decode([String: AppCategory].self, from: data) else {
+                return [:]
+            }
+            return categories
+        }
+        set {
+            defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.appCategories)
+        }
+    }
+
+    public var dailyGoalMinutes: Int {
+        get {
+            let value = defaults.object(forKey: Key.dailyGoalMinutes) as? Int ?? 180
+            return min(960, max(15, value))
+        }
+        set { defaults.set(min(960, max(15, newValue)), forKey: Key.dailyGoalMinutes) }
+    }
+
+    public var streakWeekdaysOnly: Bool {
+        get { defaults.object(forKey: Key.streakWeekdaysOnly) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.streakWeekdaysOnly) }
+    }
+
+    public var dndEnabled: Bool {
+        get { defaults.object(forKey: Key.dndEnabled) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: Key.dndEnabled) }
     }
 }
