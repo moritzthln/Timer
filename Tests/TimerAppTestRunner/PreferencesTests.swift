@@ -198,6 +198,37 @@ func runPreferencesTests() {
         try expect(prefs.dndEnabled, "dnd roundtrip")
     }
 
+    test("promoted sites default to instagram and youtube when never set") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.promotedSites, ["instagram.com", "youtube.com"], "v13 default")
+    }
+
+    test("promoted sites sanitize entries and keep order") {
+        let prefs = freshPrefs()
+        prefs.promotedSites = ["https://www.Instagram.com/reels/", "  ", "TikTok.com"]
+        try expectEqual(
+            prefs.promotedSites, ["www.instagram.com", "tiktok.com"],
+            "sanitized, empties dropped"
+        )
+    }
+
+    test("promoted sites dedupe after sanitizing, first occurrence wins") {
+        let prefs = freshPrefs()
+        prefs.promotedSites = ["youtube.com", "https://YOUTUBE.com/watch", "instagram.com"]
+        try expectEqual(
+            prefs.promotedSites, ["youtube.com", "instagram.com"],
+            "sanitized duplicates collapse onto the first entry"
+        )
+    }
+
+    test("promoted sites cleared to empty stays empty, not the default") {
+        let prefs = freshPrefs()
+        prefs.promotedSites = []
+        try expectEqual(prefs.promotedSites, [], "explicitly cleared list persists")
+        prefs.promotedSites = ["youtube.com"]
+        try expectEqual(prefs.promotedSites, ["youtube.com"], "partial list persists as-is")
+    }
+
     test("dnd shortcut names default to the v7 fixed names and roundtrip") {
         let prefs = freshPrefs()
         try expectEqual(prefs.dndShortcutOn, "Timer Fokus an", "on default")
