@@ -163,4 +163,119 @@ func runTimerEngineTests() {
         engine.pause()
         try expectEqual(engine.progress, 0.5, accuracy: 0.001, "paused keeps progress")
     }
+
+    test("startPomodoro begins focus round 1 and persists config") {
+        let prefs = freshEnginePrefs()
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { start })
+        let config = PomodoroConfig(focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, rounds: 4)
+        engine.startPomodoro(config: config)
+        try expectEqual(
+            engine.phase,
+            .running(endDate: start.addingTimeInterval(1500), total: 1500,
+                     kind: .pomodoro(phase: .focus, round: 1)),
+            "phase"
+        )
+        try expectEqual(prefs.persistedRun?.config, config, "config persisted")
+    }
+
+    test("focus end advances seamlessly into break with one phase-change callback") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        var changes: [SessionKind] = []
+        engine.onPhaseChange = { changes.append($0) }
+        engine.startPomodoro(config: PomodoroConfig(focusMinutes: 1, breakMinutes: 1, longBreakMinutes: 2, rounds: 2))
+        current = current.addingTimeInterval(61)
+        engine.tick()
+        try expectEqual(
+            engine.phase,
+            .running(endDate: Date(timeIntervalSince1970: 1_000_000 + 120), total: 60,
+                     kind: .pomodoro(phase: .shortBreak, round: 1)),
+            "break starts at the focus boundary, not at tick time"
+        )
+        try expectEqual(changes, [.pomodoro(phase: .shortBreak, round: 1)], "one callback")
+    }
+
+    test("catch-up fast-forwards multiple missed phases with one callback") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        var changes: [SessionKind] = []
+        engine.onPhaseChange = { changes.append($0) }
+        // 1-min focus, 1-min break, 2-min long break, 2 rounds → cycle: F1 B1 F2 LB
+        engine.startPomodoro(config: PomodoroConfig(focusMinutes: 1, breakMinutes: 1, longBreakMinutes: 2, rounds: 2))
+        // Sleep through focus1 (0-60), break1 (60-120), focus2 (120-180); wake inside long break (180-300)
+        current = current.addingTimeInterval(200)
+        engine.tick()
+        try expectEqual(
+            engine.phase,
+            .running(endDate: Date(timeIntervalSince1970: 1_000_000 + 300), total: 120,
+                     kind: .pomodoro(phase: .longBreak, round: 2)),
+            "landed in the phase containing now"
+        )
+        try expectEqual(changes.count, 1, "single catch-up callback")
+    }
+
+    test("skip jumps to next phase starting now without callback") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        var changes: [SessionKind] = []
+        engine.onPhaseChange = { changes.append($0) }
+        engine.startPomodoro(config: PomodoroConfig(focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, rounds: 4))
+        current = current.addingTimeInterval(600)
+        engine.skip()
+        try expectEqual(
+            engine.phase,
+            .running(endDate: current.addingTimeInterval(300), total: 300,
+                     kind: .pomodoro(phase: .shortBreak, round: 1)),
+            "break starts at skip time"
+        )
+        try expectEqual(changes.count, 0, "user-initiated skip is silent")
+    }
+
+    test("skip while paused resumes running in next phase") {
+        let prefs = freshEnginePrefs()
+        var current = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        engine.startPomodoro(config: PomodoroConfig(focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, rounds: 4))
+        engine.pause()
+        engine.skip()
+        guard case .running(_, _, let kind) = engine.phase else {
+            throw AssertionError(description: "expected running, got \(engine.phase)")
+        }
+        try expectEqual(kind, .pomodoro(phase: .shortBreak, round: 1), "advanced")
+    }
+
+    test("skip on single timer does nothing") {
+        let prefs = freshEnginePrefs()
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { start })
+        engine.start(minutes: 10)
+        let before = engine.phase
+        engine.skip()
+        try expectEqual(engine.phase, before, "unchanged")
+    }
+
+    test("pomodoro restore past boundary catches up without callbacks") {
+        let prefs = freshEnginePrefs()
+        let current = Date(timeIntervalSince1970: 1_000_000)
+        let config = PomodoroConfig(focusMinutes: 1, breakMinutes: 1, longBreakMinutes: 2, rounds: 2)
+        // Persist a focus phase that ended 130s ago: F ended at -130; B(-130..-70), F2(-70..-10), LB(-10..+110)
+        prefs.persistRun(PersistedRun(
+            endDate: current.addingTimeInterval(-130), total: 60,
+            kind: .pomodoro(phase: .focus, round: 1), config: config
+        ))
+        var changes = 0
+        let engine = TimerEngine(preferences: prefs, now: { current })
+        engine.onPhaseChange = { _ in changes += 1 }
+        try expectEqual(
+            engine.phase,
+            .running(endDate: current.addingTimeInterval(110), total: 120,
+                     kind: .pomodoro(phase: .longBreak, round: 2)),
+            "restored into the current phase"
+        )
+        try expectEqual(changes, 0, "restore never fires callbacks (wired after init anyway)")
+    }
 }
