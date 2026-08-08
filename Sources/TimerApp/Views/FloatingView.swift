@@ -37,16 +37,27 @@ struct FloatingView: View {
             .opacity(hovering ? 0.25 : 1)
 
             if hovering {
+                // v9: three text buttons no longer fit the 140 pt panel —
+                // icons instead, tooltips carry the words.
                 HStack(spacing: 6) {
-                    Button(engine.isPaused ? "Weiter" : "Pause") {
+                    Button {
                         if engine.isPaused {
                             engine.resume()
                         } else {
                             engine.pause()
                         }
+                    } label: {
+                        Image(systemName: engine.isPaused ? "play.fill" : "pause.fill")
                     }
+                    .help(engine.isPaused ? "Weiter" : "Pause")
                     Button("+5") { engine.extend(minutes: 5) }
-                    Button("Stopp") { engine.stop() }
+                        .help("+5 Minuten")
+                    Button {
+                        engine.stop()
+                    } label: {
+                        Image(systemName: "stop.fill")
+                    }
+                    .help("Stopp")
                 }
                 .controlSize(.small)
             }
