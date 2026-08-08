@@ -7,15 +7,25 @@ final class StatusBarController {
     private let statusItem: NSStatusItem
     private let popover = NSPopover()
     private let engine: TimerEngine
+    private let preferences: Preferences
     private let rightClickMenu = NSMenu()
+    private let floatingController: FloatingPanelController
+    private let settingsController: SettingsWindowController
     private var cancellable: AnyCancellable?
 
     init(engine: TimerEngine, preferences: Preferences) {
         self.engine = engine
+        self.preferences = preferences
+        floatingController = FloatingPanelController(engine: engine, preferences: preferences)
+        settingsController = SettingsWindowController(preferences: preferences)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         popover.contentViewController = NSHostingController(
-            rootView: TimerView(engine: engine, preferences: preferences)
+            rootView: TimerView(
+                engine: engine, preferences: preferences,
+                onOpenSettings: { [weak self] in self?.openSettings() },
+                onToggleFloating: { [weak self] in self?.toggleFloating() }
+            )
         )
         popover.behavior = .transient
 
@@ -43,11 +53,37 @@ final class StatusBarController {
             guard let self else { return }
             self.showPopover()
             if preferences.soundEnabled {
-                SoundPlayer.playCompletionChime()
+                SoundPlayer.playCompletionChime(volume: preferences.alarmVolume)
             }
         }
 
+        engine.onPhaseChange = { [weak self] _ in
+            guard let self else { return }
+            self.showPopover()
+            if preferences.soundEnabled {
+                SoundPlayer.playCompletionChime(volume: preferences.alarmVolume)
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .timerSettingsChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.floatingController.updateVisibility()
+        }
+
         refresh()
+    }
+
+    // MARK: - Windows
+
+    private func openSettings() {
+        popover.performClose(nil)
+        settingsController.show()
+    }
+
+    private func toggleFloating() {
+        preferences.floatingEnabled.toggle()
+        floatingController.updateVisibility()
     }
 
     // MARK: - Click handling
@@ -81,28 +117,18 @@ final class StatusBarController {
 
     private func refresh() {
         guard let button = statusItem.button else { return }
-        let symbol: String
-        let title: String
-        switch engine.phase {
-        case .idle:
-            symbol = "timer"
-            title = ""
-        case .running:
-            symbol = "timer"
-            title = TimeFormatting.format(seconds: engine.remainingSeconds)
-        case .paused:
-            symbol = "pause.fill"
-            title = TimeFormatting.format(seconds: engine.remainingSeconds)
-        case .finished:
-            symbol = "timer"
-            title = "0:00"
+        let presentation = MenuBarPresentation.make(
+            phase: engine.phase, remainingSeconds: engine.remainingSeconds
+        )
+        button.image = presentation.symbol.flatMap {
+            NSImage(systemSymbolName: $0, accessibilityDescription: "Timer")
         }
-        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Timer")
-        if title.isEmpty {
+        if presentation.title.isEmpty {
             button.attributedTitle = NSAttributedString(string: "")
         } else {
+            let prefix = presentation.symbol == nil ? "" : " "
             button.attributedTitle = NSAttributedString(
-                string: " " + title,
+                string: prefix + presentation.title,
                 attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)]
             )
         }

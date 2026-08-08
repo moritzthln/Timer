@@ -1,11 +1,18 @@
 import Foundation
 import Combine
 
+public enum PomodoroPhase: Equatable { case focus, shortBreak, longBreak }
+
+public enum SessionKind: Equatable {
+    case single
+    case pomodoro(phase: PomodoroPhase, round: Int) // round is 1-based
+}
+
 public final class TimerEngine: ObservableObject {
     public enum Phase: Equatable {
         case idle
-        case running(endDate: Date, total: TimeInterval)
-        case paused(remaining: TimeInterval, total: TimeInterval)
+        case running(endDate: Date, total: TimeInterval, kind: SessionKind)
+        case paused(remaining: TimeInterval, total: TimeInterval, kind: SessionKind)
         case finished
     }
 
@@ -14,9 +21,14 @@ public final class TimerEngine: ObservableObject {
     /// Fired exactly once per running→finished transition (opens popover, plays sound).
     public var onFinish: (() -> Void)?
 
+    /// Fired once per automatic pomodoro phase transition (chime + popover).
+    /// Not fired for user-initiated skips or restores.
+    public var onPhaseChange: ((SessionKind) -> Void)?
+
     private let preferences: Preferences
     private let now: () -> Date
     private var ticker: Foundation.Timer?
+    private var activeConfig: PomodoroConfig?
 
     public init(preferences: Preferences, now: @escaping () -> Date = { Date() }) {
         self.preferences = preferences
@@ -30,9 +42,9 @@ public final class TimerEngine: ObservableObject {
         switch phase {
         case .idle:
             return preferences.lastMinutes * 60
-        case .running(let endDate, _):
+        case .running(let endDate, _, _):
             return max(0, Int(endDate.timeIntervalSince(now()).rounded(.up)))
-        case .paused(let remaining, _):
+        case .paused(let remaining, _, _):
             return max(0, Int(remaining.rounded(.up)))
         case .finished:
             return 0
@@ -44,11 +56,11 @@ public final class TimerEngine: ObservableObject {
         switch phase {
         case .idle:
             return 0
-        case .running(let endDate, let total):
+        case .running(let endDate, let total, _):
             guard total > 0 else { return 1 }
             let remaining = max(0, endDate.timeIntervalSince(now()))
             return min(1, max(0, 1 - remaining / total))
-        case .paused(let remaining, let total):
+        case .paused(let remaining, let total, _):
             guard total > 0 else { return 1 }
             return min(1, max(0, 1 - remaining / total))
         case .finished:
@@ -57,8 +69,15 @@ public final class TimerEngine: ObservableObject {
     }
 
     public var endDate: Date? {
-        if case .running(let endDate, _) = phase { return endDate }
+        if case .running(let endDate, _, _) = phase { return endDate }
         return nil
+    }
+
+    public var currentKind: SessionKind? {
+        switch phase {
+        case .running(_, _, let kind), .paused(_, _, let kind): return kind
+        case .idle, .finished: return nil
+        }
     }
 
     public var isPaused: Bool {
@@ -71,31 +90,50 @@ public final class TimerEngine: ObservableObject {
     public func start(minutes: Int) {
         let clamped = min(720, max(1, minutes))
         preferences.lastMinutes = clamped
+        activeConfig = nil
         let total = TimeInterval(clamped * 60)
         let end = now().addingTimeInterval(total)
-        phase = .running(endDate: end, total: total)
-        preferences.persistRunning(endDate: end, total: total)
+        phase = .running(endDate: end, total: total, kind: .single)
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: .single, config: nil))
         startTicker()
     }
 
+    public func startPomodoro(config: PomodoroConfig) {
+        activeConfig = config
+        let total = config.duration(of: .focus)
+        let kind = SessionKind.pomodoro(phase: .focus, round: 1)
+        let end = now().addingTimeInterval(total)
+        phase = .running(endDate: end, total: total, kind: kind)
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: config))
+        startTicker()
+    }
+
+    public func skip() {
+        guard let kind = currentKind, case .pomodoro = kind,
+              let config = activeConfig else { return }
+        let next = config.next(after: kind)
+        startPhase(next, at: now(), config: config)
+    }
+
     public func pause() {
-        guard case .running(let endDate, let total) = phase else { return }
+        guard case .running(let endDate, let total, let kind) = phase else { return }
         let remaining = max(0, endDate.timeIntervalSince(now()))
-        phase = .paused(remaining: remaining, total: total)
+        phase = .paused(remaining: remaining, total: total, kind: kind)
         preferences.clearRunning()
         stopTicker()
     }
 
     public func resume() {
-        guard case .paused(let remaining, let total) = phase else { return }
+        guard case .paused(let remaining, let total, let kind) = phase else { return }
         let end = now().addingTimeInterval(remaining)
-        phase = .running(endDate: end, total: total)
-        preferences.persistRunning(endDate: end, total: total)
+        phase = .running(endDate: end, total: total, kind: kind)
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: activeConfig))
         startTicker()
     }
 
     public func stop() {
         phase = .idle
+        activeConfig = nil
         preferences.clearRunning()
         stopTicker()
     }
@@ -107,12 +145,22 @@ public final class TimerEngine: ObservableObject {
 
     /// Advances state. Called every 0.5 s by the ticker; tests call it directly.
     public func tick() {
-        guard case .running(let endDate, _) = phase else { return }
+        guard case .running(let endDate, _, let kind) = phase else { return }
         if now() >= endDate {
-            phase = .finished
-            preferences.clearRunning()
-            stopTicker()
-            onFinish?()
+            switch kind {
+            case .single:
+                phase = .finished
+                preferences.clearRunning()
+                stopTicker()
+                onFinish?()
+            case .pomodoro:
+                guard let config = activeConfig else {
+                    stop()
+                    return
+                }
+                let landed = advancePomodoro(after: kind, boundary: endDate, config: config)
+                onPhaseChange?(landed)
+            }
         } else {
             // Phase unchanged but derived values moved; notify observers.
             objectWillChange.send()
@@ -121,16 +169,52 @@ public final class TimerEngine: ObservableObject {
 
     // MARK: - Private
 
+    /// Puts the engine into `kind` running from `start` (end = start + duration).
+    private func startPhase(_ kind: SessionKind, at start: Date, config: PomodoroConfig) {
+        guard case .pomodoro(let phase, _) = kind else { return }
+        let total = config.duration(of: phase)
+        let end = start.addingTimeInterval(total)
+        self.phase = .running(endDate: end, total: total, kind: kind)
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: config))
+        startTicker()
+    }
+
+    /// Advances past `boundary` into the phase containing `now()`, fast-forwarding
+    /// any fully elapsed phases. Returns the landed kind.
+    @discardableResult
+    private func advancePomodoro(after kind: SessionKind, boundary: Date, config: PomodoroConfig) -> SessionKind {
+        var nextKind = config.next(after: kind)
+        var start = boundary
+        while true {
+            guard case .pomodoro(let phase, _) = nextKind else { break }
+            let end = start.addingTimeInterval(config.duration(of: phase))
+            if end > now() { break }
+            start = end
+            nextKind = config.next(after: nextKind)
+        }
+        startPhase(nextKind, at: start, config: config)
+        return nextKind
+    }
+
     private func restore() {
         guard let run = preferences.persistedRun else { return }
+        activeConfig = run.config
         if run.endDate > now() {
-            phase = .running(endDate: run.endDate, total: run.total)
+            phase = .running(endDate: run.endDate, total: run.total, kind: run.kind)
             startTicker()
-        } else {
-            // Expired while the app was not running: finished state, no sound
-            // (onFinish is not wired yet at init time — per spec).
+            return
+        }
+        switch run.kind {
+        case .single:
             preferences.clearRunning()
             phase = .finished
+        case .pomodoro:
+            guard let config = run.config else {
+                preferences.clearRunning()
+                return
+            }
+            // Catch up silently (onPhaseChange is not wired during init).
+            advancePomodoro(after: run.kind, boundary: run.endDate, config: config)
         }
     }
 
