@@ -29,8 +29,9 @@ final class FocusModeController: ObservableObject {
 
     /// Reevaluates against the engine phase; idempotent. On inactive→active
     /// runs the on-shortcut, on active→inactive the off-shortcut.
+    /// Uses DndRules, not FocusBlockRules: pausing keeps DND on.
     func update(phase: TimerEngine.Phase) {
-        let shouldBeActive = FocusBlockRules.isActive(phase: phase, enabled: preferences.dndEnabled)
+        let shouldBeActive = DndRules.isActive(phase: phase, enabled: preferences.dndEnabled)
         guard shouldBeActive != active else { return }
         active = shouldBeActive
         run(shortcut: active ? preferences.dndShortcutOn : preferences.dndShortcutOff)
