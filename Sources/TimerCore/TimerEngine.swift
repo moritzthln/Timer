@@ -302,6 +302,7 @@ public final class TimerEngine: ObservableObject {
         let timer = Foundation.Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.tick()
         }
+        timer.tolerance = 0.1 // v8 energy audit: let the OS coalesce wakeups
         RunLoop.main.add(timer, forMode: .common)
         ticker = timer
     }

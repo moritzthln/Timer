@@ -341,6 +341,8 @@ struct SettingsView: View {
             Toggle("Tracking pausieren", isOn: $trackingPaused)
                 .onChange(of: trackingPaused) { newValue in
                     preferences.trackingPaused = newValue
+                    // v8: lets the activity tracker stop/start its timers.
+                    NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
                 }
             HStack {
                 Text("Inaktiv nach (min)")

@@ -23,8 +23,7 @@ final class ActivityTrackerController {
         self.store = store
         self.preferences = preferences
         subscribe()
-        startTimers()
-        evaluatePresence()
+        applyTrackingState()
     }
 
     // MARK: - Signals
@@ -62,21 +61,51 @@ final class ActivityTrackerController {
             self?.screenLocked = false
             self?.evaluatePresence()
         })
+        // Settings changes (v8): pausing the tracking fully stops the poll
+        // and heartbeat timers instead of letting them fire into early
+        // returns; unpausing restarts them.
+        observers.append(NotificationCenter.default.addObserver(
+            forName: .timerSettingsChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.applyTrackingState()
+        })
+    }
+
+    /// Reconciles the timers with `trackingPaused`; idempotent, so redundant
+    /// settings notifications (hotkeys, floating toggle, …) are harmless.
+    private func applyTrackingState() {
+        if preferences.trackingPaused {
+            evaluatePresence() // paused → absent → closes open segments
+            stopTimers()
+        } else {
+            startTimers()
+            evaluatePresence()
+        }
     }
 
     private func startTimers() {
+        guard pollTimer == nil else { return }
         let poll = Foundation.Timer(timeInterval: 5.0, repeats: true) { [weak self] _ in
             self?.evaluatePresence()
             self?.pollBrowserTab()
         }
+        poll.tolerance = 1.0 // v8 energy audit
         RunLoop.main.add(poll, forMode: .common)
         pollTimer = poll
 
         let beat = Foundation.Timer(timeInterval: 60.0, repeats: true) { [weak self] _ in
             self?.persistOpenSegments()
         }
+        beat.tolerance = 10.0 // v8 energy audit
         RunLoop.main.add(beat, forMode: .common)
         heartbeat = beat
+    }
+
+    private func stopTimers() {
+        pollTimer?.invalidate()
+        pollTimer = nil
+        heartbeat?.invalidate()
+        heartbeat = nil
     }
 
     // MARK: - Presence

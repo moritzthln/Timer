@@ -63,6 +63,7 @@ final class FocusBlockController {
         pollTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.pollBrowsers()
         }
+        pollTimer?.tolerance = 0.5 // v8 energy audit
         RunLoop.main.add(pollTimer!, forMode: .common)
     }
 
