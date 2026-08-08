@@ -25,6 +25,10 @@ struct SetupView: View {
                     .multilineTextAlignment(.center)
                     .focused($inputFocused)
                     .onSubmit(startFromField)
+                    .onChange(of: minutesText) { newValue in
+                        let filtered = String(newValue.filter(\.isNumber).prefix(3))
+                        if filtered != newValue { minutesText = filtered }
+                    }
                 Text("min")
                     .font(.caption)
                     .foregroundStyle(.secondary)
