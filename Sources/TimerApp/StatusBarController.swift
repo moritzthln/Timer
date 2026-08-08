@@ -29,7 +29,9 @@ final class StatusBarController {
         focusMode = FocusModeController(preferences: preferences)
         settingsController = SettingsWindowController(preferences: preferences, focusMode: focusMode)
         focusBlock = FocusBlockController(preferences: preferences, overlay: overlay)
-        statsWindow = StatsWindowController(stats: stats, activity: activityStore)
+        statsWindow = StatsWindowController(
+            stats: stats, activity: activityStore, focusLog: focusLog
+        )
         activityTracker = ActivityTrackerController(store: activityStore, preferences: preferences)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 

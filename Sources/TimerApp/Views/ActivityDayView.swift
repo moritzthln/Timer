@@ -5,9 +5,11 @@ import TimerCore
 /// zoomable timeline (v9), and the per-day app list. App colors rank per day.
 struct ActivityDayView: View {
     let store: ActivityStore
+    let focusLog: FocusLog
     @Binding var day: Date
 
     @State private var summary: DaySummary?
+    @State private var focusIntervals: [FocusInterval] = []
     /// Sparkline data: per-app seconds over the 7 days ending on `day`,
     /// loaded once per day navigation.
     @State private var sparkSeries: [String: [Double]] = [:]
@@ -88,6 +90,7 @@ struct ActivityDayView: View {
 
     private func reload() {
         summary = store.daySummary(for: day)
+        focusIntervals = focusLog.intervals(onDay: day)
         let window = ((-6)...0).compactMap {
             Calendar.current.date(byAdding: .day, value: $0, to: day)
         }
@@ -129,7 +132,8 @@ struct ActivityDayView: View {
                 ActivityTimelineView(
                     first: first, last: last, summary: summary,
                     colorFor: { colorFor(bundleID: $0, in: summary) },
-                    selectedBundleID: selectedBundleID
+                    selectedBundleID: selectedBundleID,
+                    focusIntervals: focusIntervals
                 )
                 .id(day)
             }

@@ -1,10 +1,12 @@
 import Foundation
 import TimerCore
 
-/// One day of the displayed week, paired with its cached summary.
+/// One day of the displayed week, paired with its cached summary and the
+/// day's focus intervals (v10 traces).
 struct WeekDay: Identifiable {
     let date: Date
     let summary: DaySummary
+    let focus: [FocusInterval]
 
     var id: Date { date }
 }
@@ -30,12 +32,17 @@ struct WeekData {
         return cal
     }()
 
-    static func load(store: ActivityStore, weekOf anchor: Date) -> WeekData {
+    static func load(store: ActivityStore, focusLog: FocusLog, weekOf anchor: Date) -> WeekData {
         let start = calendar.dateInterval(of: .weekOfYear, for: anchor)?.start
             ?? calendar.startOfDay(for: anchor)
         let days = (0..<7)
             .compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-            .map { WeekDay(date: $0, summary: store.daySummary(for: $0)) }
+            .map {
+                WeekDay(
+                    date: $0, summary: store.daySummary(for: $0),
+                    focus: focusLog.intervals(onDay: $0)
+                )
+            }
         return aggregate(days: days)
     }
 

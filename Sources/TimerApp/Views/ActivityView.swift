@@ -6,6 +6,7 @@ import TimerCore
 /// stats window rebuilds its view tree on every open, so it defaults to Tag.
 struct ActivityView: View {
     let store: ActivityStore
+    let focusLog: FocusLog
 
     enum Mode {
         case day
@@ -37,9 +38,12 @@ struct ActivityView: View {
             .labelsHidden()
             .frame(height: Self.switcherHeight)
             if mode == .day {
-                ActivityDayView(store: store, day: $day)
+                ActivityDayView(store: store, focusLog: focusLog, day: $day)
             } else {
-                ActivityWeekView(store: store, anchor: $weekAnchor, onOpenDay: openDay)
+                ActivityWeekView(
+                    store: store, focusLog: focusLog,
+                    anchor: $weekAnchor, onOpenDay: openDay
+                )
             }
             Text("Alle Daten bleiben lokal auf diesem Mac")
                 .font(.system(size: 10))

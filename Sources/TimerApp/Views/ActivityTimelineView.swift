@@ -19,6 +19,9 @@ struct ActivityTimelineView: View {
     let colorFor: (String) -> Color
     /// v10 drill-down: with a selection, other apps' segments dim to 0.15.
     let selectedBundleID: String?
+    /// v10: focus sessions drawn as a thin accent trace under the bar,
+    /// on the same axis (so it zooms and pans with the bar).
+    let focusIntervals: [FocusInterval]
 
     @State private var zoom: CGFloat = 1
     @State private var scrollOffset: CGFloat = 0
@@ -32,9 +35,12 @@ struct ActivityTimelineView: View {
     private static let barHeight: CGFloat = 32
     private static let controlsHeight: CGFloat = 16
     private static let labelHeight: CGFloat = 12
+    private static let traceHeight: CGFloat = 2
     private static let rowSpacing: CGFloat = 3
-    /// Fixed total height: controls + bar + tick labels + two gaps.
-    static let totalHeight: CGFloat = controlsHeight + barHeight + labelHeight + 2 * rowSpacing
+    /// Fixed total height: controls + bar + focus trace + tick labels +
+    /// three gaps (the trace strip is always reserved, even when empty).
+    static let totalHeight: CGFloat =
+        controlsHeight + barHeight + traceHeight + labelHeight + 3 * rowSpacing
 
     private static let minZoom = CGFloat(TimelineTicks.minZoom)
     private static let maxZoom = CGFloat(TimelineTicks.maxZoom)
@@ -102,6 +108,7 @@ struct ActivityTimelineView: View {
         let width = max(viewportWidth, 1) * zoom
         return VStack(alignment: .leading, spacing: Self.rowSpacing) {
             bar(width: width)
+            focusTraces(width: width)
             tickLabels(width: width, viewportWidth: viewportWidth)
         }
         .frame(width: width)
@@ -148,6 +155,33 @@ struct ActivityTimelineView: View {
     private func dimOpacity(for bundleID: String) -> Double {
         guard let selectedBundleID else { return 1 }
         return selectedBundleID == bundleID ? 1 : 0.15
+    }
+
+    /// 2 pt accent marks under the bar where focus sessions ran, clamped to
+    /// the presence axis. The strip is always laid out so the total height
+    /// (and the window minimum derived from it) never changes.
+    private func focusTraces(width: CGFloat) -> some View {
+        ZStack(alignment: .leading) {
+            ForEach(focusIntervals.indices, id: \.self) { index in
+                let interval = focusIntervals[index]
+                let startOffset = max(0, interval.start.timeIntervalSince(first))
+                let endOffset = min(span, interval.end.timeIntervalSince(first))
+                if endOffset > startOffset {
+                    Capsule()
+                        .fill(Color.accentColor)
+                        .frame(width: max(2, width * (endOffset - startOffset) / span))
+                        .offset(x: width * startOffset / span)
+                        .help(Self.focusTooltip(interval))
+                }
+            }
+        }
+        .frame(width: width, height: Self.traceHeight, alignment: .leading)
+    }
+
+    /// "Fokus · 14:02–14:31" (the interval's real times, even when the
+    /// drawn mark is clamped to the axis).
+    static func focusTooltip(_ interval: FocusInterval) -> String {
+        "Fokus · \(hourFormatter.string(from: interval.start))–\(hourFormatter.string(from: interval.end))"
     }
 
     /// "Safari · 9:12–9:47 (35 min)". Presence gaps draw no segment rect,

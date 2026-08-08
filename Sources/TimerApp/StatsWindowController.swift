@@ -5,6 +5,7 @@ import TimerCore
 struct StatsRootView: View {
     let stats: StatsStore
     let activity: ActivityStore
+    let focusLog: FocusLog
 
     @State private var tab = "fokus"
 
@@ -30,7 +31,7 @@ struct StatsRootView: View {
                 if tab == "fokus" {
                     StatsView(stats: stats)
                 } else {
-                    ActivityView(store: activity)
+                    ActivityView(store: activity, focusLog: focusLog)
                 }
             }
             .frame(minWidth: Self.tabMinSize.width, minHeight: Self.tabMinSize.height)
@@ -44,10 +45,12 @@ final class StatsWindowController {
     private var window: NSWindow?
     private let stats: StatsStore
     private let activity: ActivityStore
+    private let focusLog: FocusLog
 
-    init(stats: StatsStore, activity: ActivityStore) {
+    init(stats: StatsStore, activity: ActivityStore, focusLog: FocusLog) {
         self.stats = stats
         self.activity = activity
+        self.focusLog = focusLog
     }
 
     func show() {
@@ -74,7 +77,7 @@ final class StatsWindowController {
         // frame by restoring it right after.
         let frame = window.frame
         let hosting = NSHostingController(rootView: StatsRootView(
-            stats: stats, activity: activity
+            stats: stats, activity: activity, focusLog: focusLog
         ))
         // v9: propagates the SwiftUI minimum size to window.contentMinSize —
         // the window shrinks exactly to where everything still fits, never past.

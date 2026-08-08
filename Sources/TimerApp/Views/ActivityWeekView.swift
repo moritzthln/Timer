@@ -5,6 +5,7 @@ import TimerCore
 /// aligned day rows, week presence total, and the week-aggregated app list.
 struct ActivityWeekView: View {
     let store: ActivityStore
+    let focusLog: FocusLog
     @Binding var anchor: Date
     let onOpenDay: (Date) -> Void
 
@@ -119,7 +120,7 @@ struct ActivityWeekView: View {
     }
 
     private func reload() {
-        let loaded = WeekData.load(store: store, weekOf: anchor)
+        let loaded = WeekData.load(store: store, focusLog: focusLog, weekOf: anchor)
         data = loaded
         sparkSeries = ActivitySparklineView.series(from: loaded.days.map(\.summary))
     }

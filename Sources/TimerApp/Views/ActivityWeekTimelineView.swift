@@ -13,13 +13,17 @@ struct ActivityWeekTimelineView: View {
     let onOpenDay: (Date) -> Void
 
     static let rowHeight: CGFloat = 16
+    static let traceHeight: CGFloat = 2
+    static let traceGap: CGFloat = 1
     static let rowSpacing: CGFloat = 4
     static let labelWidth: CGFloat = 36
     static let labelGap: CGFloat = 8
     static let ticksHeight: CGFloat = 12
-    /// Seven rows, six gaps between them, one gap above the tick labels.
+    /// Track plus the always-reserved focus trace strip below it.
+    static var rowBlockHeight: CGFloat { rowHeight + traceGap + traceHeight }
+    /// Seven row blocks, six gaps between them, one gap above the ticks.
     static var minHeight: CGFloat {
-        7 * rowHeight + 7 * rowSpacing + ticksHeight
+        7 * rowBlockHeight + 7 * rowSpacing + ticksHeight
     }
 
     private static let dayFormatter: DateFormatter = {
@@ -76,7 +80,10 @@ struct ActivityWeekTimelineView: View {
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .frame(width: Self.labelWidth, alignment: .leading)
-            track(day, axis: axis)
+            VStack(alignment: .leading, spacing: Self.traceGap) {
+                track(day, axis: axis)
+                focusTraces(day, axis: axis)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture { onOpenDay(day.date) }
@@ -116,6 +123,35 @@ struct ActivityWeekTimelineView: View {
     private func dimOpacity(for bundleID: String) -> Double {
         guard let selectedBundleID else { return 1 }
         return selectedBundleID == bundleID ? 1 : 0.15
+    }
+
+    /// 2 pt accent marks under each row where focus sessions ran — same
+    /// axis, no tooltips at this size (v10). The strip is always laid out
+    /// so the seven rows keep their fixed block height.
+    private func focusTraces(
+        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)?
+    ) -> some View {
+        GeometryReader { geo in
+            if let axis {
+                let dayStart = Calendar.current.startOfDay(for: day.date)
+                ForEach(day.focus.indices, id: \.self) { index in
+                    let interval = day.focus[index]
+                    let startOffset = max(
+                        0, interval.start.timeIntervalSince(dayStart) - axis.start
+                    )
+                    let endOffset = min(
+                        axis.span, interval.end.timeIntervalSince(dayStart) - axis.start
+                    )
+                    if endOffset > startOffset {
+                        Capsule()
+                            .fill(Color.accentColor)
+                            .frame(width: max(2, geo.size.width * (endOffset - startOffset) / axis.span))
+                            .offset(x: geo.size.width * startOffset / axis.span)
+                    }
+                }
+            }
+        }
+        .frame(height: Self.traceHeight)
     }
 
     // MARK: - Ticks
