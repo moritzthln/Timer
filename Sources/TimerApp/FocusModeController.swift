@@ -2,17 +2,19 @@ import Foundation
 import Combine
 import TimerCore
 
-/// Couples focus sessions to the macOS Focus mode via two user-created
-/// Shortcuts, run through /usr/bin/shortcuts. Same activity semantics as the
+/// Couples focus sessions to the macOS Focus mode via two user-selected
+/// Shortcuts (v8: names come from preferences, defaults match the v7 fixed
+/// names), run through /usr/bin/shortcuts. Same activity semantics as the
 /// focus block (`FocusBlockRules.isActive`), gated by the DND toggle.
 final class FocusModeController: ObservableObject {
-    static let onShortcutName = "Timer Fokus an"
-    static let offShortcutName = "Timer Fokus aus"
     private static let binaryPath = "/usr/bin/shortcuts"
 
     /// One-line status for the settings section; replaced, never accumulated.
     /// nil after a successful run.
     @Published private(set) var statusMessage: String?
+
+    /// `shortcuts list` output for the settings dropdowns, alphabetical.
+    @Published private(set) var availableShortcuts: [String] = []
 
     /// False on ancient macOS without the Shortcuts CLI (defensive — the
     /// deployment target is macOS 13, where it always exists).
@@ -31,12 +33,12 @@ final class FocusModeController: ObservableObject {
         let shouldBeActive = FocusBlockRules.isActive(phase: phase, enabled: preferences.dndEnabled)
         guard shouldBeActive != active else { return }
         active = shouldBeActive
-        run(shortcut: active ? Self.onShortcutName : Self.offShortcutName)
+        run(shortcut: active ? preferences.dndShortcutOn : preferences.dndShortcutOff)
     }
 
-    /// Settings "Testen" buttons.
+    /// Settings "Testen" buttons — run the currently selected shortcuts.
     func test(on: Bool) {
-        run(shortcut: on ? Self.onShortcutName : Self.offShortcutName)
+        run(shortcut: on ? preferences.dndShortcutOn : preferences.dndShortcutOff)
     }
 
     /// Best-effort off-shortcut on app quit. Spawns without waiting — the
@@ -44,15 +46,41 @@ final class FocusModeController: ObservableObject {
     func deactivateForTermination() {
         guard active, shortcutsAvailable else { return }
         active = false
-        _ = try? Self.makeProcess(shortcut: Self.offShortcutName).run()
+        _ = try? Self.makeProcess(arguments: ["run", preferences.dndShortcutOff]).run()
+    }
+
+    /// Repopulates `availableShortcuts` from `shortcuts list`. The pipe is
+    /// drained on a background queue (no 64 KB pipe-buffer deadlock), the
+    /// published list updates on main.
+    func refreshShortcutList() {
+        guard shortcutsAvailable else { return }
+        let process = Self.makeProcess(arguments: ["list"])
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        do {
+            try process.run()
+        } catch {
+            return // dropdown keeps its previous content
+        }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let names = (String(data: data, encoding: .utf8) ?? "")
+                .split(separator: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+                .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+            DispatchQueue.main.async {
+                self?.availableShortcuts = names
+            }
+        }
     }
 
     // MARK: - Process plumbing
 
-    private static func makeProcess(shortcut: String) -> Process {
+    private static func makeProcess(arguments: [String]) -> Process {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: binaryPath)
-        process.arguments = ["run", shortcut]
+        process.arguments = arguments
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         return process
@@ -66,7 +94,7 @@ final class FocusModeController: ObservableObject {
             statusMessage = "Benötigt macOS 12+ (Kurzbefehle)."
             return
         }
-        let process = Self.makeProcess(shortcut: shortcut)
+        let process = Self.makeProcess(arguments: ["run", shortcut])
         process.terminationHandler = { [weak self] finished in
             DispatchQueue.main.async {
                 if finished.terminationStatus == 0 {

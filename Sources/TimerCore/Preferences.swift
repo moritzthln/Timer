@@ -65,6 +65,8 @@ public final class Preferences {
         static let trackingPaused = "trackingPaused"
         static let idleThresholdMinutes = "idleThresholdMinutes"
         static let dndEnabled = "dndEnabled"
+        static let dndShortcutOn = "dndShortcutOn"
+        static let dndShortcutOff = "dndShortcutOff"
         static let menuBarTimeFormat = "menuBarTimeFormat"
         static let menuBarShowTime = "menuBarShowTime"
     }
@@ -342,6 +344,17 @@ public final class Preferences {
     public var dndEnabled: Bool {
         get { defaults.object(forKey: Key.dndEnabled) as? Bool ?? false }
         set { defaults.set(newValue, forKey: Key.dndEnabled) }
+    }
+
+    /// v8: selectable Shortcut names; the defaults keep v7 setups working.
+    public var dndShortcutOn: String {
+        get { defaults.string(forKey: Key.dndShortcutOn) ?? "Timer Fokus an" }
+        set { defaults.set(newValue, forKey: Key.dndShortcutOn) }
+    }
+
+    public var dndShortcutOff: String {
+        get { defaults.string(forKey: Key.dndShortcutOff) ?? "Timer Fokus aus" }
+        set { defaults.set(newValue, forKey: Key.dndShortcutOff) }
     }
 
     // MARK: - Menu bar

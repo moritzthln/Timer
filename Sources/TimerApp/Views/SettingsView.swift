@@ -32,6 +32,8 @@ struct SettingsView: View {
     @State private var trackingPaused = false
     @State private var idleText = "5"
     @State private var dndEnabled = false
+    @State private var dndOnName = ""
+    @State private var dndOffName = ""
     @State private var menuBarFormat = MenuBarTimeFormat.standard
     @State private var menuBarIconOnly = false
 
@@ -358,6 +360,7 @@ struct SettingsView: View {
                     preferences.dndEnabled = newValue
                 }
             if focusMode.shortcutsAvailable {
+                dndShortcutPickers
                 Text("Lege in der Kurzbefehle-App zwei Kurzbefehle an: 'Timer Fokus an' → Fokus 'Nicht stören' aktivieren, 'Timer Fokus aus' → deaktivieren.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -380,6 +383,51 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Dropdowns over the user's existing Shortcuts (`shortcuts list`), so
+    /// nobody has to type exact names anymore (v8).
+    private var dndShortcutPickers: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+            GridRow {
+                Text("Kurzbefehl an")
+                dndPicker(selection: $dndOnName) { preferences.dndShortcutOn = $0 }
+            }
+            GridRow {
+                Text("Kurzbefehl aus")
+                dndPicker(selection: $dndOffName) { preferences.dndShortcutOff = $0 }
+            }
+            GridRow {
+                Text("")
+                Button("Liste aktualisieren") { focusMode.refreshShortcutList() }
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private func dndPicker(
+        selection: Binding<String>, commit: @escaping (String) -> Void
+    ) -> some View {
+        Picker("", selection: selection) {
+            ForEach(dndOptions(current: selection.wrappedValue), id: \.self) { name in
+                Text(name).tag(name)
+            }
+        }
+        .labelsHidden()
+        .frame(maxWidth: 200)
+        .onChange(of: selection.wrappedValue) { newValue in
+            commit(newValue)
+        }
+    }
+
+    /// The listed shortcuts, with the stored selection prepended when it is
+    /// not (or not yet) in the list — the picker always shows a valid row.
+    private func dndOptions(current: String) -> [String] {
+        var options = focusMode.availableShortcuts
+        if !current.isEmpty && !options.contains(current) {
+            options.insert(current, at: 0)
+        }
+        return options
     }
 
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
@@ -432,6 +480,9 @@ struct SettingsView: View {
         trackingPaused = preferences.trackingPaused
         idleText = String(preferences.idleThresholdMinutes)
         dndEnabled = preferences.dndEnabled
+        dndOnName = preferences.dndShortcutOn
+        dndOffName = preferences.dndShortcutOff
+        focusMode.refreshShortcutList()
         menuBarFormat = preferences.menuBarTimeFormat
         menuBarIconOnly = !preferences.menuBarShowTime
     }

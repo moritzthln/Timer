@@ -197,4 +197,14 @@ func runPreferencesTests() {
         prefs.dndEnabled = true
         try expect(prefs.dndEnabled, "dnd roundtrip")
     }
+
+    test("dnd shortcut names default to the v7 fixed names and roundtrip") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.dndShortcutOn, "Timer Fokus an", "on default")
+        try expectEqual(prefs.dndShortcutOff, "Timer Fokus aus", "off default")
+        prefs.dndShortcutOn = "DEEP FOKUS"
+        prefs.dndShortcutOff = "DEEP FOKUS aus"
+        try expectEqual(prefs.dndShortcutOn, "DEEP FOKUS", "on roundtrip")
+        try expectEqual(prefs.dndShortcutOff, "DEEP FOKUS aus", "off roundtrip")
+    }
 }
