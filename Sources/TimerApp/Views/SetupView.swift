@@ -1,10 +1,11 @@
+import AppKit
 import SwiftUI
 import TimerCore
 
 struct SetupView: View {
     @ObservedObject var engine: TimerEngine
     let preferences: Preferences
-    let stats: StatsStore
+    let stats: StatsStore // dead since the caption line is gone; removed in the wiring task
     var onOpenSettings: () -> Void
     var onToggleFloating: () -> Void
     var onOpenStats: () -> Void
@@ -13,8 +14,7 @@ struct SetupView: View {
     @State private var soundEnabled = true
     @State private var floatingOn = true
     @State private var focusBlockOn = false
-    @State private var mode = "timer"
-    @State private var presets: [Int] = [5, 10, 15, 25, 45, 60]
+    @State private var presets: [Int] = [5, 15, 25, 45]
     @FocusState private var inputFocused: Bool
 
     private var enteredMinutes: Int? {
@@ -23,53 +23,13 @@ struct SetupView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            Picker("", selection: $mode) {
-                Text("Timer").tag("timer")
-                Text("Pomodoro").tag("pomodoro")
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .onChange(of: mode) { newValue in
-                preferences.lastMode = newValue
-                if newValue == "timer" {
-                    DispatchQueue.main.async { inputFocused = true }
-                }
-            }
-
-            if mode == "timer" {
-                timerSetup
-            } else {
-                pomodoroSetup
-            }
-
-            HStack(spacing: 6) {
-                Image(systemName: focusBlockOn ? "shield.fill" : "shield")
-                    .font(.system(size: 11))
-                    .foregroundStyle(focusBlockOn ? Color.green : Color.secondary)
-                Toggle("Fokus-Block", isOn: $focusBlockOn)
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
-                    .font(.system(size: 11))
-                    .onChange(of: focusBlockOn) { newValue in
-                        preferences.focusBlockEnabled = newValue
-                    }
-                Spacer()
-            }
-
-            Button(action: onOpenStats) {
-                HStack(spacing: 4) {
-                    Image(systemName: "chart.bar")
-                        .font(.system(size: 9))
-                    Text("Heute \(TimeFormatting.wording(seconds: stats.todaySeconds())) · Woche \(TimeFormatting.wording(seconds: stats.weekSeconds()))")
-                }
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-
-            Divider()
+        VStack(spacing: 12) {
+            heroInput
+            presetRow
+            pomodoroChip
+            startButton
             footer
+                .padding(.top, 2)
         }
         .onAppear {
             minutesText = String(preferences.lastMinutes)
@@ -77,100 +37,171 @@ struct SetupView: View {
             floatingOn = preferences.floatingEnabled
             focusBlockOn = preferences.focusBlockEnabled
             presets = preferences.presets
-            mode = preferences.lastMode
-            if mode == "timer" {
-                DispatchQueue.main.async { inputFocused = true }
-            }
+            DispatchQueue.main.async { inputFocused = true }
         }
     }
 
-    private var timerSetup: some View {
-        Group {
-            HStack(spacing: 6) {
-                TextField("25", text: $minutesText)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                    .multilineTextAlignment(.center)
-                    .focused($inputFocused)
-                    .onSubmit(startFromField)
-                    .onChange(of: minutesText) { newValue in
-                        let filtered = String(newValue.filter(\.isNumber).prefix(3))
-                        if filtered != newValue { minutesText = filtered }
-                    }
-                Text("min")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Start", action: startFromField)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(enteredMinutes == nil)
-            }
-            HStack(spacing: 4) {
-                ForEach(presets, id: \.self) { minutes in
-                    Button(String(minutes)) {
-                        engine.start(minutes: minutes)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .font(.system(size: 10, design: .monospaced))
+    // MARK: - Hero input
+
+    private var heroInput: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            TextField("25", text: $minutesText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 34, weight: .medium, design: .monospaced))
+                .multilineTextAlignment(.center)
+                .fixedSize()
+                .focused($inputFocused)
+                .onSubmit(startFromField)
+                .onChange(of: minutesText) { newValue in
+                    let filtered = String(newValue.filter(\.isNumber).prefix(3))
+                    if filtered != newValue { minutesText = filtered }
                 }
+            Text("min")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Preset chips
+
+    private var presetRow: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(presets.enumerated()), id: \.offset) { _, minutes in
+                presetChip(minutes)
             }
         }
     }
 
-    private var pomodoroSetup: some View {
-        let config = preferences.pomodoroConfig
-        return Group {
-            Text("\(config.focusMinutes) min Fokus · \(config.breakMinutes) min Pause · \(config.rounds) Runden")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Button("Pomodoro starten") {
-                engine.startPomodoro(config: preferences.pomodoroConfig)
-            }
-            .keyboardShortcut(.defaultAction)
+    private func presetChip(_ minutes: Int) -> some View {
+        let isActive = enteredMinutes == minutes
+        return Button {
+            engine.start(minutes: minutes)
+        } label: {
+            Text(String(minutes))
+                .font(.system(size: 12, design: .monospaced))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(isActive ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.06))
+                )
+                .foregroundStyle(isActive ? Color.accentColor : Color.primary)
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
+        .buttonStyle(.plain)
     }
+
+    // MARK: - Pomodoro chip
+
+    /// Spec names the modern glyph with `repeat` as fallback; the probe keeps
+    /// the chip rendering on macOS 13, where the modern name does not exist.
+    private var pomodoroSymbol: String {
+        let modern = "arrow.trianglehead.2.clockwise"
+        return NSImage(systemSymbolName: modern, accessibilityDescription: nil) != nil
+            ? modern : "repeat"
+    }
+
+    private var pomodoroChip: some View {
+        let config = preferences.pomodoroConfig
+        return Button {
+            engine.startPomodoro(config: preferences.pomodoroConfig)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: pomodoroSymbol)
+                    .font(.system(size: 10))
+                Text("Pomodoro · \(config.focusMinutes) / \(config.breakMinutes) · \(config.rounds) Runden")
+                    .font(.system(size: 11))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(0.06))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+    }
+
+    // MARK: - Start
+
+    private var startButton: some View {
+        Button(action: startFromField) {
+            Text("Start")
+                .font(.system(size: 13, weight: .semibold))
+                .frame(maxWidth: .infinity)
+        }
+        .controlSize(.large)
+        .buttonStyle(.borderedProminent)
+        .keyboardShortcut(.defaultAction)
+        .disabled(enteredMinutes == nil)
+    }
+
+    // MARK: - Footer
 
     private var footer: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Button {
-                soundEnabled.toggle()
-                preferences.soundEnabled = soundEnabled
+                focusBlockOn.toggle()
+                preferences.focusBlockEnabled = focusBlockOn
             } label: {
-                Image(systemName: soundEnabled ? "speaker.wave.2" : "speaker.slash")
+                HStack(spacing: 4) {
+                    Image(systemName: focusBlockOn ? "shield.fill" : "shield")
+                        .font(.system(size: 11))
+                    Text("Fokus-Block")
+                        .font(.system(size: 11))
+                }
+                .foregroundStyle(focusBlockOn ? Color.green : Color.secondary)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help(soundEnabled ? "Ton aus" : "Ton an")
+            .help(focusBlockOn ? "Fokus-Block aus" : "Fokus-Block an")
 
-            Button {
-                floatingOn.toggle()
-                onToggleFloating()
-            } label: {
-                Image(systemName: "macwindow.on.rectangle")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(floatingOn ? .primary : .secondary)
-            .help(floatingOn ? "Floating Display aus" : "Floating Display an")
+            Spacer()
 
             Button(action: onOpenStats) {
                 Image(systemName: "chart.bar")
+                    .font(.system(size: 12))
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .help("Statistik")
 
-            Button(action: onOpenSettings) {
-                Image(systemName: "ellipsis.circle")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("Einstellungen")
-
-            Spacer()
-            Text("⌘Q")
-                .font(.system(size: 9))
-                .foregroundStyle(.tertiary)
+            moreMenu
         }
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Toggle("Ton", isOn: Binding(
+                get: { soundEnabled },
+                set: { newValue in
+                    soundEnabled = newValue
+                    preferences.soundEnabled = newValue
+                }
+            ))
+            Toggle("Floating Display", isOn: Binding(
+                get: { floatingOn },
+                set: { newValue in
+                    floatingOn = newValue
+                    onToggleFloating()
+                }
+            ))
+            Divider()
+            Button("Einstellungen…", action: onOpenSettings)
+            Divider()
+            Button("Timer beenden") { NSApp.terminate(nil) }
+                .keyboardShortcut("q")
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 12))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .foregroundStyle(.secondary)
+        .help("Mehr")
     }
 
     private func startFromField() {
