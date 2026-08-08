@@ -13,6 +13,7 @@ struct SetupView: View {
     @State private var soundEnabled = true
     @State private var floatingOn = true
     @State private var focusBlockOn = false
+    @State private var blockMode = BlockMode.blocklist
     @State private var presets: [Int] = [5, 15, 25, 45]
     @FocusState private var inputFocused: Bool
 
@@ -35,6 +36,7 @@ struct SetupView: View {
             soundEnabled = preferences.soundEnabled
             floatingOn = preferences.floatingEnabled
             focusBlockOn = preferences.focusBlockEnabled
+            blockMode = preferences.blockMode
             presets = preferences.presets
             DispatchQueue.main.async { inputFocused = true }
         }
@@ -141,21 +143,9 @@ struct SetupView: View {
     // MARK: - Footer
 
     private var footer: some View {
-        HStack(spacing: 12) {
-            Button {
-                focusBlockOn.toggle()
-                preferences.focusBlockEnabled = focusBlockOn
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: focusBlockOn ? "shield.fill" : "shield")
-                        .font(.system(size: 11))
-                    Text("Fokus-Block")
-                        .font(.system(size: 11))
-                }
-                .foregroundStyle(focusBlockOn ? Color.green : Color.secondary)
-            }
-            .buttonStyle(.plain)
-            .help(focusBlockOn ? "Fokus-Block aus" : "Fokus-Block an")
+        HStack(spacing: 8) {
+            shieldButton
+            if focusBlockOn { modeControl }
 
             Spacer()
 
@@ -169,6 +159,63 @@ struct SetupView: View {
 
             moreMenu
         }
+    }
+
+    /// While the mode control is visible the label collapses to the icon —
+    /// the 240 pt popover cannot fit label, both segments, and the footer
+    /// icons in one row.
+    private var shieldButton: some View {
+        Button {
+            focusBlockOn.toggle()
+            preferences.focusBlockEnabled = focusBlockOn
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: focusBlockOn ? "shield.fill" : "shield")
+                    .font(.system(size: 11))
+                if !focusBlockOn {
+                    Text("Fokus-Block")
+                        .font(.system(size: 11))
+                }
+            }
+            .foregroundStyle(focusBlockOn ? Color.green : Color.secondary)
+        }
+        .buttonStyle(.plain)
+        .help(focusBlockOn ? "Fokus-Block aus" : "Fokus-Block an")
+    }
+
+    /// v15: two-segment mode choice next to the shield, only while it is on.
+    private var modeControl: some View {
+        HStack(spacing: 3) {
+            modeChip(
+                "Blockieren", .blocklist,
+                help: "Blockieren: beendet markierte Apps und schließt Tabs markierter Websites — alles andere bleibt frei."
+            )
+            modeChip(
+                "Nur Erlaubte", .allowlist,
+                help: "Nur Erlaubte: beendet alle Apps außer den erlaubten und schließt Tabs außer auf erlaubten Websites. Leere Liste = dieser Teil blockt nichts."
+            )
+        }
+    }
+
+    private func modeChip(_ title: String, _ mode: BlockMode, help: String) -> some View {
+        let isActive = blockMode == mode
+        return Button {
+            blockMode = mode
+            preferences.blockMode = mode
+        } label: {
+            Text(title)
+                .font(.system(size: 9, weight: .medium))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(isActive ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.06))
+                )
+                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+                .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 
     private var moreMenu: some View {
