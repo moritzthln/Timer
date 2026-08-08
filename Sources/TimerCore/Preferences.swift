@@ -69,6 +69,7 @@ public final class Preferences {
         static let dndShortcutOff = "dndShortcutOff"
         static let menuBarTimeFormat = "menuBarTimeFormat"
         static let menuBarShowTime = "menuBarShowTime"
+        static let promotedSites = "promotedSites"
     }
 
     public init(defaults: UserDefaults = .standard) {
@@ -339,6 +340,40 @@ public final class Preferences {
             return min(30, max(1, value))
         }
         set { defaults.set(min(30, max(1, newValue)), forKey: Key.idleThresholdMinutes) }
+    }
+
+    /// v13: promoted websites shown as first-class rows in the activity app
+    /// list. Never-set → the requested defaults; a written list (including an
+    /// explicitly emptied one) persists as-is — the never-set vs. cleared
+    /// split mirrors the hotkey preferences. Entries are sanitized domains,
+    /// deduplicated with the first occurrence winning (list order is the
+    /// match priority).
+    public var promotedSites: [String] {
+        get {
+            guard defaults.object(forKey: Key.promotedSites) != nil else {
+                return ["instagram.com", "youtube.com"]
+            }
+            return defaults.stringArray(forKey: Key.promotedSites) ?? []
+        }
+        set {
+            var seen = Set<String>()
+            let sanitized = newValue.compactMap(Self.sanitizeDomain)
+                .filter { seen.insert($0).inserted }
+            defaults.set(sanitized, forKey: Key.promotedSites)
+        }
+    }
+
+    /// Sanitizes and appends `raw` to the promoted-sites list. Returns the
+    /// stored domain, or nil when sanitizing dropped the input or the domain
+    /// was already listed — the settings field clears only on success.
+    @discardableResult
+    public func addPromotedSite(_ raw: String) -> String? {
+        guard let sanitized = Self.sanitizeDomain(raw) else { return nil }
+        var sites = promotedSites
+        guard !sites.contains(sanitized) else { return nil }
+        sites.append(sanitized)
+        promotedSites = sites
+        return sanitized
     }
 
     public var dndEnabled: Bool {

@@ -7,6 +7,8 @@ struct StatsRootView: View {
     let activity: ActivityStore
     let focusLog: FocusLog
     var liveFocusStart: () -> Date? = { nil }
+    /// v13: promoted websites shown as first-class activity rows.
+    var promotedSites: () -> [String] = { [] }
 
     @State private var tab = "fokus"
 
@@ -32,7 +34,10 @@ struct StatsRootView: View {
                 if tab == "fokus" {
                     StatsView(stats: stats)
                 } else {
-                    ActivityView(store: activity, focusLog: focusLog, liveFocusStart: liveFocusStart)
+                    ActivityView(
+                        store: activity, focusLog: focusLog,
+                        liveFocusStart: liveFocusStart, promotedSites: promotedSites
+                    )
                 }
             }
             .frame(minWidth: Self.tabMinSize.width, minHeight: Self.tabMinSize.height)
@@ -48,13 +53,16 @@ final class StatsWindowController {
     private let activity: ActivityStore
     private let focusLog: FocusLog
     private let liveFocusStart: () -> Date?
+    private let promotedSites: () -> [String]
 
     init(stats: StatsStore, activity: ActivityStore, focusLog: FocusLog,
-         liveFocusStart: @escaping () -> Date?) {
+         liveFocusStart: @escaping () -> Date?,
+         promotedSites: @escaping () -> [String]) {
         self.stats = stats
         self.activity = activity
         self.focusLog = focusLog
         self.liveFocusStart = liveFocusStart
+        self.promotedSites = promotedSites
     }
 
     func show() {
@@ -82,7 +90,7 @@ final class StatsWindowController {
         let frame = window.frame
         let hosting = NSHostingController(rootView: StatsRootView(
             stats: stats, activity: activity, focusLog: focusLog,
-            liveFocusStart: liveFocusStart
+            liveFocusStart: liveFocusStart, promotedSites: promotedSites
         ))
         // v9: propagates the SwiftUI minimum size to window.contentMinSize —
         // the window shrinks exactly to where everything still fits, never past.

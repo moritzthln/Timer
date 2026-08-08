@@ -10,6 +10,9 @@ struct ActivityView: View {
     let store: ActivityStore
     let focusLog: FocusLog
     var liveFocusStart: () -> Date? = { nil }
+    /// v13: promoted websites shown as first-class rows (read live from
+    /// Preferences by the app root).
+    var promotedSites: () -> [String] = { [] }
 
     enum Mode {
         case day
@@ -47,12 +50,13 @@ struct ActivityView: View {
             if mode == .day {
                 ActivityDayView(
                     store: store, focusLog: focusLog, liveFocusStart: liveFocusStart,
-                    day: $day, focusOnly: focusOnly
+                    promotedSites: promotedSites, day: $day, focusOnly: focusOnly
                 )
             } else {
                 ActivityWeekView(
                     store: store, focusLog: focusLog, liveFocusStart: liveFocusStart,
-                    anchor: $weekAnchor, focusOnly: focusOnly, onOpenDay: openDay
+                    promotedSites: promotedSites, anchor: $weekAnchor,
+                    focusOnly: focusOnly, onOpenDay: openDay
                 )
             }
             Text("Alle Daten bleiben lokal auf diesem Mac")

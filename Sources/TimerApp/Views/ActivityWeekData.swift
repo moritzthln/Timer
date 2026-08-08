@@ -19,7 +19,6 @@ struct WeekData {
     let apps: [AppUsage]                       // week totals, sorted desc
     let sitesByBrowser: [String: [SiteUsage]]  // week-aggregated domains
     let presenceSeconds: Double
-    let ranks: [String: Int]                   // WeekRanking over week totals
 
     var hasActivity: Bool {
         days.contains { $0.summary.firstActivity != nil }
@@ -79,10 +78,12 @@ struct WeekData {
             domains.map { SiteUsage(domain: $0.key, totalSeconds: $0.value) }
                 .sorted { $0.totalSeconds > $1.totalSeconds }
         }
+        // v13: palette ranks are no longer precomputed here — the week view
+        // derives them promotion-aware via SitePromotion.ranks (which uses
+        // the same WeekRanking ordering).
         return WeekData(
             days: days, apps: apps, sitesByBrowser: sites,
-            presenceSeconds: presence,
-            ranks: WeekRanking.rank(appTotals: totals)
+            presenceSeconds: presence
         )
     }
 }

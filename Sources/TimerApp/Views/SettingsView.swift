@@ -44,6 +44,8 @@ struct SettingsView: View {
     @State private var hotkeyHint: String?
     @State private var trackingPaused = false
     @State private var idleText = "5"
+    @State private var promotedSitesList: [String] = []
+    @State private var newPromotedSite = ""
     @State private var dndEnabled = false
     @State private var dndOnName = ""
     @State private var dndOffName = ""
@@ -394,7 +396,62 @@ struct SettingsView: View {
                     }
                 )
             }
+            Text("Eigene Einträge (Websites)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+            promotedSiteList
+            Text("Diese Websites erscheinen in der Aktivität als eigene Einträge.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// v13: the promoted-websites list — the block-list domain UI pattern
+    /// (removable rows + field + add button, live write-through).
+    private var promotedSiteList: some View {
+        Group {
+            ForEach(promotedSitesList, id: \.self) { domain in
+                HStack {
+                    Text(domain).font(.system(size: 12, design: .monospaced))
+                    Spacer()
+                    Button {
+                        removePromotedSite(domain)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            HStack {
+                TextField("tiktok.com", text: $newPromotedSite)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11, design: .monospaced))
+                    .onSubmit(commitPromotedSite)
+                Button("Hinzufügen", action: commitPromotedSite)
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    /// Removal writes through Preferences and re-reads what persisted — an
+    /// emptied list stays empty (the v13 never-set vs. cleared split).
+    private func removePromotedSite(_ domain: String) {
+        var sites = promotedSitesList
+        sites.removeAll { $0 == domain }
+        preferences.promotedSites = sites
+        promotedSitesList = preferences.promotedSites
+    }
+
+    /// Single commit path for Enter and the button: Preferences sanitizes,
+    /// dedupes, and stores; the list re-reads what actually persisted
+    /// (write-through verification) and the field only clears on success.
+    private func commitPromotedSite() {
+        let stored = preferences.addPromotedSite(newPromotedSite)
+        promotedSitesList = preferences.promotedSites
+        if stored != nil { newPromotedSite = "" }
     }
 
     private var dndSection: some View {
@@ -570,6 +627,7 @@ struct SettingsView: View {
         hotkeyQuickStart = preferences.hotkeyQuickStart
         hotkeyExtend = preferences.hotkeyExtend
         trackingPaused = preferences.trackingPaused
+        promotedSitesList = preferences.promotedSites
         dndEnabled = preferences.dndEnabled
         dndOnName = preferences.dndShortcutOn
         dndOffName = preferences.dndShortcutOff

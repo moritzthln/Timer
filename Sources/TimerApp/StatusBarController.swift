@@ -31,7 +31,9 @@ final class StatusBarController {
         focusBlock = FocusBlockController(preferences: preferences, overlay: overlay)
         statsWindow = StatsWindowController(
             stats: stats, activity: activityStore, focusLog: focusLog,
-            liveFocusStart: { [weak engine] in engine?.activeFocusStart }
+            liveFocusStart: { [weak engine] in engine?.activeFocusStart },
+            // v13: read live so settings edits reach the next render/reopen.
+            promotedSites: { preferences.promotedSites }
         )
         activityTracker = ActivityTrackerController(store: activityStore, preferences: preferences)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
