@@ -62,7 +62,8 @@ struct ActivityDayView: View {
                         sparkSeries: sparkSeries,
                         sparkHelp: "Letzte 7 Tage",
                         selectedBundleID: selectedBundleID,
-                        onSelect: toggleSelection
+                        onSelect: toggleSelection,
+                        foldThreshold: focusOnly ? 10 : 60
                     )
                 }
             } else {

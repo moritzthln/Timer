@@ -14,21 +14,24 @@ struct ActivityAppListView: View {
     let sparkHelp: String
     let selectedBundleID: String?
     let onSelect: (String) -> Void
+    /// v12.1: the focus filter lowers this to 10 s — short sessions would
+    /// otherwise fold every app into Sonstige.
+    var foldThreshold: Double = 60
 
     /// v9: the list keeps at least this much height before scrolling.
     static let listMinHeight: CGFloat = 160
 
     var body: some View {
         let maxTotal = apps.first?.totalSeconds ?? 1
-        let visible = apps.filter { $0.totalSeconds >= 60 }
-        let restSeconds = apps.filter { $0.totalSeconds < 60 }
+        let visible = apps.filter { $0.totalSeconds >= foldThreshold }
+        let restSeconds = apps.filter { $0.totalSeconds < foldThreshold }
             .reduce(0) { $0 + $1.totalSeconds }
         return ScrollView {
             VStack(alignment: .leading, spacing: 9) {
                 ForEach(visible, id: \.bundleID) { app in
                     appRow(app, maxTotal: maxTotal)
                 }
-                if restSeconds >= 60 {
+                if restSeconds >= foldThreshold {
                     HStack {
                         Text("Sonstige").font(.system(size: 13)).foregroundStyle(.secondary)
                         Spacer()

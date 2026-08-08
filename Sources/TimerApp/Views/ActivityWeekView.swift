@@ -67,7 +67,8 @@ struct ActivityWeekView: View {
                             sparkSeries: sparkSeries,
                             sparkHelp: rangeString,
                             selectedBundleID: selectedBundleID,
-                            onSelect: toggleSelection
+                            onSelect: toggleSelection,
+                            foldThreshold: focusOnly ? 10 : 60
                         )
                     }
                 } else {
