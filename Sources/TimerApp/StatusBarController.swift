@@ -15,7 +15,11 @@ final class StatusBarController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         popover.contentViewController = NSHostingController(
-            rootView: TimerView(engine: engine, preferences: preferences)
+            rootView: TimerView(
+                engine: engine, preferences: preferences,
+                onOpenSettings: { [weak self] in self?.openSettings() },
+                onToggleFloating: { [weak self] in self?.toggleFloating() }
+            )
         )
         popover.behavior = .transient
 
@@ -47,7 +51,23 @@ final class StatusBarController {
             }
         }
 
+        engine.onPhaseChange = { [weak self] _ in
+            guard let self else { return }
+            self.showPopover()
+            if preferences.soundEnabled {
+                SoundPlayer.playCompletionChime(volume: preferences.alarmVolume)
+            }
+        }
+
         refresh()
+    }
+
+    // MARK: - Windows (filled in Tasks 7/8)
+
+    private func openSettings() {
+    }
+
+    private func toggleFloating() {
     }
 
     // MARK: - Click handling
