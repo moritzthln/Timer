@@ -69,9 +69,33 @@ Lives in the menu bar only — no Dock icon, no window.
   per day; breaks and pauses are not. Aborting a timer still credits the
   elapsed minutes.
 - The popover's idle view shows "Heute … · Woche …" under the presets;
-  click it (or the chart icon in the footer) for the stats window:
-  today/week tiles plus a 7-day bar chart.
+  click it (or the chart icon in the footer) for the stats window. Its
+  "Fokus" tab shows today/week tiles plus a 7-day bar chart.
 - Data is stored locally in UserDefaults and kept forever (it is tiny).
+
+### Aktivität (activity tracking)
+
+- Always-on local tracking answering three daily questions: **presence**
+  (at the Mac from when to when, with gaps — screen lock, sleep, pause,
+  and idle time past the threshold don't count), **apps** (which app was
+  frontmost, for how long), and **websites** (browser time split by
+  domain for Safari, Google Chrome, and Arc — same per-browser
+  automation permission as the focus block).
+- Stats window → "Aktivität" tab: navigate days with ‹ ›, see the
+  presence line ("09:12 – 17:43 · aktiv 6 h 51 min"), a colored day
+  timeline of app segments (gaps stay dark), and the app list with
+  expandable per-domain breakdowns for browsers. Apps under one minute
+  fold into "Sonstige"; empty days show "Keine Daten für diesen Tag".
+- **Privacy:** everything stays on this Mac — one JSON file per day
+  under `~/Library/Application Support/Timer/activity/`, no network,
+  ever. macOS exposes only the *age* of the last input, never what was
+  typed or clicked.
+- **Honest limits:** tracking runs only while the app runs (enable
+  launch at login); Firefox has no automation interface and appears as
+  a whole app without domain breakdown.
+- Pause any time via Settings → Aktivität ("Tracking pausieren");
+  paused stretches render as gaps. The idle threshold ("Inaktiv nach")
+  defaults to 5 minutes (1–30).
 
 ### Global hotkeys
 
@@ -101,6 +125,8 @@ immediately:
   permission.
 - **Hotkeys:** the two recorder fields; duplicate combos are rejected
   with an inline hint.
+- **Aktivität:** "Tracking pausieren" toggle and the idle threshold
+  "Inaktiv nach (min)" (1–30, default 5).
 
 ## Build & install
 
