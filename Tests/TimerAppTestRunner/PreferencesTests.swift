@@ -74,4 +74,37 @@ func runPreferencesTests() {
         prefs.lastMode = "pomodoro"
         try expectEqual(prefs.lastMode, "pomodoro", "mode roundtrip")
     }
+
+    test("blocked apps roundtrip as codable list") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.blockedApps, [], "default empty")
+        let apps = [
+            BlockedApp(bundleID: "com.hnc.Discord", name: "Discord"),
+            BlockedApp(bundleID: "com.valvesoftware.steam", name: "Steam"),
+        ]
+        prefs.blockedApps = apps
+        try expectEqual(prefs.blockedApps, apps, "roundtrip")
+    }
+
+    test("blocked domains sanitize scheme, path, and case") {
+        let prefs = freshPrefs()
+        prefs.blockedDomains = ["https://www.Instagram.com/reels/", "YOUTUBE.com", "  ", "twitter.com"]
+        try expectEqual(prefs.blockedDomains, ["www.instagram.com", "youtube.com", "twitter.com"], "sanitized, empties dropped")
+    }
+
+    test("focusBlockEnabled defaults to false and roundtrips") {
+        let prefs = freshPrefs()
+        try expect(!prefs.focusBlockEnabled, "default off")
+        prefs.focusBlockEnabled = true
+        try expect(prefs.focusBlockEnabled, "on")
+    }
+
+    test("hotkeys roundtrip and clear") {
+        let prefs = freshPrefs()
+        try expectNil(prefs.hotkeyPopover, "default nil")
+        prefs.hotkeyPopover = HotkeyCombo(keyCode: 17, carbonModifiers: 6144)
+        try expectEqual(prefs.hotkeyPopover, HotkeyCombo(keyCode: 17, carbonModifiers: 6144), "roundtrip")
+        prefs.hotkeyPopover = nil
+        try expectNil(prefs.hotkeyPopover, "cleared")
+    }
 }

@@ -2,28 +2,28 @@ import AppKit
 import SwiftUI
 import TimerCore
 
-final class SettingsWindowController {
+final class StatsWindowController {
     private var window: NSWindow?
-    private let preferences: Preferences
+    private let stats: StatsStore
 
-    init(preferences: Preferences) {
-        self.preferences = preferences
+    init(stats: StatsStore) {
+        self.stats = stats
     }
 
     func show() {
         if window == nil {
             let created = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 360, height: 640),
+                contentRect: NSRect(x: 0, y: 0, width: 300, height: 240),
                 styleMask: [.titled, .closable],
-                backing: .buffered,
-                defer: false
+                backing: .buffered, defer: false
             )
-            created.title = "Einstellungen"
-            created.contentView = NSHostingView(rootView: SettingsView(preferences: preferences))
+            created.title = "Statistik"
             created.isReleasedWhenClosed = false
             created.center()
             window = created
         }
+        // Fresh view on every open so the numbers reload.
+        window?.contentView = NSHostingView(rootView: StatsView(stats: stats))
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }

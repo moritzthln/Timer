@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 import TimerCore
 
 extension Notification.Name {
@@ -17,6 +19,12 @@ struct SettingsView: View {
     @State private var launchAtLogin = false
     @State private var floating = true
     @State private var loginHint: String?
+    @State private var blockedApps: [BlockedApp] = []
+    @State private var blockedDomains: [String] = []
+    @State private var newDomain = ""
+    @State private var hotkeyPopover: HotkeyCombo?
+    @State private var hotkeyQuickStart: HotkeyCombo?
+    @State private var hotkeyHint: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -68,34 +76,139 @@ struct SettingsView: View {
                 }
             }
 
-            section("Allgemein") {
-                Toggle("Beim Anmelden starten", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { newValue in
-                        guard newValue != LaunchAtLogin.isEnabled else { return }
-                        do {
-                            try LaunchAtLogin.setEnabled(newValue)
-                            loginHint = nil
-                        } catch {
-                            launchAtLogin = LaunchAtLogin.isEnabled
-                            loginHint = "macOS hat das abgelehnt. Manuell: Systemeinstellungen → Allgemein → Anmeldeobjekte → \"+\" → Timer.app."
-                        }
-                    }
-                if let hint = loginHint {
-                    Text(hint)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Toggle("Floating Display", isOn: $floating)
-                    .onChange(of: floating) { newValue in
-                        preferences.floatingEnabled = newValue
-                        NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
-                    }
-            }
+            generalSection
+
+            focusBlockSection
+
+            hotkeysSection
         }
         .padding(20)
         .frame(width: 360)
         .onAppear(perform: load)
+    }
+
+    private var generalSection: some View {
+        section("Allgemein") {
+            Toggle("Beim Anmelden starten", isOn: $launchAtLogin)
+                .onChange(of: launchAtLogin) { newValue in
+                    guard newValue != LaunchAtLogin.isEnabled else { return }
+                    do {
+                        try LaunchAtLogin.setEnabled(newValue)
+                        loginHint = nil
+                    } catch {
+                        launchAtLogin = LaunchAtLogin.isEnabled
+                        loginHint = "macOS hat das abgelehnt. Manuell: Systemeinstellungen → Allgemein → Anmeldeobjekte → \"+\" → Timer.app."
+                    }
+                }
+            if let hint = loginHint {
+                Text(hint)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Toggle("Floating Display", isOn: $floating)
+                .onChange(of: floating) { newValue in
+                    preferences.floatingEnabled = newValue
+                    NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
+                }
+        }
+    }
+
+    private var focusBlockSection: some View {
+        section("Fokus-Block") {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(blockedApps, id: \.bundleID) { app in
+                    HStack {
+                        Text(app.name).font(.system(size: 12))
+                        Spacer()
+                        Button {
+                            blockedApps.removeAll { $0.bundleID == app.bundleID }
+                            preferences.blockedApps = blockedApps
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                Menu("App hinzufügen") {
+                    ForEach(runningUserApps(), id: \.bundleID) { candidate in
+                        Button(candidate.name) {
+                            addBlockedApp(candidate)
+                        }
+                    }
+                    Divider()
+                    Button("Andere…", action: pickAppFromDisk)
+                }
+                .menuStyle(.borderlessButton)
+                .font(.system(size: 11))
+
+                ForEach(blockedDomains, id: \.self) { domain in
+                    HStack {
+                        Text(domain).font(.system(size: 12, design: .monospaced))
+                        Spacer()
+                        Button {
+                            blockedDomains.removeAll { $0 == domain }
+                            preferences.blockedDomains = blockedDomains
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                HStack {
+                    TextField("instagram.com", text: $newDomain)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11, design: .monospaced))
+                        .onSubmit(addDomain)
+                    Button("Hinzufügen", action: addDomain)
+                        .controlSize(.small)
+                }
+                Text("Website-Block braucht die Automation-Berechtigung (macOS fragt beim ersten Mal).")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var hotkeysSection: some View {
+        section("Hotkeys") {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+                GridRow {
+                    Text("Popover öffnen")
+                    HotkeyRecorderField(combo: hotkeyPopover) { newCombo in
+                        guard newCombo == nil || newCombo != hotkeyQuickStart else {
+                            hotkeyHint = "Kombination ist schon vergeben."
+                            return
+                        }
+                        hotkeyHint = nil
+                        hotkeyPopover = newCombo
+                        preferences.hotkeyPopover = newCombo
+                        NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
+                    }
+                }
+                GridRow {
+                    Text("Sofort-Start")
+                    HotkeyRecorderField(combo: hotkeyQuickStart) { newCombo in
+                        guard newCombo == nil || newCombo != hotkeyPopover else {
+                            hotkeyHint = "Kombination ist schon vergeben."
+                            return
+                        }
+                        hotkeyHint = nil
+                        hotkeyQuickStart = newCombo
+                        preferences.hotkeyQuickStart = newCombo
+                        NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
+                    }
+                }
+            }
+            if let hint = hotkeyHint {
+                Text(hint)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
@@ -138,6 +251,77 @@ struct SettingsView: View {
         volume = preferences.alarmVolume
         launchAtLogin = LaunchAtLogin.isEnabled
         floating = preferences.floatingEnabled
+        blockedApps = preferences.blockedApps
+        blockedDomains = preferences.blockedDomains
+        hotkeyPopover = preferences.hotkeyPopover
+        hotkeyQuickStart = preferences.hotkeyQuickStart
+    }
+
+    // MARK: - Focus block helpers
+
+    private struct AppCandidate {
+        let bundleID: String
+        let name: String
+    }
+
+    private static func defaultBrowserBundleID() -> String? {
+        guard let url = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "https://example.com")!) else {
+            return nil
+        }
+        return Bundle(url: url)?.bundleIdentifier
+    }
+
+    private func runningUserApps() -> [AppCandidate] {
+        // Spec: the Timer itself, Finder, and the default browser are not blockable.
+        let excluded = Set([
+            Bundle.main.bundleIdentifier ?? "",
+            "com.apple.finder",
+            Self.defaultBrowserBundleID() ?? "",
+        ])
+        return NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .compactMap { app in
+                guard let id = app.bundleIdentifier, let name = app.localizedName,
+                      !excluded.contains(id),
+                      !blockedApps.contains(where: { $0.bundleID == id }) else { return nil }
+                return AppCandidate(bundleID: id, name: name)
+            }
+            .sorted { $0.name < $1.name }
+    }
+
+    private func addBlockedApp(_ candidate: AppCandidate) {
+        blockedApps.append(BlockedApp(bundleID: candidate.bundleID, name: candidate.name))
+        preferences.blockedApps = blockedApps
+    }
+
+    private func pickAppFromDisk() {
+        let panel = NSOpenPanel()
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url,
+              let bundle = Bundle(url: url),
+              let id = bundle.bundleIdentifier else { return }
+        // Same guard as the running-apps menu: Timer, Finder, and the
+        // default browser are not blockable.
+        let excluded = Set([
+            Bundle.main.bundleIdentifier ?? "",
+            "com.apple.finder",
+            Self.defaultBrowserBundleID() ?? "",
+        ])
+        guard !excluded.contains(id) else { return }
+        let name = url.deletingPathExtension().lastPathComponent
+        guard !blockedApps.contains(where: { $0.bundleID == id }) else { return }
+        blockedApps.append(BlockedApp(bundleID: id, name: name))
+        preferences.blockedApps = blockedApps
+    }
+
+    private func addDomain() {
+        guard let sanitized = Preferences.sanitizeDomain(newDomain),
+              !blockedDomains.contains(sanitized) else { return }
+        blockedDomains.append(sanitized)
+        preferences.blockedDomains = blockedDomains
+        newDomain = ""
     }
 
     private func commitPresets() {

@@ -9,4 +9,13 @@ public enum TimeFormatting {
         }
         return String(format: "%d:%02d", s / 60, s % 60)
     }
+
+    /// "1 h 25 min" above one hour, "45 min" below (whole minutes, floor).
+    public static func wording(seconds: Double) -> String {
+        let minutes = max(0, Int(seconds) / 60)
+        if minutes >= 60 {
+            return "\(minutes / 60) h \(minutes % 60) min"
+        }
+        return "\(minutes) min"
+    }
 }
