@@ -13,7 +13,7 @@ struct ActivityWeekTimelineView: View {
     let onOpenDay: (Date) -> Void
 
     static let rowHeight: CGFloat = 16
-    static let traceHeight: CGFloat = 2
+    static let traceHeight: CGFloat = 3
     static let traceGap: CGFloat = 1
     static let rowSpacing: CGFloat = 4
     static let labelWidth: CGFloat = 36
@@ -95,11 +95,29 @@ struct ActivityWeekTimelineView: View {
                 RoundedRectangle(cornerRadius: 3).fill(.quaternary.opacity(0.6))
                 if let axis {
                     segments(day, axis: axis, width: geo.size.width)
+                    FocusBarOverlay(
+                        fractions: focusFractions(day, axis: axis), width: geo.size.width
+                    )
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 3))
         }
         .frame(height: Self.rowHeight)
+    }
+
+    /// v11: the day's focus intervals as clamped fractions of the shared
+    /// week axis — drawn as the wash overlay on the row and as the traces.
+    private func focusFractions(
+        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)
+    ) -> [(start: CGFloat, end: CGFloat)] {
+        let dayStart = Calendar.current.startOfDay(for: day.date)
+        return day.focus.compactMap { interval in
+            FocusBarOverlay.clampedFractions(
+                startOffset: interval.start.timeIntervalSince(dayStart) - axis.start,
+                endOffset: interval.end.timeIntervalSince(dayStart) - axis.start,
+                span: axis.span
+            )
+        }
     }
 
     private func segments(
@@ -125,29 +143,24 @@ struct ActivityWeekTimelineView: View {
         return selectedBundleID == bundleID ? 1 : 0.15
     }
 
-    /// 2 pt accent marks under each row where focus sessions ran — same
-    /// axis, no tooltips at this size (v10). The strip is always laid out
-    /// so the seven rows keep their fixed block height.
+    /// 3 pt rounded accent marks under each row where focus sessions ran
+    /// (v11: grown from 2 pt) — same axis, no tooltips at this size (v10).
+    /// The strip is always laid out so the rows keep their block height.
     private func focusTraces(
         _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)?
     ) -> some View {
         GeometryReader { geo in
             if let axis {
-                let dayStart = Calendar.current.startOfDay(for: day.date)
-                ForEach(day.focus.indices, id: \.self) { index in
-                    let interval = day.focus[index]
-                    let startOffset = max(
-                        0, interval.start.timeIntervalSince(dayStart) - axis.start
-                    )
-                    let endOffset = min(
-                        axis.span, interval.end.timeIntervalSince(dayStart) - axis.start
-                    )
-                    if endOffset > startOffset {
-                        Capsule()
-                            .fill(Color.accentColor)
-                            .frame(width: max(2, geo.size.width * (endOffset - startOffset) / axis.span))
-                            .offset(x: geo.size.width * startOffset / axis.span)
-                    }
+                let fractions = focusFractions(day, axis: axis)
+                ForEach(fractions.indices, id: \.self) { index in
+                    let fraction = fractions[index]
+                    Capsule()
+                        .fill(Color.accentColor)
+                        .frame(width: max(
+                            Self.traceHeight,
+                            geo.size.width * (fraction.end - fraction.start)
+                        ))
+                        .offset(x: geo.size.width * fraction.start)
                 }
             }
         }

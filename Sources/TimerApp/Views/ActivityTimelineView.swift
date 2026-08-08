@@ -19,8 +19,9 @@ struct ActivityTimelineView: View {
     let colorFor: (String) -> Color
     /// v10 drill-down: with a selection, other apps' segments dim to 0.15.
     let selectedBundleID: String?
-    /// v10: focus sessions drawn as a thin accent trace under the bar,
-    /// on the same axis (so it zooms and pans with the bar).
+    /// v10: focus sessions drawn as an accent trace under the bar, on the
+    /// same axis (so it zooms and pans with the bar). v11: additionally
+    /// overlaid on the bar itself as a wash + edge lines (`FocusBarOverlay`).
     let focusIntervals: [FocusInterval]
 
     @State private var zoom: CGFloat = 1
@@ -35,7 +36,7 @@ struct ActivityTimelineView: View {
     private static let barHeight: CGFloat = 32
     private static let controlsHeight: CGFloat = 16
     private static let labelHeight: CGFloat = 12
-    private static let traceHeight: CGFloat = 2
+    private static let traceHeight: CGFloat = 5
     private static let rowSpacing: CGFloat = 3
     /// Fixed total height: controls + bar + focus trace + tick labels +
     /// three gaps (the trace strip is always reserved, even when empty).
@@ -147,9 +148,22 @@ struct ActivityTimelineView: View {
                         .help(Self.tooltip(name: name, segment: segment))
                 }
             }
+            FocusBarOverlay(fractions: focusFractions, width: width)
         }
         .frame(width: width, height: Self.barHeight)
         .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+
+    /// v11: the focus intervals as clamped fractions of the presence axis —
+    /// drawn as the wash overlay on the bar and as the under-bar traces.
+    private var focusFractions: [(start: CGFloat, end: CGFloat)] {
+        focusIntervals.compactMap { interval in
+            FocusBarOverlay.clampedFractions(
+                startOffset: interval.start.timeIntervalSince(first),
+                endOffset: interval.end.timeIntervalSince(first),
+                span: span
+            )
+        }
     }
 
     private func dimOpacity(for bundleID: String) -> Double {
@@ -157,20 +171,23 @@ struct ActivityTimelineView: View {
         return selectedBundleID == bundleID ? 1 : 0.15
     }
 
-    /// 2 pt accent marks under the bar where focus sessions ran, clamped to
-    /// the presence axis. The strip is always laid out so the total height
-    /// (and the window minimum derived from it) never changes.
+    /// 5 pt rounded accent marks under the bar where focus sessions ran
+    /// (v11: grown from 2 pt), clamped to the presence axis. The strip is
+    /// always laid out so the total height (and the window minimum derived
+    /// from it) never changes. The focus tooltip lives here, not on the wash.
     private func focusTraces(width: CGFloat) -> some View {
         ZStack(alignment: .leading) {
             ForEach(focusIntervals.indices, id: \.self) { index in
                 let interval = focusIntervals[index]
-                let startOffset = max(0, interval.start.timeIntervalSince(first))
-                let endOffset = min(span, interval.end.timeIntervalSince(first))
-                if endOffset > startOffset {
+                if let fraction = FocusBarOverlay.clampedFractions(
+                    startOffset: interval.start.timeIntervalSince(first),
+                    endOffset: interval.end.timeIntervalSince(first),
+                    span: span
+                ) {
                     Capsule()
                         .fill(Color.accentColor)
-                        .frame(width: max(2, width * (endOffset - startOffset) / span))
-                        .offset(x: width * startOffset / span)
+                        .frame(width: max(Self.traceHeight, width * (fraction.end - fraction.start)))
+                        .offset(x: width * fraction.start)
                         .help(Self.focusTooltip(interval))
                 }
             }
