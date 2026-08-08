@@ -38,7 +38,8 @@ Lives in the menu bar only — no Dock icon, no window.
   bar shows a cup symbol next to the time; focus phases show time only.
 - Controls while running: Pause/Weiter, **+5** (extend the current
   phase by five minutes), **Skip** (jump to the next phase, silent),
-  Stopp.
+  Stopp — since v9 compact icon pills with tooltips (only "+5" stays
+  text).
 - Durations and rounds (defaults 25/5/15/4) are configured in Settings;
   changes apply from the next start.
 - Sleep or relaunch past phase boundaries fast-forwards to the current
@@ -59,8 +60,9 @@ Lives in the menu bar only — no Dock icon, no window.
   Pomodoro mode) the phase. Shows over fullscreen apps and all Spaces.
 - Appears whenever a session runs and the floating toggle is on
   (popover "⋯" menu or Settings → "Floating Display"; default on).
-- Hover reveals Pause/+5/Stopp; drag anywhere on the panel to move it
-  (position is remembered). First appearance: top-right below the menu bar.
+- Hover reveals Pause/+5/Stopp (since v9 as icon buttons with
+  tooltips); drag anywhere on the panel to move it (position is
+  remembered). First appearance: top-right below the menu bar.
 
 ### Focus block
 
@@ -92,8 +94,10 @@ Lives in the menu bar only — no Dock icon, no window.
   per day; breaks and pauses are not. Aborting a timer still credits the
   elapsed minutes.
 - The chart button in the popover footer opens the stats window
-  (v8: freely resizable, default 560 × 560, minimum 480 × 460, size and
-  position remembered). Its "Fokus" tab shows today/week tiles, a 7-day
+  (freely resizable, default 560 × 560, size and position remembered;
+  v9: the minimum size follows the content — the window only shrinks as
+  far as everything stays visible). Its "Fokus" tab shows today/week
+  tiles, a 7-day
   bar chart with the minute value above each bar, and below it a
   12-month GitHub-style heatmap with month labels (today outlined).
   Heatmap shades are relative to the busiest day of the visible year —
@@ -115,6 +119,11 @@ Lives in the menu bar only — no Dock icon, no window.
   timeline of app segments (gaps stay dark), and the app list with
   expandable per-domain breakdowns for browsers. Apps under one minute
   fold into "Sonstige"; empty days show "Keine Daten für diesen Tag".
+- v9: the timeline zooms 1–16× (−/＋/1× buttons, trackpad pinch, or
+  double-click on a spot; pan by scrolling horizontally), tick labels
+  refine from start/mid/end to hourly and quarter-hourly, and hovering
+  an app segment shows "App · 9:12–9:47 (35 min)". Zoom resets on date
+  change and window reopen.
 - **Privacy:** everything stays on this Mac — one JSON file per day
   under `~/Library/Application Support/Timer/activity/`, no network,
   ever. macOS exposes only the *age* of the last input, never what was
@@ -153,7 +162,9 @@ recorder field, press a combo with ⌘/⌃/⌥; Esc cancels, "×" clears):
 ### Settings
 
 Open via the popover's "⋯" menu → "Einstellungen…". All changes save
-immediately:
+immediately — since v9 the number fields save while you type, and
+input that does not parse into the allowed range snaps back to the
+stored value when you leave the field:
 
 - **Presets:** the four quick-start chips (1–720 min each). A custom
   six-preset set from before v6 falls back to the 5/15/25/45 default
