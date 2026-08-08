@@ -2,4 +2,5 @@
 
 runSmokeTests()
 runTimeFormattingTests()
+runPreferencesTests()
 finishTestRun()
