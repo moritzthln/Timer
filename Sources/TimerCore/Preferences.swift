@@ -61,6 +61,8 @@ public final class Preferences {
         static let focusBlockEnabled = "focusBlockEnabled"
         static let hotkeyPopover = "hotkeyPopover"
         static let hotkeyQuickStart = "hotkeyQuickStart"
+        static let trackingPaused = "trackingPaused"
+        static let idleThresholdMinutes = "idleThresholdMinutes"
     }
 
     public init(defaults: UserDefaults = .standard) {
@@ -268,5 +270,20 @@ public final class Preferences {
     public var hotkeyQuickStart: HotkeyCombo? {
         get { hotkey(forKey: Key.hotkeyQuickStart, defaultCombo: Self.defaultHotkeyQuickStart) }
         set { setHotkey(newValue, forKey: Key.hotkeyQuickStart) }
+    }
+
+    // MARK: - Activity tracking
+
+    public var trackingPaused: Bool {
+        get { defaults.object(forKey: Key.trackingPaused) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: Key.trackingPaused) }
+    }
+
+    public var idleThresholdMinutes: Int {
+        get {
+            let value = defaults.object(forKey: Key.idleThresholdMinutes) as? Int ?? 5
+            return min(30, max(1, value))
+        }
+        set { defaults.set(min(30, max(1, newValue)), forKey: Key.idleThresholdMinutes) }
     }
 }

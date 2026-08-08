@@ -108,4 +108,20 @@ func runPreferencesTests() {
         prefs.hotkeyPopover = nil
         try expectNil(prefs.hotkeyPopover, "cleared stays cleared, not default")
     }
+
+    test("trackingPaused defaults to false and roundtrips") {
+        let prefs = freshPrefs()
+        try expect(!prefs.trackingPaused, "default running")
+        prefs.trackingPaused = true
+        try expect(prefs.trackingPaused, "paused")
+    }
+
+    test("idle threshold defaults to 5 and clamps 1...30") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.idleThresholdMinutes, 5, "default")
+        prefs.idleThresholdMinutes = 0
+        try expectEqual(prefs.idleThresholdMinutes, 1, "clamped up")
+        prefs.idleThresholdMinutes = 99
+        try expectEqual(prefs.idleThresholdMinutes, 30, "clamped down")
+    }
 }
