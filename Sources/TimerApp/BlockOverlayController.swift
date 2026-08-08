@@ -24,11 +24,20 @@ final class BlockOverlayController {
 
     /// Shows the toast unless this target was announced within the last 10 s.
     func show(blocked name: String) {
-        let nowDate = Date()
-        if let last = lastShown[name], nowDate.timeIntervalSince(last) < 10 { return }
-        lastShown[name] = nowDate
+        show(text: "Geblockt: \(name)", throttleKey: name)
+    }
 
-        let view = Text("Geblockt: \(name)")
+    /// v15 allowlist wording, same per-target throttle.
+    func show(notAllowed name: String) {
+        show(text: "Nicht erlaubt: \(name)", throttleKey: name)
+    }
+
+    private func show(text: String, throttleKey: String) {
+        let nowDate = Date()
+        if let last = lastShown[throttleKey], nowDate.timeIntervalSince(last) < 10 { return }
+        lastShown[throttleKey] = nowDate
+
+        let view = Text(text)
             .font(.system(size: 13, weight: .medium))
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
