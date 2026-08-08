@@ -17,6 +17,7 @@ final class StatusBarController {
     private let statsWindow: StatsWindowController
     private let hotkeys = HotkeyManager()
     private let activityStore = ActivityStore(directory: ActivityStore.defaultDirectory())
+    private let sessionStore = SessionStore(directory: SessionStore.defaultDirectory())
     private var activityTracker: ActivityTrackerController?
     private var cancellable: AnyCancellable?
     private var midnightTimer: Foundation.Timer?
@@ -27,7 +28,9 @@ final class StatusBarController {
         floatingController = FloatingPanelController(engine: engine, preferences: preferences)
         settingsController = SettingsWindowController(preferences: preferences)
         focusBlock = FocusBlockController(preferences: preferences, overlay: overlay)
-        statsWindow = StatsWindowController(stats: stats, activity: activityStore)
+        statsWindow = StatsWindowController(
+            stats: stats, activity: activityStore, sessions: sessionStore, preferences: preferences
+        )
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         activityTracker = ActivityTrackerController(store: activityStore, preferences: preferences)
 

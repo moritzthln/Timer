@@ -5,6 +5,8 @@ import TimerCore
 struct StatsRootView: View {
     let stats: StatsStore
     let activity: ActivityStore
+    let sessions: SessionStore
+    let preferences: Preferences
 
     @State private var tab = "fokus"
 
@@ -17,7 +19,7 @@ struct StatsRootView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             if tab == "fokus" {
-                StatsView(stats: stats)
+                StatsView(stats: stats, sessions: sessions, preferences: preferences)
             } else {
                 ActivityView(store: activity)
             }
@@ -31,16 +33,20 @@ final class StatsWindowController {
     private var window: NSWindow?
     private let stats: StatsStore
     private let activity: ActivityStore
+    private let sessions: SessionStore
+    private let preferences: Preferences
 
-    init(stats: StatsStore, activity: ActivityStore) {
+    init(stats: StatsStore, activity: ActivityStore, sessions: SessionStore, preferences: Preferences) {
         self.stats = stats
         self.activity = activity
+        self.sessions = sessions
+        self.preferences = preferences
     }
 
     func show() {
         if window == nil {
             let created = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 340, height: 500),
+                contentRect: NSRect(x: 0, y: 0, width: 340, height: 560),
                 styleMask: [.titled, .closable],
                 backing: .buffered, defer: false
             )
@@ -50,9 +56,9 @@ final class StatsWindowController {
             window = created
         }
         // Fresh view on every open so the numbers reload.
-        window?.contentView = NSHostingView(
-            rootView: StatsRootView(stats: stats, activity: activity)
-        )
+        window?.contentView = NSHostingView(rootView: StatsRootView(
+            stats: stats, activity: activity, sessions: sessions, preferences: preferences
+        ))
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }

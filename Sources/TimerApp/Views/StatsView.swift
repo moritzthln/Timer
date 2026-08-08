@@ -3,10 +3,16 @@ import TimerCore
 
 struct StatsView: View {
     let stats: StatsStore
+    let sessions: SessionStore
+    let preferences: Preferences
 
     @State private var today: Double = 0
     @State private var week: Double = 0
     @State private var days: [DayStat] = []
+    @State private var streak = 0
+    @State private var dayQuality: Double?
+    @State private var weekQuality: Double?
+    @State private var heatWeeks: [[GoalHeatmapView.Day]] = []
 
     private static let weekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -16,13 +22,22 @@ struct StatsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                metricTile(title: "Heute", value: today)
-                metricTile(title: "Diese Woche", value: week)
-            }
+            metricRow
+            qualityLine
             chart
+            GoalHeatmapView(weeks: heatWeeks)
         }
         .onAppear(perform: reload)
+    }
+
+    // MARK: - Metric tiles
+
+    private var metricRow: some View {
+        HStack(spacing: 10) {
+            metricTile(title: "Heute", value: today)
+            metricTile(title: "Diese Woche", value: week)
+            streakTile
+        }
     }
 
     private func metricTile(title: String, value: Double) -> some View {
@@ -37,6 +52,54 @@ struct StatsView: View {
         .padding(10)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
     }
+
+    private var streakTile: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Serie")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 3) {
+                Image(systemName: "flame")
+                    .font(.system(size: 13))
+                    .foregroundStyle(streak > 0 ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                Text(streak > 0 ? "\(streak)" : "–")
+                    .font(.system(.title3, design: .monospaced).weight(.medium))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: - Quality line
+
+    @ViewBuilder
+    private var qualityLine: some View {
+        if dayQuality != nil || weekQuality != nil {
+            Text(qualityText)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var qualityText: String {
+        var parts: [String] = []
+        if let dayQuality {
+            parts.append("Qualität heute: \(Self.percent(dayQuality))")
+        }
+        if let weekQuality {
+            parts.append(parts.isEmpty
+                ? "Qualität Woche: \(Self.percent(weekQuality))"
+                : "Woche: \(Self.percent(weekQuality))")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private static func percent(_ score: Double) -> String {
+        "\(Int((score * 100).rounded())) %"
+    }
+
+    // MARK: - 7-day chart (unchanged from v3)
 
     private var chart: some View {
         let maxSeconds = max(days.map(\.seconds).max() ?? 0, 60)
@@ -59,9 +122,24 @@ struct StatsView: View {
         }
     }
 
+    // MARK: - Data
+
     private func reload() {
         today = stats.todaySeconds()
         week = stats.weekSeconds()
         days = stats.last7Days()
+        streak = GoalRules.streak(
+            endingAt: Date(),
+            secondsByDay: { stats.seconds(onDayOf: $0) },
+            goalMinutes: preferences.dailyGoalMinutes,
+            weekdaysOnly: preferences.streakWeekdaysOnly
+        )
+        dayQuality = sessions.dayScore(for: Date())
+        weekQuality = sessions.weekScore(now: Date())
+        heatWeeks = GoalHeatmapView.build(
+            now: Date(),
+            goalMinutes: preferences.dailyGoalMinutes,
+            secondsByDay: { stats.seconds(onDayOf: $0) }
+        )
     }
 }
