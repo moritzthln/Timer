@@ -7,20 +7,24 @@ Lives in the menu bar only — no Dock icon, no window.
 
 ### Single timer
 
-- Click the menu bar timer glyph → popover opens (Timer tab).
-- Type minutes and press Enter, or click a preset chip to start
-  (presets editable in Settings, defaults 5/10/15/25/45/60).
+- Click the menu bar timer glyph → popover opens as one calm view
+  (no tabs since v6). The big minute input is auto-focused — type and
+  press Enter, hit a preset chip (defaults 5/15/25/45, editable in
+  Settings), or click the full-width "Start" button. The chip matching
+  the typed value is highlighted.
+- The ⌃⌥T → type → Enter flow works exactly as before.
 - While running, the menu bar shows **only the time** (no icon);
   paused shows a pause icon plus the time.
 - When time is up: popover opens automatically and a chime plays
-  (mute via the speaker toggle in the popover, volume in Settings).
-- Pause/resume/stop from the popover. Quit via ⌘Q (popover open) or
-  right-click the menu bar icon → "Timer beenden".
+  (mute via "Ton" in the popover's "⋯" menu, volume in Settings).
+- Pause/resume/stop from the popover. Quit via ⌘Q (popover open), the
+  "⋯" menu → "Timer beenden", or right-click the menu bar icon.
 - A running timer survives app restarts and Mac sleep.
 
 ### Pomodoro mode
 
-- Switch the popover to the **Pomodoro** tab and hit "Pomodoro starten".
+- No tab anymore: the full-width chip "Pomodoro · 25 / 5 · 4 Runden"
+  (live values from Settings) starts the cycle with one click.
 - Cycles focus → break → … automatically; after the configured number of
   rounds the break is a long break, then the cycle restarts. Runs until
   you stop it.
@@ -33,19 +37,28 @@ Lives in the menu bar only — no Dock icon, no window.
 - Sleep or relaunch past phase boundaries fast-forwards to the current
   phase with at most one chime.
 
+### Popover footer
+
+- Left: the **Fokus-Block** shield toggle (icon + caption, green when
+  armed).
+- Right: a chart button opening the stats window, and an "⋯" menu with
+  "Ton", "Floating Display", "Einstellungen…", and "Timer beenden ⌘Q".
+- The old "Heute … · Woche …" caption line is gone — stats live in the
+  stats window.
+
 ### Floating display
 
 - Draggable always-on-top mini window: time, progress bar, and (in
   Pomodoro mode) the phase. Shows over fullscreen apps and all Spaces.
 - Appears whenever a session runs and the floating toggle is on
-  (popover footer icon or Settings → "Floating Display"; default on).
+  (popover "⋯" menu or Settings → "Floating Display"; default on).
 - Hover reveals Pause/Stopp; drag anywhere on the panel to move it
   (position is remembered). First appearance: top-right below the menu bar.
 
 ### Focus block
 
-- Arm the **Fokus-Block** shield toggle in the popover (Timer or Pomodoro
-  tab; the last state sticks). While a focus session runs, blocklisted
+- Arm the **Fokus-Block** shield toggle at the left of the popover
+  footer (the state sticks). While a focus session runs, blocklisted
   apps are terminated and blocklisted websites' tabs are closed, each with
   a short "Geblockt: …" toast at the top of the screen.
 - Blocklists live in Settings → Fokus-Block: pick running apps from a
@@ -68,10 +81,15 @@ Lives in the menu bar only — no Dock icon, no window.
 - Focus time (running single timers + pomodoro focus phases) is counted
   per day; breaks and pauses are not. Aborting a timer still credits the
   elapsed minutes.
-- The popover's idle view shows "Heute … · Woche …" under the presets;
-  click it (or the chart icon in the footer) for the stats window. Its
-  "Fokus" tab shows today/week tiles plus a 7-day bar chart.
-- Data is stored locally in UserDefaults and kept forever (it is tiny).
+- The chart button in the popover footer opens the stats window. Its
+  "Fokus" tab shows today/week tiles plus a **Serie** streak tile
+  (flame icon, consecutive goal days; weekday streaks by default), the
+  "Qualität heute … · Woche …" line (hidden without data), a 7-day bar
+  chart, and below it a 12-month GitHub-style heatmap (today outlined).
+- While idle, the menu bar timer glyph carries a thin goal ring — an arc
+  that fills as today's focus time approaches the daily goal.
+- Focus totals are stored locally in UserDefaults, quality records in
+  per-day JSON files — kept forever (it is tiny).
 
 ### Aktivität (activity tracking)
 
@@ -97,6 +115,40 @@ Lives in the menu bar only — no Dock icon, no window.
   paused stretches render as gaps. The idle threshold ("Inaktiv nach")
   defaults to 5 minutes (1–30).
 
+### Fokus-Qualität (focus quality)
+
+- Every focus session gets a quality score: 1 − distracted/duration
+  (0–100 %), computed from the activity segments overlapping the session
+  against your app categories. The day and week scores are
+  duration-weighted averages.
+- Categories live in Settings → Kategorien: each app is Produktiv /
+  Neutral / Ablenkung. Blocklisted apps count as Ablenkung unless
+  overridden; everything else defaults to Neutral.
+- Shown in the stats window as "Qualität heute … · Woche …" (hidden
+  while there is no data).
+- **Honest limits:** the last ≤ 60 s of an app segment may be missing
+  from a score (heartbeat flush); category changes affect future
+  sessions only — existing records keep their computed values.
+
+### Ziel & Serie (goal & streak)
+
+- Daily focus goal (default 180 min, 15–960) in Settings → Ziel; the
+  idle menu bar ring and the heatmap levels measure against it.
+- The **Serie** tile counts consecutive goal-reached days.
+  "Wochenenden zählen nicht" is on by default: weekends neither break
+  nor extend the streak.
+
+### Nicht stören (do not disturb)
+
+- Opt-in coupling to the macOS Focus mode via two Shortcuts you create
+  yourself in the Kurzbefehle app: "Timer Fokus an" and
+  "Timer Fokus aus".
+- On at focus start, off at pause/stop/break; best-effort off when the
+  app quits while a focus phase is active.
+- Settings → Nicht stören has the toggle, setup instructions, a test
+  button per shortcut, and a one-line status when a shortcut is missing
+  or fails.
+
 ### Global hotkeys
 
 Two system-wide shortcuts, configured in Settings → Hotkeys (click a
@@ -108,14 +160,16 @@ recorder field, press a combo with ⌘/⌃/⌥; Esc cancels, "×" clears):
 
 ### Settings
 
-Open via the "⋯" button in the popover footer. All changes save
+Open via the popover's "⋯" menu → "Einstellungen…". All changes save
 immediately:
 
-- **Presets:** the six quick-start chips (1–720 min each).
+- **Presets:** the four quick-start chips (1–720 min each). A custom
+  six-preset set from before v6 falls back to the 5/15/25/45 default
+  (documented migration) — re-save your favorites once.
 - **Pomodoro:** focus/break/long-break minutes (1–720) and rounds until
   long break (1–12).
-- **Alarm:** chime volume slider + test button (mute toggle stays in the
-  popover).
+- **Alarm:** chime volume slider + test button (the mute toggle sits in
+  the popover's "⋯" menu).
 - **Allgemein:** "Beim Anmelden starten" (launch at login via
   `SMAppService`; if macOS rejects the ad-hoc-signed app an inline hint
   shows the manual path) and the floating display toggle.
@@ -123,6 +177,13 @@ immediately:
   picker; the Timer itself, Finder, and the default browser are not
   blockable) and blocked domains, with a hint about the automation
   permission.
+- **Kategorien:** a three-way picker (Produktiv / Neutral / Ablenkung)
+  per app, listing the top apps of the last 7 days plus anything already
+  categorized.
+- **Ziel:** the daily goal minutes (15–960) and the "Wochenenden zählen
+  nicht" streak toggle.
+- **Nicht stören:** the DND toggle, Shortcuts setup instructions, and
+  the two test buttons.
 - **Hotkeys:** the two recorder fields; duplicate combos are rejected
   with an inline hint.
 - **Aktivität:** "Tracking pausieren" toggle and the idle threshold
