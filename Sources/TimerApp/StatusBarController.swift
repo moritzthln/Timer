@@ -12,6 +12,10 @@ final class StatusBarController {
     private let floatingController: FloatingPanelController
     private let settingsController: SettingsWindowController
     private let stats = StatsStore()
+    private let overlay = BlockOverlayController()
+    private let focusBlock: FocusBlockController
+    private let statsWindow: StatsWindowController
+    private let hotkeys = HotkeyManager()
     private var cancellable: AnyCancellable?
 
     init(engine: TimerEngine, preferences: Preferences) {
@@ -19,14 +23,37 @@ final class StatusBarController {
         self.preferences = preferences
         floatingController = FloatingPanelController(engine: engine, preferences: preferences)
         settingsController = SettingsWindowController(preferences: preferences)
+        focusBlock = FocusBlockController(preferences: preferences, overlay: overlay)
+        statsWindow = StatsWindowController(stats: stats)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+
+        engine.onFocusSegmentEnded = { [weak self] segment in
+            self?.stats.add(focusFrom: segment.start, to: segment.end)
+        }
+
+        hotkeys.onAction = { [weak self] action in
+            guard let self else { return }
+            switch action {
+            case .openPopover:
+                self.showPopover()
+            case .quickStart:
+                self.quickStart()
+            }
+        }
+        hotkeys.apply(
+            popover: preferences.hotkeyPopover,
+            quickStart: preferences.hotkeyQuickStart
+        )
 
         popover.contentViewController = NSHostingController(
             rootView: TimerView(
                 engine: engine, preferences: preferences, stats: stats,
                 onOpenSettings: { [weak self] in self?.openSettings() },
                 onToggleFloating: { [weak self] in self?.toggleFloating() },
-                onOpenStats: {} // wired to the stats window in the follow-up task
+                onOpenStats: { [weak self] in
+                    self?.popover.performClose(nil)
+                    self?.statsWindow.show()
+                }
             )
         )
         popover.behavior = .transient
@@ -48,7 +75,11 @@ final class StatusBarController {
 
         cancellable = engine.objectWillChange.sink { [weak self] _ in
             // objectWillChange fires before mutation; refresh after it lands.
-            DispatchQueue.main.async { self?.refresh() }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.refresh()
+                self.focusBlock.update(phase: self.engine.phase)
+            }
         }
 
         engine.onFinish = { [weak self] in
@@ -71,9 +102,29 @@ final class StatusBarController {
             forName: .timerSettingsChanged, object: nil, queue: .main
         ) { [weak self] _ in
             self?.floatingController.updateVisibility()
+            self?.hotkeys.apply(
+                popover: self?.preferences.hotkeyPopover ?? nil,
+                quickStart: self?.preferences.hotkeyQuickStart ?? nil
+            )
         }
 
         refresh()
+    }
+
+    // MARK: - Hotkey actions
+
+    private func quickStart() {
+        switch engine.phase {
+        case .idle:
+            engine.start(minutes: preferences.lastMinutes)
+        case .running:
+            engine.pause()
+        case .paused:
+            engine.resume()
+        case .finished:
+            engine.dismissFinished()
+            engine.start(minutes: preferences.lastMinutes)
+        }
     }
 
     // MARK: - Windows
