@@ -19,6 +19,7 @@ final class StatusBarController {
     private let activityStore = ActivityStore(directory: ActivityStore.defaultDirectory())
     private var activityTracker: ActivityTrackerController?
     private var cancellable: AnyCancellable?
+    private var midnightTimer: Foundation.Timer?
 
     init(engine: TimerEngine, preferences: Preferences) {
         self.engine = engine
@@ -35,6 +36,7 @@ final class StatusBarController {
         configurePopover()
         configureStatusItem()
         observeSettingsChanges()
+        scheduleMidnightRefresh()
         refresh()
     }
 
@@ -128,6 +130,7 @@ final class StatusBarController {
                 popover: self?.preferences.hotkeyPopover ?? nil,
                 quickStart: self?.preferences.hotkeyQuickStart ?? nil
             )
+            self?.refresh()
         }
     }
 
@@ -197,6 +200,11 @@ final class StatusBarController {
 
     private func refresh() {
         guard let button = statusItem.button else { return }
+        if case .idle = engine.phase {
+            button.image = MenuBarRingRenderer.image(progress: todayGoalProgress())
+            button.attributedTitle = NSAttributedString(string: "")
+            return
+        }
         let presentation = MenuBarPresentation.make(
             phase: engine.phase, remainingSeconds: engine.remainingSeconds
         )
@@ -212,5 +220,29 @@ final class StatusBarController {
                 attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)]
             )
         }
+    }
+
+    /// Today's focus vs. the daily goal, uncapped (the renderer clamps).
+    private func todayGoalProgress() -> Double {
+        let goalSeconds = Double(preferences.dailyGoalMinutes) * 60
+        guard goalSeconds > 0 else { return 0 }
+        return stats.todaySeconds() / goalSeconds
+    }
+
+    /// Re-renders the idle ring right after local midnight (day rollover),
+    /// then re-arms for the next day.
+    private func scheduleMidnightRefresh() {
+        midnightTimer?.invalidate()
+        let calendar = GoalRules.localISOCalendar()
+        let startOfToday = calendar.startOfDay(for: Date())
+        guard let nextMidnight = calendar.date(byAdding: .day, value: 1, to: startOfToday) else { return }
+        let timer = Foundation.Timer(
+            fire: nextMidnight.addingTimeInterval(1), interval: 0, repeats: false
+        ) { [weak self] _ in
+            self?.refresh()
+            self?.scheduleMidnightRefresh()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        midnightTimer = timer
     }
 }
