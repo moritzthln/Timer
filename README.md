@@ -15,8 +15,9 @@ Lives in the menu bar only — no Dock icon, no window.
 - The ⌃⌥T → type → Enter flow works exactly as before.
 - While running, the menu bar shows **only the time** (no icon);
   paused shows a pause icon plus the time.
-- When time is up: popover opens automatically and a chime plays
-  (mute via "Ton" in the popover's "⋯" menu, volume in Settings).
+- When time is up: popover opens automatically and a ~5-second alarm
+  plays — four chimes at 1.3 s intervals (mute via "Ton" in the
+  popover's "⋯" menu, volume in Settings).
 - Pause/resume/stop from the popover. Quit via ⌘Q (popover open), the
   "⋯" menu → "Timer beenden", or right-click the menu bar icon.
 - A running timer survives app restarts and Mac sleep.
@@ -28,8 +29,9 @@ Lives in the menu bar only — no Dock icon, no window.
 - Cycles focus → break → … automatically; after the configured number of
   rounds the break is a long break, then the cycle restarts. Runs until
   you stop it.
-- Every phase change: chime + popover auto-opens. During breaks the menu
-  bar shows a cup symbol next to the time; focus phases show time only.
+- Every phase change: the alarm plays + popover auto-opens. During
+  breaks the menu bar shows a cup symbol next to the time; focus phases
+  show time only.
 - Controls while running: Pause/Weiter, **Skip** (jump to the next phase,
   silent), Stopp.
 - Durations and rounds (defaults 25/5/15/4) are configured in Settings;
@@ -61,9 +63,12 @@ Lives in the menu bar only — no Dock icon, no window.
   footer (the state sticks). While a focus session runs, blocklisted
   apps are terminated and blocklisted websites' tabs are closed, each with
   a short "Geblockt: …" toast at the top of the screen.
-- Blocklists live in Settings → Fokus-Block: pick running apps from a
-  menu (or "Andere…" from /Applications) and add domains like
-  `instagram.com` (subdomains match automatically).
+- Blocklists live in Settings → Fokus-Block: the "App hinzufügen"
+  button opens a menu of running apps (or "Andere…" from /Applications),
+  the domain field takes entries like `instagram.com` (subdomains match
+  automatically) via Enter or "Hinzufügen". Adding the first entry to an
+  empty blocklist arms the shield automatically; the section header
+  shows the live shield state ("Schild: an/aus").
 - Website blocking polls the frontmost tab of Safari, Google Chrome, and
   Arc every 2 s via AppleScript — macOS asks for the automation
   permission per browser on first contact; a denied browser is skipped
@@ -83,13 +88,13 @@ Lives in the menu bar only — no Dock icon, no window.
   elapsed minutes.
 - The chart button in the popover footer opens the stats window. Its
   "Fokus" tab shows today/week tiles plus a **Serie** streak tile
-  (flame icon, consecutive goal days; weekday streaks by default), the
-  "Qualität heute … · Woche …" line (hidden without data), a 7-day bar
-  chart, and below it a 12-month GitHub-style heatmap (today outlined).
+  (flame icon, consecutive goal days; weekday streaks by default), a
+  7-day bar chart, and below it a 12-month GitHub-style heatmap (today
+  outlined).
 - While idle, the menu bar timer glyph carries a thin goal ring — an arc
   that fills as today's focus time approaches the daily goal.
-- Focus totals are stored locally in UserDefaults, quality records in
-  per-day JSON files — kept forever (it is tiny).
+- Focus totals are stored locally in UserDefaults — kept forever (it is
+  tiny).
 
 ### Aktivität (activity tracking)
 
@@ -114,21 +119,6 @@ Lives in the menu bar only — no Dock icon, no window.
 - Pause any time via Settings → Aktivität ("Tracking pausieren");
   paused stretches render as gaps. The idle threshold ("Inaktiv nach")
   defaults to 5 minutes (1–30).
-
-### Fokus-Qualität (focus quality)
-
-- Every focus session gets a quality score: 1 − distracted/duration
-  (0–100 %), computed from the activity segments overlapping the session
-  against your app categories. The day and week scores are
-  duration-weighted averages.
-- Categories live in Settings → Kategorien: each app is Produktiv /
-  Neutral / Ablenkung. Blocklisted apps count as Ablenkung unless
-  overridden; everything else defaults to Neutral.
-- Shown in the stats window as "Qualität heute … · Woche …" (hidden
-  while there is no data).
-- **Honest limits:** the last ≤ 60 s of an app segment may be missing
-  from a score (heartbeat flush); category changes affect future
-  sessions only — existing records keep their computed values.
 
 ### Ziel & Serie (goal & streak)
 
@@ -168,18 +158,18 @@ immediately:
   (documented migration) — re-save your favorites once.
 - **Pomodoro:** focus/break/long-break minutes (1–720) and rounds until
   long break (1–12).
-- **Alarm:** chime volume slider + test button (the mute toggle sits in
-  the popover's "⋯" menu).
+- **Alarm:** chime volume slider + test button — the test plays the
+  full ~5 s four-chime sequence (the mute toggle sits in the popover's
+  "⋯" menu).
 - **Allgemein:** "Beim Anmelden starten" (launch at login via
   `SMAppService`; if macOS rejects the ad-hoc-signed app an inline hint
   shows the manual path) and the floating display toggle.
-- **Fokus-Block:** blocked apps (running-apps menu + "Andere…" file
+- **Fokus-Block:** blocked apps ("App hinzufügen" menu + "Andere…" file
   picker; the Timer itself, Finder, and the default browser are not
-  blockable) and blocked domains, with a hint about the automation
-  permission.
-- **Kategorien:** a three-way picker (Produktiv / Neutral / Ablenkung)
-  per app, listing the top apps of the last 7 days plus anything already
-  categorized.
+  blockable) and blocked domains (Enter or "Hinzufügen" commits; the
+  list shows exactly what was stored). The first entry arms the shield
+  automatically, the header shows "Schild: an/aus", and captions explain
+  when blocking is active and the automation permission.
 - **Ziel:** the daily goal minutes (15–960) and the "Wochenenden zählen
   nicht" streak toggle.
 - **Nicht stören:** the DND toggle, Shortcuts setup instructions, and
