@@ -133,8 +133,8 @@ Lives in the menu bar only — no Dock icon, no window.
   presence total ("Diese Woche · aktiv 32 h 10 min"), and the app list
   aggregated over the week (same rows, week-aggregated domains). App
   colors rank over week totals, so one app keeps one color in all seven
-  rows. Clicking a day row jumps to that day's day view. No zoom inside
-  the week view; empty days stay as blank rows.
+  rows. Clicking a day row jumps to that day's day view; empty days stay
+  as blank rows.
 - v10 — drill-down + sparklines: clicking an app row selects it — its
   timeline segments stay at full opacity while all other apps dim
   (day bar and all seven week rows); click again or elsewhere to
@@ -142,11 +142,19 @@ Lives in the menu bar only — no Dock icon, no window.
   app row carries a small 7-bar sparkline (the 7 days ending on the
   displayed day, or the displayed week), scaled to that app's own
   7-day maximum.
-- v10 — focus traces: a thin accent line under the timelines marks
-  where focus sessions (timer or pomodoro focus) ran; in the day view
+- v10 — focus traces: an accent line under the timelines marks where
+  focus sessions (timer or pomodoro focus) ran; in the day view
   it zooms with the bar and shows "Fokus · 14:02–14:31" on hover.
   Traces exist from v10 onward — earlier focus time was only counted,
   not logged as intervals, and is not backfilled.
+- v11 — focus overlay + week zoom: focus windows now also tint the
+  timeline bars themselves (a light accent wash with 1 pt edge lines,
+  day and week — app segments stay readable underneath), and the traces
+  under the bars are thicker. The week view zooms and pans like the day
+  view: −/＋/1× buttons, pinch, or double-click, with all seven rows
+  moving synchronously while the day labels stay fixed; a single click
+  on a row (or its label) still jumps to that day. Zoom resets on week
+  navigation and view switches.
 - **Privacy:** everything stays on this Mac — one JSON file per day
   under `~/Library/Application Support/Timer/activity/` (and, since
   v10, focus intervals under `…/Timer/focus/`), no network, ever.
