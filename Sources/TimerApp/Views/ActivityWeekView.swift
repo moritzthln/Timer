@@ -7,6 +7,9 @@ struct ActivityWeekView: View {
     let store: ActivityStore
     let focusLog: FocusLog
     var liveFocusStart: () -> Date? = { nil }
+    /// v13: promoted websites shown as first-class rows (read live from
+    /// Preferences by the app root).
+    var promotedSites: () -> [String] = { [] }
     @Binding var anchor: Date
     /// v12: the "Nur Fokus-Zeit" filter (owned by the tab root).
     let focusOnly: Bool
@@ -44,12 +47,22 @@ struct ActivityWeekView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             if let data {
+                // v13: one palette ranking over the promotion-applied raw
+                // week totals — shared by the week rows and the list, stable
+                // across the focus-filter toggle (v12 behavior).
+                let ranks = SitePromotion.ranks(
+                    apps: data.apps, sitesByBrowser: data.sitesByBrowser,
+                    promoted: promotedSites()
+                )
+                let colorFor: (String) -> Color = {
+                    ActivityPalette.color(rank: ranks[$0] ?? ActivityPalette.colors.count - 1)
+                }
                 // v11: fresh identity per displayed week, so the zoom
                 // resets on week navigation (and on the Tag/Woche switch
                 // plus window reopen via the rebuilt view tree).
                 ActivityWeekTimelineView(
                     days: data.days,
-                    colorFor: color(for:),
+                    colorFor: colorFor,
                     selectedBundleID: selectedBundleID,
                     focusOnly: focusOnly,
                     onOpenDay: onOpenDay
@@ -60,16 +73,7 @@ struct ActivityWeekView: View {
                     if focusOnly, weekHasNoFocus(data) {
                         emptyFocusMessage
                     } else {
-                        ActivityAppListView(
-                            apps: listApps(data),
-                            sitesByBrowser: listSites(data),
-                            colorFor: color(for:),
-                            sparkSeries: sparkSeries,
-                            sparkHelp: rangeString,
-                            selectedBundleID: selectedBundleID,
-                            onSelect: toggleSelection,
-                            foldThreshold: focusOnly ? 10 : 60
-                        )
+                        appList(data, colorFor: colorFor)
                     }
                 } else {
                     Text("Keine Daten für diese Woche")
@@ -137,11 +141,36 @@ struct ActivityWeekView: View {
         )
     }
 
+    /// v13: promoted rows have no timeline drill-down — clicking them does
+    /// nothing (the week rows draw app segments, not site segments).
     private func toggleSelection(_ bundleID: String) {
+        guard !SitePromotion.isPromotedRowID(bundleID) else { return }
         selectedBundleID = selectedBundleID == bundleID ? nil : bundleID
     }
 
-    // MARK: - Filtered values (v12)
+    // MARK: - Filtered values (v12) + promoted rows (v13)
+
+    /// The app list over the promotion-applied week rows: promoted domains
+    /// appear as their own entries, browsers show the remainder, and the
+    /// cleansed disclosure map omits promoted domains.
+    private func appList(
+        _ data: WeekData, colorFor: @escaping (String) -> Color
+    ) -> some View {
+        let lists = SitePromotion.apply(
+            apps: listApps(data), sitesByBrowser: listSites(data),
+            promoted: promotedSites()
+        )
+        return ActivityAppListView(
+            apps: lists.rows,
+            sitesByBrowser: lists.sitesByBrowser,
+            colorFor: colorFor,
+            sparkSeries: sparkSeries,
+            sparkHelp: rangeString,
+            selectedBundleID: selectedBundleID,
+            onSelect: toggleSelection,
+            foldThreshold: focusOnly ? 10 : 60
+        )
+    }
 
     private func listApps(_ data: WeekData) -> [AppUsage] {
         focusOnly ? ActivityFocusFilter.apps(data.days) : data.apps
@@ -152,14 +181,22 @@ struct ActivityWeekView: View {
     }
 
     /// Sparkline data over the displayed week's seven days (clipped to each
-    /// day's focus intervals while the filter is on).
+    /// day's focus intervals while the filter is on), overlaid with the
+    /// promoted rows' series from the already-loaded per-day site segments.
     private var sparkSeries: [String: [Double]] {
         guard let data else { return [:] }
-        return focusOnly
+        let base = focusOnly
             ? ActivityFocusFilter.sparkSeries(
                 summaries: data.days.map(\.summary), focus: data.days.map(\.focus)
             )
             : ActivitySparklineView.series(from: data.days.map(\.summary))
+        return SitePromotion.sparkSeries(
+            base: base,
+            days: data.days.map {
+                (siteSegments: $0.summary.siteSegments, clip: focusOnly ? $0.focus : nil)
+            },
+            promoted: promotedSites()
+        )
     }
 
     private func weekHasNoFocus(_ data: WeekData) -> Bool {
@@ -216,9 +253,5 @@ struct ActivityWeekView: View {
         isCurrentWeek
             ? "Diese Woche"
             : "KW \(WeekData.calendar.component(.weekOfYear, from: anchor))"
-    }
-
-    private func color(for bundleID: String) -> Color {
-        ActivityPalette.color(rank: data?.ranks[bundleID] ?? ActivityPalette.colors.count - 1)
     }
 }

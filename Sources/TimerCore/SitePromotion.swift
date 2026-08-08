@@ -73,6 +73,80 @@ public enum SitePromotion {
         return (rows, cleansed)
     }
 
+    /// Palette ranks over the promoted rows: `apply`'s sorted output fed
+    /// through the shared `WeekRanking` ordering (0 = most used). Views pass
+    /// their raw (unfiltered) aggregates so colors stay stable while the
+    /// focus filter toggles — the v12 behavior, now promotion-aware.
+    public static func ranks(
+        apps: [AppUsage],
+        sitesByBrowser: [String: [SiteUsage]],
+        promoted: [String]
+    ) -> [String: Int] {
+        let rows = apply(apps: apps, sitesByBrowser: sitesByBrowser, promoted: promoted).rows
+        return WeekRanking.rank(appTotals: Dictionary(
+            uniqueKeysWithValues: rows.map { ($0.bundleID, $0.totalSeconds) }
+        ))
+    }
+
+    /// One day's promoted seconds per entry and attributed seconds per
+    /// browser, from the day's raw site segments — the data behind promoted
+    /// sparkline bars. A clip limits every segment to its overlap with the
+    /// day's focus intervals (the "Nur Fokus-Zeit" filter); nil counts full
+    /// durations.
+    public static func dayTotals(
+        siteSegments: [ActivitySegment],
+        promoted: [String],
+        clippedTo clip: [FocusInterval]?
+    ) -> (promotedSeconds: [String: Double], browserReductions: [String: Double]) {
+        var promotedSeconds: [String: Double] = [:]
+        var reductions: [String: Double] = [:]
+        guard !promoted.isEmpty else { return (promotedSeconds, reductions) }
+        for segment in siteSegments {
+            guard case .site(let domain, let browser) = segment.kind,
+                  let entry = firstMatch(host: domain, promoted: promoted) else { continue }
+            let seconds = clip.map {
+                FocusClip.clippedSeconds(
+                    segmentStart: segment.start, segmentEnd: segment.end, intervals: $0
+                )
+            } ?? segment.end.timeIntervalSince(segment.start)
+            guard seconds > 0 else { continue }
+            promotedSeconds[entry, default: 0] += seconds
+            reductions[browser, default: 0] += seconds
+        }
+        return (promotedSeconds, reductions)
+    }
+
+    /// Sparkline overlay: takes the base per-app daily series plus each
+    /// window day's site segments (and optional focus clip), adds one series
+    /// per promoted row and shrinks the browsers' bars by the seconds
+    /// attributed away (clamped at 0) — so list totals and sparklines tell
+    /// the same story.
+    public static func sparkSeries(
+        base: [String: [Double]],
+        days: [(siteSegments: [ActivitySegment], clip: [FocusInterval]?)],
+        promoted: [String]
+    ) -> [String: [Double]] {
+        guard !promoted.isEmpty else { return base }
+        var result = base
+        for (index, day) in days.enumerated() {
+            let totals = dayTotals(
+                siteSegments: day.siteSegments, promoted: promoted, clippedTo: day.clip
+            )
+            for (entry, seconds) in totals.promotedSeconds {
+                let id = rowID(forDomain: entry)
+                var values = result[id] ?? Array(repeating: 0, count: days.count)
+                if index < values.count { values[index] = seconds }
+                result[id] = values
+            }
+            for (browser, reduction) in totals.browserReductions {
+                guard var values = result[browser], index < values.count else { continue }
+                values[index] = max(0, values[index] - reduction)
+                result[browser] = values
+            }
+        }
+        return result
+    }
+
     /// First promoted entry (in list order) that `host` equals or is a
     /// subdomain of — the blocker's suffix semantics.
     static func firstMatch(host: String, promoted: [String]) -> String? {

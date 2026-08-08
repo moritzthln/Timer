@@ -117,6 +117,117 @@ func runSitePromotionTests() {
         try expectEqual(result.sitesByBrowser, sites, "disclosure keeps unrelated domains")
     }
 
+    test("ranks index the promoted row order for the palette") {
+        let apps = [app(safari, 300), app("com.apple.dt.Xcode", 200)]
+        let sites = [safari: [SiteUsage(domain: "youtube.com", totalSeconds: 120)]]
+        let ranks = SitePromotion.ranks(
+            apps: apps, sitesByBrowser: sites, promoted: ["youtube.com"]
+        )
+        try expectEqual(
+            ranks,
+            ["com.apple.dt.Xcode": 0, safari: 1, "site:youtube.com": 2],
+            "rank = index in the promoted rows, most used first"
+        )
+    }
+
+    test("dayTotals sums matching site segments per entry and per browser") {
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let segments = [
+            ActivitySegment(
+                kind: .site(domain: "m.youtube.com", browserBundleID: safari),
+                start: base, end: base + 100
+            ),
+            ActivitySegment(
+                kind: .site(domain: "youtube.com", browserBundleID: chrome),
+                start: base + 100, end: base + 160
+            ),
+            ActivitySegment(
+                kind: .site(domain: "apple.com", browserBundleID: safari),
+                start: base + 200, end: base + 260
+            ),
+            ActivitySegment(
+                kind: .app(bundleID: safari, name: "Safari"),
+                start: base, end: base + 400
+            ),
+        ]
+        let totals = SitePromotion.dayTotals(
+            siteSegments: segments, promoted: ["youtube.com"], clippedTo: nil
+        )
+        try expectEqual(
+            totals.promotedSeconds, ["youtube.com": 160],
+            "subdomain and exact matches merge; other kinds ignored"
+        )
+        try expectEqual(
+            totals.browserReductions, [safari: 100, chrome: 60],
+            "each browser's attributed share"
+        )
+    }
+
+    test("dayTotals clips against focus intervals when given") {
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let segments = [
+            ActivitySegment(
+                kind: .site(domain: "youtube.com", browserBundleID: safari),
+                start: base, end: base + 100
+            ),
+            ActivitySegment(
+                kind: .site(domain: "youtube.com", browserBundleID: safari),
+                start: base + 500, end: base + 600
+            ),
+        ]
+        let focus = [FocusInterval(start: base + 50, end: base + 80)]
+        let totals = SitePromotion.dayTotals(
+            siteSegments: segments, promoted: ["youtube.com"], clippedTo: focus
+        )
+        try expectEqual(totals.promotedSeconds, ["youtube.com": 30], "only the overlap counts")
+        try expectEqual(totals.browserReductions, [safari: 30], "reduction clipped too")
+    }
+
+    test("sparkSeries adds promoted bars and reduces browser bars per day") {
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let day0 = [ActivitySegment(
+            kind: .site(domain: "youtube.com", browserBundleID: safari),
+            start: base, end: base + 40
+        )]
+        let series = SitePromotion.sparkSeries(
+            base: [safari: [100, 200], "com.apple.dt.Xcode": [50, 50]],
+            days: [(siteSegments: day0, clip: nil), (siteSegments: [], clip: nil)],
+            promoted: ["youtube.com"]
+        )
+        try expectEqual(series["site:youtube.com"], [40, 0], "promoted series per day")
+        try expectEqual(series[safari], [60, 200], "browser bars reduced on the promoted day")
+        try expectEqual(series["com.apple.dt.Xcode"], [50, 50], "other apps untouched")
+    }
+
+    test("sparkSeries clamps browser bars at zero and skips unknown browsers") {
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let day0 = [
+            ActivitySegment(
+                kind: .site(domain: "youtube.com", browserBundleID: safari),
+                start: base, end: base + 50
+            ),
+            ActivitySegment(
+                kind: .site(domain: "youtube.com", browserBundleID: chrome),
+                start: base, end: base + 20
+            ),
+        ]
+        let series = SitePromotion.sparkSeries(
+            base: [safari: [30]],
+            days: [(siteSegments: day0, clip: nil)],
+            promoted: ["youtube.com"]
+        )
+        try expectEqual(series["site:youtube.com"], [70], "cross-browser sum per day")
+        try expectEqual(series[safari], [0], "reduction clamps at 0")
+        try expectNil(series[chrome], "no bars invented for browsers without a base series")
+    }
+
+    test("sparkSeries with empty promoted list returns the base unchanged") {
+        let series = SitePromotion.sparkSeries(
+            base: [safari: [1, 2]], days: [], promoted: []
+        )
+        try expectEqual(series, [safari: [1, 2]], "pass-through")
+    }
+
     test("row ids are stable and recognizable") {
         try expectEqual(SitePromotion.rowID(forDomain: "youtube.com"), "site:youtube.com")
         try expect(

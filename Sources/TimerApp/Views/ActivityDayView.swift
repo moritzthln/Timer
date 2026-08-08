@@ -7,6 +7,9 @@ struct ActivityDayView: View {
     let store: ActivityStore
     let focusLog: FocusLog
     var liveFocusStart: () -> Date? = { nil }
+    /// v13: promoted websites shown as first-class rows (read live from
+    /// Preferences by the app root).
+    var promotedSites: () -> [String] = { [] }
     @Binding var day: Date
     /// v12: the "Nur Fokus-Zeit" filter (owned by the tab root).
     let focusOnly: Bool
@@ -50,21 +53,22 @@ struct ActivityDayView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             if let summary, summary.firstActivity != nil {
+                // v13: one palette ranking over the promotion-applied raw day
+                // rows — shared by the timeline and the list, stable across
+                // the focus-filter toggle (v12 behavior).
+                let ranks = SitePromotion.ranks(
+                    apps: summary.apps, sitesByBrowser: summary.sitesByBrowser,
+                    promoted: promotedSites()
+                )
+                let colorFor: (String) -> Color = {
+                    ActivityPalette.color(rank: ranks[$0] ?? ActivityPalette.colors.count - 1)
+                }
                 if focusOnly { focusLine } else { presenceLine(summary) }
-                timeline(summary)
+                timeline(summary, colorFor: colorFor)
                 if focusOnly, focusIntervals.isEmpty {
                     emptyFocusMessage
                 } else {
-                    ActivityAppListView(
-                        apps: listApps(summary),
-                        sitesByBrowser: listSites(summary),
-                        colorFor: { colorFor(bundleID: $0, in: summary) },
-                        sparkSeries: sparkSeries,
-                        sparkHelp: "Letzte 7 Tage",
-                        selectedBundleID: selectedBundleID,
-                        onSelect: toggleSelection,
-                        foldThreshold: focusOnly ? 10 : 60
-                    )
+                    appList(summary, colorFor: colorFor)
                 }
             } else {
                 Text("Keine Daten für diesen Tag")
@@ -78,7 +82,29 @@ struct ActivityDayView: View {
         .onAppear(perform: reload)
     }
 
-    // MARK: - Filtered values (v12)
+    // MARK: - Filtered values (v12) + promoted rows (v13)
+
+    /// The app list over the promotion-applied rows: promoted domains appear
+    /// as their own entries, browsers show the remainder, and the cleansed
+    /// disclosure map omits promoted domains.
+    private func appList(
+        _ summary: DaySummary, colorFor: @escaping (String) -> Color
+    ) -> some View {
+        let lists = SitePromotion.apply(
+            apps: listApps(summary), sitesByBrowser: listSites(summary),
+            promoted: promotedSites()
+        )
+        return ActivityAppListView(
+            apps: lists.rows,
+            sitesByBrowser: lists.sitesByBrowser,
+            colorFor: colorFor,
+            sparkSeries: sparkSeries,
+            sparkHelp: "Letzte 7 Tage",
+            selectedBundleID: selectedBundleID,
+            onSelect: toggleSelection,
+            foldThreshold: focusOnly ? 10 : 60
+        )
+    }
 
     private func listApps(_ summary: DaySummary) -> [AppUsage] {
         focusOnly
@@ -93,11 +119,24 @@ struct ActivityDayView: View {
     }
 
     /// Sparkline data: per-app seconds over the 7 window days (clipped to
-    /// focus intervals while the filter is on).
+    /// focus intervals while the filter is on), overlaid with the promoted
+    /// rows' series from the already-loaded per-day site segments.
     private var sparkSeries: [String: [Double]] {
-        focusOnly
+        let base = focusOnly
             ? ActivityFocusFilter.sparkSeries(summaries: windowSummaries, focus: windowFocus)
             : ActivitySparklineView.series(from: windowSummaries)
+        return SitePromotion.sparkSeries(
+            base: base,
+            days: windowSummaries.enumerated().map { index, summary in
+                (
+                    siteSegments: summary.siteSegments,
+                    clip: focusOnly
+                        ? (index < windowFocus.count ? windowFocus[index] : [])
+                        : nil
+                )
+            },
+            promoted: promotedSites()
+        )
     }
 
     /// v12 empty state: activity exists, focus does not — the timeline above
@@ -145,7 +184,10 @@ struct ActivityDayView: View {
         }
     }
 
+    /// v13: promoted rows have no timeline drill-down — clicking them does
+    /// nothing (the timeline draws app segments, not site segments).
     private func toggleSelection(_ bundleID: String) {
+        guard !SitePromotion.isPromotedRowID(bundleID) else { return }
         selectedBundleID = selectedBundleID == bundleID ? nil : bundleID
     }
 
@@ -181,22 +223,18 @@ struct ActivityDayView: View {
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
     }
 
-    private func colorFor(bundleID: String, in summary: DaySummary) -> Color {
-        let rank = summary.apps.firstIndex { $0.bundleID == bundleID }
-            ?? ActivityPalette.colors.count - 1
-        return ActivityPalette.color(rank: rank)
-    }
-
     /// v9: the zoomable timeline lives in its own sub-view; the `.id(day)`
     /// tag gives it a fresh identity per date, so zoom resets to 1× on every
     /// date change (and on window reopen via the rebuilt view tree).
-    private func timeline(_ summary: DaySummary) -> some View {
+    private func timeline(
+        _ summary: DaySummary, colorFor: @escaping (String) -> Color
+    ) -> some View {
         Group {
             if let first = summary.firstActivity, let last = summary.lastActivity,
                last > first {
                 ActivityTimelineView(
                     first: first, last: last, summary: summary,
-                    colorFor: { colorFor(bundleID: $0, in: summary) },
+                    colorFor: colorFor,
                     selectedBundleID: selectedBundleID,
                     focusIntervals: focusIntervals,
                     focusOnly: focusOnly
