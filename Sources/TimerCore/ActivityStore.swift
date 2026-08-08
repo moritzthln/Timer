@@ -151,4 +151,27 @@ public final class ActivityStore {
             sitesByBrowser: sites
         )
     }
+
+    // MARK: - Interval query
+
+    /// App segments overlapping `interval`, clipped to it. All day files the
+    /// interval touches are consulted (midnight-crossing windows read both
+    /// days); results are sorted by start.
+    public func appSegments(overlapping interval: DateInterval) -> [ActivitySegment] {
+        guard interval.duration > 0 else { return [] }
+        var result: [ActivitySegment] = []
+        var cursor = calendar.startOfDay(for: interval.start)
+        while cursor < interval.end {
+            for segment in load(day: cursor) {
+                guard case .app = segment.kind else { continue }
+                let start = max(segment.start, interval.start)
+                let end = min(segment.end, interval.end)
+                guard end > start else { continue }
+                result.append(ActivitySegment(id: segment.id, kind: segment.kind, start: start, end: end))
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return result.sorted { $0.start < $1.start }
+    }
 }
