@@ -24,6 +24,13 @@ public struct BlockedApp: Codable, Equatable {
     }
 }
 
+/// v15: what the armed shield does — block the listed targets, or allow only
+/// the listed targets and block everything else.
+public enum BlockMode: String, CaseIterable {
+    case blocklist
+    case allowlist
+}
+
 public struct HotkeyCombo: Codable, Equatable {
     public let keyCode: Int
     public let carbonModifiers: Int
@@ -58,6 +65,9 @@ public final class Preferences {
         static let lastMode = "lastMode"
         static let blockedApps = "blockedApps"
         static let blockedDomains = "blockedDomains"
+        static let allowedApps = "allowedApps"
+        static let allowedDomains = "allowedDomains"
+        static let blockMode = "blockMode"
         static let focusBlockEnabled = "focusBlockEnabled"
         static let hotkeyPopover = "hotkeyPopover"
         static let hotkeyQuickStart = "hotkeyQuickStart"
@@ -282,6 +292,72 @@ public final class Preferences {
     private func armShieldOnFirstEntry() {
         if blockedApps.isEmpty && blockedDomains.isEmpty {
             focusBlockEnabled = true
+        }
+    }
+
+    // MARK: - Allowlist (v15)
+
+    /// v15: persisted last mode choice; default keeps today's behavior.
+    public var blockMode: BlockMode {
+        get {
+            let raw = defaults.string(forKey: Key.blockMode) ?? ""
+            return BlockMode(rawValue: raw) ?? .blocklist
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.blockMode) }
+    }
+
+    public var allowedApps: [BlockedApp] {
+        get {
+            guard let data = defaults.data(forKey: Key.allowedApps),
+                  let apps = try? JSONDecoder().decode([BlockedApp].self, from: data) else {
+                return []
+            }
+            return apps
+        }
+        set {
+            defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.allowedApps)
+        }
+    }
+
+    public var allowedDomains: [String] {
+        get { defaults.stringArray(forKey: Key.allowedDomains) ?? [] }
+        set {
+            let sanitized = newValue.compactMap(Self.sanitizeDomain)
+            defaults.set(sanitized, forKey: Key.allowedDomains)
+        }
+    }
+
+    /// Appends `app` to the allowlist (no-op on a duplicate bundle ID).
+    /// Arm-on-configure like `addBlockedApp`, plus the mode switch.
+    public func addAllowedApp(_ app: BlockedApp) {
+        var apps = allowedApps
+        guard !apps.contains(where: { $0.bundleID == app.bundleID }) else { return }
+        armAllowlistOnFirstEntry()
+        apps.append(app)
+        allowedApps = apps
+    }
+
+    /// Sanitizes and appends `raw` to the allowed domains. Returns the stored
+    /// domain, or nil when sanitizing dropped the input or the domain was
+    /// already listed. Arms the shield and mode like `addAllowedApp`.
+    @discardableResult
+    public func addAllowedDomain(_ raw: String) -> String? {
+        guard let sanitized = Self.sanitizeDomain(raw) else { return nil }
+        var domains = allowedDomains
+        guard !domains.contains(sanitized) else { return nil }
+        armAllowlistOnFirstEntry()
+        domains.append(sanitized)
+        allowedDomains = domains
+        return sanitized
+    }
+
+    /// The first allowlist entry arms the shield and switches to allowlist
+    /// mode — configuring an allowlist expresses the intent to use it. Once
+    /// any entry exists, deliberate shield/mode choices stay untouched.
+    private func armAllowlistOnFirstEntry() {
+        if allowedApps.isEmpty && allowedDomains.isEmpty {
+            focusBlockEnabled = true
+            blockMode = .allowlist
         }
     }
 

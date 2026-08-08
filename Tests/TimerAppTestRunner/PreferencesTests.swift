@@ -145,6 +145,94 @@ func runPreferencesTests() {
         )
     }
 
+    test("blockMode defaults to blocklist and roundtrips") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.blockMode, .blocklist, "v15 default keeps today's behavior")
+        prefs.blockMode = .allowlist
+        try expectEqual(prefs.blockMode, .allowlist, "roundtrip")
+        prefs.blockMode = .blocklist
+        try expectEqual(prefs.blockMode, .blocklist, "switch back")
+    }
+
+    test("allowed apps roundtrip as codable list") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.allowedApps, [], "default empty")
+        let apps = [
+            BlockedApp(bundleID: "com.apple.dt.Xcode", name: "Xcode"),
+            BlockedApp(bundleID: "com.apple.Safari", name: "Safari"),
+        ]
+        prefs.allowedApps = apps
+        try expectEqual(prefs.allowedApps, apps, "roundtrip")
+    }
+
+    test("allowed domains sanitize scheme, path, and case") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.allowedDomains, [], "default empty")
+        prefs.allowedDomains = ["https://www.Wikipedia.org/wiki/", "GITHUB.com", "  ", "docs.swift.org"]
+        try expectEqual(
+            prefs.allowedDomains, ["www.wikipedia.org", "github.com", "docs.swift.org"],
+            "sanitized, empties dropped"
+        )
+    }
+
+    test("first allowlist entry arms the shield and switches the mode") {
+        let prefs = freshPrefs()
+        try expect(!prefs.focusBlockEnabled, "starts off")
+        try expectEqual(prefs.blockMode, .blocklist, "starts in blocklist mode")
+        prefs.addAllowedApp(BlockedApp(bundleID: "com.apple.dt.Xcode", name: "Xcode"))
+        try expect(prefs.focusBlockEnabled, "first allowed entry arms")
+        try expectEqual(prefs.blockMode, .allowlist, "first allowed entry switches the mode")
+        prefs.focusBlockEnabled = false
+        prefs.blockMode = .blocklist
+        prefs.addAllowedDomain("wikipedia.org")
+        try expect(!prefs.focusBlockEnabled, "non-empty allowlist never re-arms")
+        try expectEqual(prefs.blockMode, .blocklist, "deliberate mode choice sticks")
+        try expectEqual(prefs.allowedDomains, ["wikipedia.org"], "domain still added")
+    }
+
+    test("first allowed domain arms and switches too") {
+        let prefs = freshPrefs()
+        prefs.addAllowedDomain("wikipedia.org")
+        try expect(prefs.focusBlockEnabled, "first allowed domain arms")
+        try expectEqual(prefs.blockMode, .allowlist, "and switches the mode")
+    }
+
+    test("addAllowedDomain sanitizes, dedupes, and returns what stuck") {
+        let prefs = freshPrefs()
+        try expectEqual(
+            prefs.addAllowedDomain("https://www.Wikipedia.org/wiki/"),
+            "www.wikipedia.org", "sanitized form is stored and reported"
+        )
+        try expectNil(prefs.addAllowedDomain("   "), "whitespace-only dropped")
+        try expectNil(prefs.addAllowedDomain("www.wikipedia.org"), "duplicate dropped")
+        try expectEqual(prefs.allowedDomains, ["www.wikipedia.org"], "stored exactly once")
+    }
+
+    test("addAllowedApp ignores duplicate bundle IDs") {
+        let prefs = freshPrefs()
+        prefs.addAllowedApp(BlockedApp(bundleID: "com.apple.dt.Xcode", name: "Xcode"))
+        prefs.addAllowedApp(BlockedApp(bundleID: "com.apple.dt.Xcode", name: "Xcode Again"))
+        try expectEqual(
+            prefs.allowedApps,
+            [BlockedApp(bundleID: "com.apple.dt.Xcode", name: "Xcode")],
+            "deduped by bundle ID"
+        )
+    }
+
+    test("allowlist entries never touch the blocklist and vice versa") {
+        let prefs = freshPrefs()
+        prefs.addAllowedApp(BlockedApp(bundleID: "com.apple.dt.Xcode", name: "Xcode"))
+        prefs.addBlockedDomain("youtube.com")
+        try expectEqual(prefs.blockedApps, [], "blocked apps untouched")
+        try expectEqual(prefs.allowedDomains, [], "allowed domains untouched")
+        try expectEqual(prefs.blockedDomains, ["youtube.com"], "blocked domain stored")
+        try expectEqual(
+            prefs.allowedApps,
+            [BlockedApp(bundleID: "com.apple.dt.Xcode", name: "Xcode")],
+            "allowed app stored"
+        )
+    }
+
     test("hotkeys default to spec combos, roundtrip, and clear explicitly") {
         let prefs = freshPrefs()
         try expectEqual(prefs.hotkeyPopover, HotkeyCombo(keyCode: 17, carbonModifiers: 6144), "default ⌃⌥T")
