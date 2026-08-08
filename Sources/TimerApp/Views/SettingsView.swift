@@ -25,6 +25,8 @@ struct SettingsView: View {
     @State private var hotkeyPopover: HotkeyCombo?
     @State private var hotkeyQuickStart: HotkeyCombo?
     @State private var hotkeyHint: String?
+    @State private var trackingPaused = false
+    @State private var idleText = "5"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -81,6 +83,8 @@ struct SettingsView: View {
             focusBlockSection
 
             hotkeysSection
+
+            activitySection
         }
         .padding(20)
         .frame(width: 360)
@@ -211,6 +215,22 @@ struct SettingsView: View {
         }
     }
 
+    private var activitySection: some View {
+        section("Aktivität") {
+            Toggle("Tracking pausieren", isOn: $trackingPaused)
+                .onChange(of: trackingPaused) { newValue in
+                    preferences.trackingPaused = newValue
+                }
+            HStack {
+                Text("Inaktiv nach (min)")
+                numberField($idleText) {
+                    if let value = Int(idleText) { preferences.idleThresholdMinutes = value }
+                    idleText = String(preferences.idleThresholdMinutes)
+                }
+            }
+        }
+    }
+
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -255,6 +275,8 @@ struct SettingsView: View {
         blockedDomains = preferences.blockedDomains
         hotkeyPopover = preferences.hotkeyPopover
         hotkeyQuickStart = preferences.hotkeyQuickStart
+        trackingPaused = preferences.trackingPaused
+        idleText = String(preferences.idleThresholdMinutes)
     }
 
     // MARK: - Focus block helpers

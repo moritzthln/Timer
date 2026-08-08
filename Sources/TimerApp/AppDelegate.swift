@@ -9,4 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let engine = TimerEngine(preferences: preferences)
         statusBarController = StatusBarController(engine: engine, preferences: preferences)
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        statusBarController?.flushActivity()
+    }
 }

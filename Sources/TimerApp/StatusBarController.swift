@@ -16,6 +16,8 @@ final class StatusBarController {
     private let focusBlock: FocusBlockController
     private let statsWindow: StatsWindowController
     private let hotkeys = HotkeyManager()
+    private let activityStore = ActivityStore(directory: ActivityStore.defaultDirectory())
+    private var activityTracker: ActivityTrackerController?
     private var cancellable: AnyCancellable?
 
     init(engine: TimerEngine, preferences: Preferences) {
@@ -24,8 +26,9 @@ final class StatusBarController {
         floatingController = FloatingPanelController(engine: engine, preferences: preferences)
         settingsController = SettingsWindowController(preferences: preferences)
         focusBlock = FocusBlockController(preferences: preferences, overlay: overlay)
-        statsWindow = StatsWindowController(stats: stats)
+        statsWindow = StatsWindowController(stats: stats, activity: activityStore)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        activityTracker = ActivityTrackerController(store: activityStore, preferences: preferences)
 
         wireEngineCallbacks()
         wireHotkeys()
@@ -126,6 +129,13 @@ final class StatusBarController {
                 quickStart: self?.preferences.hotkeyQuickStart ?? nil
             )
         }
+    }
+
+    // MARK: - Activity tracking
+
+    /// Called from applicationWillTerminate: closes open activity segments.
+    func flushActivity() {
+        activityTracker?.flush()
     }
 
     // MARK: - Hotkey actions
