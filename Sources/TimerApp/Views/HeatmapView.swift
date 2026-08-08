@@ -22,9 +22,25 @@ struct HeatmapView: View {
 
     private static let spacing: CGFloat = 1.5
 
+    /// v9: cells never render below this size; 53 columns of it define the
+    /// heatmap's — and thereby the stats window's — minimum width.
+    static let minCellSize: CGFloat = 4.5
+
+    /// Real minimum footprint: 53 min-size columns wide; month label row
+    /// (8 pt minimum font + 3 pt frame slack), 4 pt gap, and 7 min-size
+    /// cell rows tall.
+    static var minSize: CGSize {
+        let columns: CGFloat = 53
+        let minLabelFontSize: CGFloat = 8
+        return CGSize(
+            width: columns * minCellSize + (columns - 1) * spacing,
+            height: (minLabelFontSize + 3) + 4 + 7 * minCellSize + 6 * spacing
+        )
+    }
+
     private var cellSize: CGFloat {
         let columns = CGFloat(max(1, weeks.count))
-        return max(3, (width - (columns - 1) * Self.spacing) / columns)
+        return max(Self.minCellSize, (width - (columns - 1) * Self.spacing) / columns)
     }
 
     private var labelFontSize: CGFloat {

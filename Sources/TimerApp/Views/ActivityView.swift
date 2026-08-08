@@ -34,6 +34,16 @@ struct ActivityView: View {
         Calendar.current.isDateInToday(day)
     }
 
+    /// v9: the app list keeps at least this much height before scrolling.
+    static let listMinHeight: CGFloat = 160
+
+    /// Structural minimum of the tab, used for the shared stats window
+    /// minimum. Sum: header (18) + presence line (36) + fixed-height
+    /// timeline + list minimum + footer (13) + four 12 pt gaps.
+    static var minContentHeight: CGFloat {
+        18 + 36 + ActivityTimelineView.totalHeight + listMinHeight + 13 + 4 * 12
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
@@ -140,7 +150,11 @@ struct ActivityView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: Self.listMinHeight, maxHeight: .infinity,
+            alignment: .top
+        )
     }
 
     private func appRow(_ app: AppUsage, maxTotal: Double, summary: DaySummary) -> some View {

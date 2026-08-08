@@ -15,17 +15,34 @@ struct StatsView: View {
         return formatter
     }()
 
+    // v9: real content minimums. The GeometryReader hides the children's
+    // intrinsic minimums from the window sizing, so the tab declares its
+    // combined minimum explicitly: metric tiles (caption + title2 value +
+    // 2 x 14 pt padding ≈ 68 pt), the fixed-height chart, the heatmap at
+    // its minimum cell size, and the two 18 pt gaps between the blocks.
+    private static let metricRowMinHeight: CGFloat = 68
+    private static let blockSpacing: CGFloat = 18
+    private static let chartHeight: CGFloat = 200
+    static var minContentSize: CGSize {
+        CGSize(
+            width: HeatmapView.minSize.width,
+            height: metricRowMinHeight + 2 * blockSpacing + chartHeight
+                + HeatmapView.minSize.height
+        )
+    }
+
     var body: some View {
         // v8: the window is resizable — every block derives its width from
         // the available space instead of fixed frames.
         GeometryReader { geo in
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: Self.blockSpacing) {
                 metricRow
                 chart
                 HeatmapView(weeks: heatWeeks, width: geo.size.width)
                 Spacer(minLength: 0)
             }
         }
+        .frame(minWidth: Self.minContentSize.width, minHeight: Self.minContentSize.height)
         .onAppear(perform: reload)
     }
 
@@ -60,7 +77,7 @@ struct StatsView: View {
                 chartBar(day: day, isToday: index == days.count - 1, maxSeconds: maxSeconds)
             }
         }
-        .frame(height: 200, alignment: .bottom)
+        .frame(height: Self.chartHeight, alignment: .bottom)
     }
 
     private func chartBar(day: DayStat, isToday: Bool, maxSeconds: Double) -> some View {
