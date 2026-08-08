@@ -5,12 +5,10 @@ import TimerCore
 final class SettingsWindowController {
     private var window: NSWindow?
     private let preferences: Preferences
-    private let activity: ActivityStore
     private let focusMode: FocusModeController
 
-    init(preferences: Preferences, activity: ActivityStore, focusMode: FocusModeController) {
+    init(preferences: Preferences, focusMode: FocusModeController) {
         self.preferences = preferences
-        self.activity = activity
         self.focusMode = focusMode
     }
 
@@ -27,9 +25,9 @@ final class SettingsWindowController {
             created.center()
             window = created
         }
-        // Fresh view on every open so the category rows reload.
+        // Fresh view on every open so the stored values reload.
         window?.contentView = NSHostingView(rootView: SettingsView(
-            preferences: preferences, activity: activity, focusMode: focusMode
+            preferences: preferences, focusMode: focusMode
         ))
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
