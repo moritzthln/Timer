@@ -14,12 +14,15 @@ Lives in the menu bar only — no Dock icon, no window.
   the typed value is highlighted.
 - The ⌃⌥T → type → Enter flow works exactly as before.
 - While running, the menu bar shows **only the time** (no icon);
-  paused shows a pause icon plus the time.
-- When time is up: popover opens automatically and a ~5-second alarm
-  plays — four chimes at 1.3 s intervals (mute via "Ton" in the
+  paused shows a pause icon plus the time. Settings → Menüleiste can
+  switch the time to a compact "25m" format or hide it entirely.
+- When time is up: popover opens automatically and a ~5-second bell
+  swell plays (bundled synthesized sound; mute via "Ton" in the
   popover's "⋯" menu, volume in Settings).
-- Pause/resume/stop from the popover. Quit via ⌘Q (popover open), the
-  "⋯" menu → "Timer beenden", or right-click the menu bar icon.
+- Pause/resume/stop from the popover; **"+5"** extends a running or
+  paused timer by five minutes (up to the 720-minute cap). Quit via ⌘Q
+  (popover open), the "⋯" menu → "Timer beenden", or right-click the
+  menu bar icon.
 - A running timer survives app restarts and Mac sleep.
 
 ### Pomodoro mode
@@ -29,11 +32,13 @@ Lives in the menu bar only — no Dock icon, no window.
 - Cycles focus → break → … automatically; after the configured number of
   rounds the break is a long break, then the cycle restarts. Runs until
   you stop it.
-- Every phase change: the alarm plays + popover auto-opens. During
-  breaks the menu bar shows a cup symbol next to the time; focus phases
-  show time only.
-- Controls while running: Pause/Weiter, **Skip** (jump to the next phase,
-  silent), Stopp.
+- Every phase change auto-opens the popover. A completed focus phase
+  rings the full bell swell; a finished break plays a short soft chime
+  (back to work — noticeable, not startling). During breaks the menu
+  bar shows a cup symbol next to the time; focus phases show time only.
+- Controls while running: Pause/Weiter, **+5** (extend the current
+  phase by five minutes), **Skip** (jump to the next phase, silent),
+  Stopp.
 - Durations and rounds (defaults 25/5/15/4) are configured in Settings;
   changes apply from the next start.
 - Sleep or relaunch past phase boundaries fast-forwards to the current
@@ -54,7 +59,7 @@ Lives in the menu bar only — no Dock icon, no window.
   Pomodoro mode) the phase. Shows over fullscreen apps and all Spaces.
 - Appears whenever a session runs and the floating toggle is on
   (popover "⋯" menu or Settings → "Floating Display"; default on).
-- Hover reveals Pause/Stopp; drag anywhere on the panel to move it
+- Hover reveals Pause/+5/Stopp; drag anywhere on the panel to move it
   (position is remembered). First appearance: top-right below the menu bar.
 
 ### Focus block
@@ -86,13 +91,14 @@ Lives in the menu bar only — no Dock icon, no window.
 - Focus time (running single timers + pomodoro focus phases) is counted
   per day; breaks and pauses are not. Aborting a timer still credits the
   elapsed minutes.
-- The chart button in the popover footer opens the stats window. Its
-  "Fokus" tab shows today/week tiles plus a **Serie** streak tile
-  (flame icon, consecutive goal days; weekday streaks by default), a
-  7-day bar chart, and below it a 12-month GitHub-style heatmap (today
-  outlined).
-- While idle, the menu bar timer glyph carries a thin goal ring — an arc
-  that fills as today's focus time approaches the daily goal.
+- The chart button in the popover footer opens the stats window
+  (v8: freely resizable, default 560 × 560, minimum 480 × 460, size and
+  position remembered). Its "Fokus" tab shows today/week tiles, a 7-day
+  bar chart with the minute value above each bar, and below it a
+  12-month GitHub-style heatmap with month labels (today outlined).
+  Heatmap shades are relative to the busiest day of the visible year —
+  there is no goal to measure against (the daily goal was removed
+  in v8).
 - Focus totals are stored locally in UserDefaults — kept forever (it is
   tiny).
 
@@ -120,33 +126,29 @@ Lives in the menu bar only — no Dock icon, no window.
   paused stretches render as gaps. The idle threshold ("Inaktiv nach")
   defaults to 5 minutes (1–30).
 
-### Ziel & Serie (goal & streak)
-
-- Daily focus goal (default 180 min, 15–960) in Settings → Ziel; the
-  idle menu bar ring and the heatmap levels measure against it.
-- The **Serie** tile counts consecutive goal-reached days.
-  "Wochenenden zählen nicht" is on by default: weekends neither break
-  nor extend the streak.
-
 ### Nicht stören (do not disturb)
 
-- Opt-in coupling to the macOS Focus mode via two Shortcuts you create
-  yourself in the Kurzbefehle app: "Timer Fokus an" and
-  "Timer Fokus aus".
+- Opt-in coupling to the macOS Focus mode via two Shortcuts. v8: pick
+  them from two dropdowns listing your existing Shortcuts (refresh
+  button included) — no more typing exact names. Defaults stay
+  "Timer Fokus an" / "Timer Fokus aus", so v7 setups keep working.
 - On at focus start, off at pause/stop/break; best-effort off when the
   app quits while a focus phase is active.
-- Settings → Nicht stören has the toggle, setup instructions, a test
+- Settings → Nicht stören has the toggle, the two dropdowns, setup
+  instructions (for users who have no suitable shortcut yet), a test
   button per shortcut, and a one-line status when a shortcut is missing
   or fails.
 
 ### Global hotkeys
 
-Two system-wide shortcuts, configured in Settings → Hotkeys (click a
+Three system-wide shortcuts, configured in Settings → Hotkeys (click a
 recorder field, press a combo with ⌘/⌃/⌥; Esc cancels, "×" clears):
 
 - **Popover öffnen** — opens the popover with the input focused.
 - **Sofort-Start** — idle: starts the last duration; running: pauses;
   paused: resumes; finished: dismisses and starts the last duration.
+- **Verlängern (+5 min)** — extends a running/paused timer; does
+  nothing otherwise. Opt-in: no default combo (avoids collisions).
 
 ### Settings
 
@@ -158,25 +160,33 @@ immediately:
   (documented migration) — re-save your favorites once.
 - **Pomodoro:** focus/break/long-break minutes (1–720) and rounds until
   long break (1–12).
-- **Alarm:** chime volume slider + test button — the test plays the
-  full ~5 s four-chime sequence (the mute toggle sits in the popover's
-  "⋯" menu).
-- **Allgemein:** "Beim Anmelden starten" (launch at login via
-  `SMAppService`; if macOS rejects the ad-hoc-signed app an inline hint
-  shows the manual path) and the floating display toggle.
+- **Alarm:** volume slider + test button — the test plays the ~5 s
+  bell swell (the mute toggle sits in the popover's "⋯" menu). The two
+  alarm sounds are bundled .caf files; if they are missing the app
+  falls back to the old four-chime Glass sequence, never silence.
+- **Allgemein:** "Beim Anmelden starten" with a live status line —
+  "Aktiv", "Wartet auf Freigabe" (plus a button opening the Login
+  Items pane), or "Aktiv (LaunchAgent)" when macOS rejected
+  `SMAppService` and the app fell back to a user LaunchAgent
+  (`~/Library/LaunchAgents/com.moritzthelen.timer.plist`). Toggling
+  off removes whichever mechanism is active. Plus the floating display
+  toggle.
+- **Menüleiste:** time format "Standard" (24:37) or "Kompakt" (whole
+  minutes rounded up — "25m", "1h 5m"), and "Nur Symbol" hiding the
+  time entirely (each state keeps a distinguishable icon; caption
+  recommends the floating display).
 - **Fokus-Block:** blocked apps ("App hinzufügen" menu + "Andere…" file
   picker; the Timer itself, Finder, and the default browser are not
   blockable) and blocked domains (Enter or "Hinzufügen" commits; the
   list shows exactly what was stored). The first entry arms the shield
   automatically, the header shows "Schild: an/aus", and captions explain
   when blocking is active and the automation permission.
-- **Ziel:** the daily goal minutes (15–960) and the "Wochenenden zählen
-  nicht" streak toggle.
-- **Nicht stören:** the DND toggle, Shortcuts setup instructions, and
-  the two test buttons.
-- **Hotkeys:** the two recorder fields; duplicate combos are rejected
-  with an inline hint.
-- **Aktivität:** "Tracking pausieren" toggle and the idle threshold
+- **Nicht stören:** the DND toggle, the two shortcut dropdowns with a
+  refresh button, setup instructions, and the two test buttons.
+- **Hotkeys:** three recorder fields (popover, quick-start, extend);
+  duplicate combos are rejected with an inline hint.
+- **Aktivität:** "Tracking pausieren" toggle (pausing fully stops the
+  polling — no background wakeups while paused) and the idle threshold
   "Inaktiv nach (min)" (1–30, default 5).
 
 ## Build & install
@@ -189,8 +199,12 @@ assembles `Timer.app`, ad-hoc signs it, and installs to `/Applications`
 
 ## Start at login
 
-Settings → Allgemein → "Beim Anmelden starten". Manual fallback:
-System Settings → General → Login Items → "+" → select `Timer.app`.
+Settings → Allgemein → "Beim Anmelden starten". The status line under
+the toggle shows which mechanism is active; "Wartet auf Freigabe"
+offers a button into System Settings → Login Items. If `SMAppService`
+refuses the ad-hoc-signed app entirely, a user LaunchAgent takes over
+automatically. A duplicate-start guard quits a second instance
+immediately, so the two mechanisms can never double-launch the app.
 
 ## Development
 
