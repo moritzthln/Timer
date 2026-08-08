@@ -14,6 +14,26 @@ public struct PersistedRun: Equatable {
     }
 }
 
+public struct BlockedApp: Codable, Equatable {
+    public let bundleID: String
+    public let name: String
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
+}
+
+public struct HotkeyCombo: Codable, Equatable {
+    public let keyCode: Int
+    public let carbonModifiers: Int
+
+    public init(keyCode: Int, carbonModifiers: Int) {
+        self.keyCode = keyCode
+        self.carbonModifiers = carbonModifiers
+    }
+}
+
 public final class Preferences {
     private let defaults: UserDefaults
 
@@ -36,6 +56,11 @@ public final class Preferences {
         static let alarmVolume = "alarmVolume"
         static let floatingEnabled = "floatingEnabled"
         static let lastMode = "lastMode"
+        static let blockedApps = "blockedApps"
+        static let blockedDomains = "blockedDomains"
+        static let focusBlockEnabled = "focusBlockEnabled"
+        static let hotkeyPopover = "hotkeyPopover"
+        static let hotkeyQuickStart = "hotkeyQuickStart"
     }
 
     public init(defaults: UserDefaults = .standard) {
@@ -170,5 +195,71 @@ public final class Preferences {
     public var lastMode: String {
         get { defaults.string(forKey: Key.lastMode) ?? "timer" }
         set { defaults.set(newValue, forKey: Key.lastMode) }
+    }
+
+    // MARK: - Focus block
+
+    public var blockedApps: [BlockedApp] {
+        get {
+            guard let data = defaults.data(forKey: Key.blockedApps),
+                  let apps = try? JSONDecoder().decode([BlockedApp].self, from: data) else {
+                return []
+            }
+            return apps
+        }
+        set {
+            defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.blockedApps)
+        }
+    }
+
+    public var blockedDomains: [String] {
+        get { defaults.stringArray(forKey: Key.blockedDomains) ?? [] }
+        set {
+            let sanitized = newValue.compactMap(Self.sanitizeDomain)
+            defaults.set(sanitized, forKey: Key.blockedDomains)
+        }
+    }
+
+    /// "https://www.Foo.com/bar" → "www.foo.com"; whitespace-only → nil.
+    public static func sanitizeDomain(_ raw: String) -> String? {
+        var value = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !value.isEmpty else { return nil }
+        for prefix in ["https://", "http://"] where value.hasPrefix(prefix) {
+            value = String(value.dropFirst(prefix.count))
+        }
+        if let slash = value.firstIndex(of: "/") {
+            value = String(value[..<slash])
+        }
+        return value.isEmpty ? nil : value
+    }
+
+    public var focusBlockEnabled: Bool {
+        get { defaults.object(forKey: Key.focusBlockEnabled) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: Key.focusBlockEnabled) }
+    }
+
+    // MARK: - Hotkeys
+
+    private func hotkey(forKey key: String) -> HotkeyCombo? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(HotkeyCombo.self, from: data)
+    }
+
+    private func setHotkey(_ combo: HotkeyCombo?, forKey key: String) {
+        if let combo {
+            defaults.set(try? JSONEncoder().encode(combo), forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    public var hotkeyPopover: HotkeyCombo? {
+        get { hotkey(forKey: Key.hotkeyPopover) }
+        set { setHotkey(newValue, forKey: Key.hotkeyPopover) }
+    }
+
+    public var hotkeyQuickStart: HotkeyCombo? {
+        get { hotkey(forKey: Key.hotkeyQuickStart) }
+        set { setHotkey(newValue, forKey: Key.hotkeyQuickStart) }
     }
 }
