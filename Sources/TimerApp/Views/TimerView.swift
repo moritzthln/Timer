@@ -24,7 +24,8 @@ struct TimerView: View {
                 FinishedView(engine: engine)
             }
         }
-        .padding(12)
-        .frame(width: 200)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .frame(width: 240)
     }
 }
