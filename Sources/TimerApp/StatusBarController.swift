@@ -43,7 +43,7 @@ final class StatusBarController {
             guard let self else { return }
             self.showPopover()
             if preferences.soundEnabled {
-                SoundPlayer.playCompletionChime()
+                SoundPlayer.playCompletionChime(volume: preferences.alarmVolume)
             }
         }
 
@@ -81,28 +81,18 @@ final class StatusBarController {
 
     private func refresh() {
         guard let button = statusItem.button else { return }
-        let symbol: String
-        let title: String
-        switch engine.phase {
-        case .idle:
-            symbol = "timer"
-            title = ""
-        case .running:
-            symbol = "timer"
-            title = TimeFormatting.format(seconds: engine.remainingSeconds)
-        case .paused:
-            symbol = "pause.fill"
-            title = TimeFormatting.format(seconds: engine.remainingSeconds)
-        case .finished:
-            symbol = "timer"
-            title = "0:00"
+        let presentation = MenuBarPresentation.make(
+            phase: engine.phase, remainingSeconds: engine.remainingSeconds
+        )
+        button.image = presentation.symbol.flatMap {
+            NSImage(systemSymbolName: $0, accessibilityDescription: "Timer")
         }
-        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Timer")
-        if title.isEmpty {
+        if presentation.title.isEmpty {
             button.attributedTitle = NSAttributedString(string: "")
         } else {
+            let prefix = presentation.symbol == nil ? "" : " "
             button.attributedTitle = NSAttributedString(
-                string: " " + title,
+                string: prefix + presentation.title,
                 attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)]
             )
         }
