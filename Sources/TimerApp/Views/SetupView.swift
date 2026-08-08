@@ -4,12 +4,15 @@ import TimerCore
 struct SetupView: View {
     @ObservedObject var engine: TimerEngine
     let preferences: Preferences
+    let stats: StatsStore
     var onOpenSettings: () -> Void
     var onToggleFloating: () -> Void
+    var onOpenStats: () -> Void
 
     @State private var minutesText = ""
     @State private var soundEnabled = true
     @State private var floatingOn = true
+    @State private var focusBlockOn = false
     @State private var mode = "timer"
     @State private var presets: [Int] = [5, 10, 15, 25, 45, 60]
     @FocusState private var inputFocused: Bool
@@ -40,6 +43,31 @@ struct SetupView: View {
                 pomodoroSetup
             }
 
+            HStack(spacing: 6) {
+                Image(systemName: focusBlockOn ? "shield.fill" : "shield")
+                    .font(.system(size: 11))
+                    .foregroundStyle(focusBlockOn ? Color.green : Color.secondary)
+                Toggle("Fokus-Block", isOn: $focusBlockOn)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .font(.system(size: 11))
+                    .onChange(of: focusBlockOn) { newValue in
+                        preferences.focusBlockEnabled = newValue
+                    }
+                Spacer()
+            }
+
+            Button(action: onOpenStats) {
+                HStack(spacing: 4) {
+                    Image(systemName: "chart.bar")
+                        .font(.system(size: 9))
+                    Text("Heute \(TimeFormatting.wording(seconds: stats.todaySeconds())) · Woche \(TimeFormatting.wording(seconds: stats.weekSeconds()))")
+                }
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
             Divider()
             footer
         }
@@ -47,6 +75,7 @@ struct SetupView: View {
             minutesText = String(preferences.lastMinutes)
             soundEnabled = preferences.soundEnabled
             floatingOn = preferences.floatingEnabled
+            focusBlockOn = preferences.focusBlockEnabled
             presets = preferences.presets
             mode = preferences.lastMode
             if mode == "timer" {
@@ -122,6 +151,13 @@ struct SetupView: View {
             .buttonStyle(.plain)
             .foregroundStyle(floatingOn ? .primary : .secondary)
             .help(floatingOn ? "Floating Display aus" : "Floating Display an")
+
+            Button(action: onOpenStats) {
+                Image(systemName: "chart.bar")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Statistik")
 
             Button(action: onOpenSettings) {
                 Image(systemName: "ellipsis.circle")

@@ -11,6 +11,7 @@ final class StatusBarController {
     private let rightClickMenu = NSMenu()
     private let floatingController: FloatingPanelController
     private let settingsController: SettingsWindowController
+    private let stats = StatsStore()
     private var cancellable: AnyCancellable?
 
     init(engine: TimerEngine, preferences: Preferences) {
@@ -22,9 +23,10 @@ final class StatusBarController {
 
         popover.contentViewController = NSHostingController(
             rootView: TimerView(
-                engine: engine, preferences: preferences,
+                engine: engine, preferences: preferences, stats: stats,
                 onOpenSettings: { [weak self] in self?.openSettings() },
-                onToggleFloating: { [weak self] in self?.toggleFloating() }
+                onToggleFloating: { [weak self] in self?.toggleFloating() },
+                onOpenStats: {} // wired to the stats window in the follow-up task
             )
         )
         popover.behavior = .transient

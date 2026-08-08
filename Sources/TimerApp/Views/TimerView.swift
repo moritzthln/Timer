@@ -4,16 +4,19 @@ import TimerCore
 struct TimerView: View {
     @ObservedObject var engine: TimerEngine
     let preferences: Preferences
+    let stats: StatsStore
     var onOpenSettings: () -> Void
     var onToggleFloating: () -> Void
+    var onOpenStats: () -> Void
 
     var body: some View {
         Group {
             switch engine.phase {
             case .idle:
                 SetupView(
-                    engine: engine, preferences: preferences,
-                    onOpenSettings: onOpenSettings, onToggleFloating: onToggleFloating
+                    engine: engine, preferences: preferences, stats: stats,
+                    onOpenSettings: onOpenSettings, onToggleFloating: onToggleFloating,
+                    onOpenStats: onOpenStats
                 )
             case .running, .paused:
                 RunningView(engine: engine)
