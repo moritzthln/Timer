@@ -29,19 +29,35 @@ struct RunningView: View {
                 .font(.system(size: 38, design: .monospaced).weight(.medium))
             statusLine
             progressBar
+            // v9: same icon vocabulary as the floating overlay — four text
+            // pills next to each other looked bad at 240 pt.
             HStack(spacing: 8) {
-                Button(engine.isPaused ? "Weiter" : "Pause") {
+                Button {
                     if engine.isPaused {
                         engine.resume()
                     } else {
                         engine.pause()
                     }
+                } label: {
+                    Image(systemName: engine.isPaused ? "play.fill" : "pause.fill")
                 }
+                .help(engine.isPaused ? "Weiter" : "Pause")
                 Button("+5") { engine.extend(minutes: 5) }
+                    .help("+5 Minuten")
                 if isPomodoro {
-                    Button("Skip") { engine.skip() }
+                    Button {
+                        engine.skip()
+                    } label: {
+                        Image(systemName: "forward.end.fill")
+                    }
+                    .help("Phase überspringen")
                 }
-                Button("Stopp") { engine.stop() }
+                Button {
+                    engine.stop()
+                } label: {
+                    Image(systemName: "stop.fill")
+                }
+                .help("Stopp")
             }
             .buttonStyle(PillButtonStyle())
         }
