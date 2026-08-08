@@ -2,12 +2,18 @@ import SwiftUI
 import TimerCore
 
 /// v10: the app usage list shared by the day and the week view — same row
-/// design in both: name, duration, proportional color bar, and a browser
-/// domain disclosure where site data exists (week: aggregated per week).
+/// design in both: name, duration, 7-day sparkline, proportional color bar,
+/// and a browser domain disclosure where site data exists (week: aggregated
+/// per week). Clicking a row selects the app for the timeline drill-down;
+/// clicking it again (or another row) deselects/switches.
 struct ActivityAppListView: View {
     let apps: [AppUsage]                       // sorted by total desc
     let sitesByBrowser: [String: [SiteUsage]]
     let colorFor: (String) -> Color
+    let sparkSeries: [String: [Double]]        // bundle id -> 7 daily seconds
+    let sparkHelp: String
+    let selectedBundleID: String?
+    let onSelect: (String) -> Void
 
     /// v9: the list keeps at least this much height before scrolling.
     static let listMinHeight: CGFloat = 160
@@ -73,12 +79,16 @@ struct ActivityAppListView: View {
 
     private func appRowHeader(_ app: AppUsage, maxTotal: Double) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack {
+            HStack(spacing: 8) {
                 Text(app.name).font(.system(size: 13))
                 Spacer()
                 Text(TimeFormatting.wording(seconds: app.totalSeconds))
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.secondary)
+                ActivitySparklineView(
+                    values: sparkSeries[app.bundleID] ?? Array(repeating: 0, count: 7),
+                    help: sparkHelp
+                )
             }
             GeometryReader { geo in
                 RoundedRectangle(cornerRadius: 3)
@@ -86,6 +96,13 @@ struct ActivityAppListView: View {
                     .frame(width: max(2, geo.size.width * app.totalSeconds / maxTotal))
             }
             .frame(height: 6)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { onSelect(app.bundleID) }
+        .background {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(.quaternary.opacity(selectedBundleID == app.bundleID ? 0.7 : 0))
+                .padding(-4)
         }
     }
 }

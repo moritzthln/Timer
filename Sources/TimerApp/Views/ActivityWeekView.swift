@@ -9,6 +9,11 @@ struct ActivityWeekView: View {
     let onOpenDay: (Date) -> Void
 
     @State private var data: WeekData?
+    /// Sparkline data over the displayed week's seven days.
+    @State private var sparkSeries: [String: [Double]] = [:]
+    /// v10 drill-down; resets on week navigation and view switch (the mode
+    /// switch rebuilds this view, so plain view state is exactly per-visit).
+    @State private var selectedBundleID: String?
 
     /// Structural minimum of the week mode: header + week rows block +
     /// presence line + list minimum + three 12 pt gaps.
@@ -40,6 +45,7 @@ struct ActivityWeekView: View {
                 ActivityWeekTimelineView(
                     days: data.days,
                     colorFor: color(for:),
+                    selectedBundleID: selectedBundleID,
                     onOpenDay: onOpenDay
                 )
                 if data.hasActivity {
@@ -47,7 +53,11 @@ struct ActivityWeekView: View {
                     ActivityAppListView(
                         apps: data.apps,
                         sitesByBrowser: data.sitesByBrowser,
-                        colorFor: color(for:)
+                        colorFor: color(for:),
+                        sparkSeries: sparkSeries,
+                        sparkHelp: rangeString,
+                        selectedBundleID: selectedBundleID,
+                        onSelect: toggleSelection
                     )
                 } else {
                     Text("Keine Daten für diese Woche")
@@ -78,18 +88,25 @@ struct ActivityWeekView: View {
         }
     }
 
-    /// "KW 32 · 4.–10. August" (month spelled once inside one month,
-    /// twice across a month boundary).
+    /// "KW 32 · 4.–10. August".
     private var title: String {
-        let calendar = WeekData.calendar
-        let start = calendar.dateInterval(of: .weekOfYear, for: anchor)?.start ?? anchor
-        let end = calendar.date(byAdding: .day, value: 6, to: start) ?? start
-        let week = calendar.component(.weekOfYear, from: start)
-        let sameMonth = calendar.isDate(start, equalTo: end, toGranularity: .month)
-        let range = sameMonth
+        let week = WeekData.calendar.component(.weekOfYear, from: weekStart)
+        return "KW \(week) · \(rangeString)"
+    }
+
+    private var weekStart: Date {
+        WeekData.calendar.dateInterval(of: .weekOfYear, for: anchor)?.start ?? anchor
+    }
+
+    /// "4.–10. August" — the month is spelled once inside one month, twice
+    /// across a month boundary. Also the week sparklines' tooltip.
+    private var rangeString: String {
+        let start = weekStart
+        let end = WeekData.calendar.date(byAdding: .day, value: 6, to: start) ?? start
+        let sameMonth = WeekData.calendar.isDate(start, equalTo: end, toGranularity: .month)
+        return sameMonth
             ? "\(Self.dayFormatter.string(from: start))–\(Self.dayMonthFormatter.string(from: end))"
             : "\(Self.dayMonthFormatter.string(from: start)) – \(Self.dayMonthFormatter.string(from: end))"
-        return "KW \(week) · \(range)"
     }
 
     private func shift(byWeeks weeks: Int) {
@@ -97,11 +114,18 @@ struct ActivityWeekView: View {
             byAdding: .day, value: weeks * 7, to: anchor
         ) else { return }
         anchor = min(shifted, Date())
+        selectedBundleID = nil
         reload()
     }
 
     private func reload() {
-        data = WeekData.load(store: store, weekOf: anchor)
+        let loaded = WeekData.load(store: store, weekOf: anchor)
+        data = loaded
+        sparkSeries = ActivitySparklineView.series(from: loaded.days.map(\.summary))
+    }
+
+    private func toggleSelection(_ bundleID: String) {
+        selectedBundleID = selectedBundleID == bundleID ? nil : bundleID
     }
 
     // MARK: - Content

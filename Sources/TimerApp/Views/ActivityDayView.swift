@@ -8,6 +8,12 @@ struct ActivityDayView: View {
     @Binding var day: Date
 
     @State private var summary: DaySummary?
+    /// Sparkline data: per-app seconds over the 7 days ending on `day`,
+    /// loaded once per day navigation.
+    @State private var sparkSeries: [String: [Double]] = [:]
+    /// v10 drill-down; resets on date navigation and view switch (the mode
+    /// switch rebuilds this view, so plain view state is exactly per-visit).
+    @State private var selectedBundleID: String?
 
     /// Structural minimum of the day mode: header + presence line + fixed
     /// timeline + list minimum + three 12 pt gaps.
@@ -41,7 +47,11 @@ struct ActivityDayView: View {
                 ActivityAppListView(
                     apps: summary.apps,
                     sitesByBrowser: summary.sitesByBrowser,
-                    colorFor: { colorFor(bundleID: $0, in: summary) }
+                    colorFor: { colorFor(bundleID: $0, in: summary) },
+                    sparkSeries: sparkSeries,
+                    sparkHelp: "Letzte 7 Tage",
+                    selectedBundleID: selectedBundleID,
+                    onSelect: toggleSelection
                 )
             } else {
                 Text("Keine Daten für diesen Tag")
@@ -72,11 +82,20 @@ struct ActivityDayView: View {
     private func shift(by days: Int) {
         guard let shifted = Calendar.current.date(byAdding: .day, value: days, to: day) else { return }
         day = min(shifted, Date())
+        selectedBundleID = nil
         reload()
     }
 
     private func reload() {
         summary = store.daySummary(for: day)
+        let window = ((-6)...0).compactMap {
+            Calendar.current.date(byAdding: .day, value: $0, to: day)
+        }
+        sparkSeries = ActivitySparklineView.series(from: window.map(store.daySummary(for:)))
+    }
+
+    private func toggleSelection(_ bundleID: String) {
+        selectedBundleID = selectedBundleID == bundleID ? nil : bundleID
     }
 
     private func presenceLine(_ summary: DaySummary) -> some View {
@@ -109,7 +128,8 @@ struct ActivityDayView: View {
                last > first {
                 ActivityTimelineView(
                     first: first, last: last, summary: summary,
-                    colorFor: { colorFor(bundleID: $0, in: summary) }
+                    colorFor: { colorFor(bundleID: $0, in: summary) },
+                    selectedBundleID: selectedBundleID
                 )
                 .id(day)
             }

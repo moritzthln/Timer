@@ -17,6 +17,8 @@ struct ActivityTimelineView: View {
     let last: Date
     let summary: DaySummary
     let colorFor: (String) -> Color
+    /// v10 drill-down: with a selection, other apps' segments dim to 0.15.
+    let selectedBundleID: String?
 
     @State private var zoom: CGFloat = 1
     @State private var scrollOffset: CGFloat = 0
@@ -132,6 +134,7 @@ struct ActivityTimelineView: View {
                     let w = segment.end.timeIntervalSince(segment.start) / span
                     Rectangle()
                         .fill(colorFor(bundleID))
+                        .opacity(dimOpacity(for: bundleID))
                         .frame(width: max(1, width * w))
                         .offset(x: width * x)
                         .help(Self.tooltip(name: name, segment: segment))
@@ -140,6 +143,11 @@ struct ActivityTimelineView: View {
         }
         .frame(width: width, height: Self.barHeight)
         .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+
+    private func dimOpacity(for bundleID: String) -> Double {
+        guard let selectedBundleID else { return 1 }
+        return selectedBundleID == bundleID ? 1 : 0.15
     }
 
     /// "Safari · 9:12–9:47 (35 min)". Presence gaps draw no segment rect,

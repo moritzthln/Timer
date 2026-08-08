@@ -8,6 +8,8 @@ import TimerCore
 struct ActivityWeekTimelineView: View {
     let days: [WeekDay]
     let colorFor: (String) -> Color
+    /// v10 drill-down: with a selection, other apps' segments dim to 0.15.
+    let selectedBundleID: String?
     let onOpenDay: (Date) -> Void
 
     static let rowHeight: CGFloat = 16
@@ -104,10 +106,16 @@ struct ActivityWeekTimelineView: View {
                 let w = segment.end.timeIntervalSince(segment.start) / axis.span
                 Rectangle()
                     .fill(colorFor(bundleID))
+                    .opacity(dimOpacity(for: bundleID))
                     .frame(width: max(1, width * w))
                     .offset(x: width * x)
             }
         }
+    }
+
+    private func dimOpacity(for bundleID: String) -> Double {
+        guard let selectedBundleID else { return 1 }
+        return selectedBundleID == bundleID ? 1 : 0.15
     }
 
     // MARK: - Ticks
