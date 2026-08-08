@@ -46,13 +46,20 @@ func runPreferencesTests() {
         try expectEqual(prefs.persistedRun, run, "roundtrip incl. kind and config")
     }
 
-    test("presets default and sanitize") {
-        let prefs = freshPrefs()
-        try expectEqual(prefs.presets, [5, 10, 15, 25, 45, 60], "default")
-        prefs.presets = [1, 999, 30, 30, 30, 30]
-        try expectEqual(prefs.presets, [1, 720, 30, 30, 30, 30], "clamped to 1...720")
+    test("presets default to four, sanitize, and drop stored six-entry arrays") {
+        let suite = "PreferencesTests"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let prefs = Preferences(defaults: defaults)
+        try expectEqual(prefs.presets, [5, 15, 25, 45], "v6 default")
+        prefs.presets = [1, 999, 30, 30]
+        try expectEqual(prefs.presets, [1, 720, 30, 30], "clamped to 1...720")
         prefs.presets = [7]
-        try expectEqual(prefs.presets, [1, 720, 30, 30, 30, 30], "wrong count rejected, keeps previous")
+        try expectEqual(prefs.presets, [1, 720, 30, 30], "wrong count rejected, keeps previous")
+        prefs.presets = [5, 10, 15, 25, 45, 60]
+        try expectEqual(prefs.presets, [1, 720, 30, 30], "six-entry write rejected too")
+        defaults.set([5, 10, 15, 25, 45, 60], forKey: "presets")
+        try expectEqual(prefs.presets, [5, 15, 25, 45], "stored v5 six-entry array falls back to the default")
     }
 
     test("pomodoro config prefs default and clamp") {

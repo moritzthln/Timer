@@ -156,16 +156,19 @@ public final class Preferences {
 
     private static func clampMinutes(_ value: Int) -> Int { min(720, max(1, value)) }
 
+    /// v6: exactly four presets. A stored pre-v6 six-entry array fails the
+    /// count guard and falls back to the new default — the documented
+    /// migration (custom preset values from v5 and earlier are dropped).
     public var presets: [Int] {
         get {
             guard let stored = defaults.array(forKey: Key.presets) as? [Int],
-                  stored.count == 6 else {
-                return [5, 10, 15, 25, 45, 60]
+                  stored.count == 4 else {
+                return [5, 15, 25, 45]
             }
             return stored.map(Self.clampMinutes)
         }
         set {
-            guard newValue.count == 6 else { return }
+            guard newValue.count == 4 else { return }
             defaults.set(newValue.map(Self.clampMinutes), forKey: Key.presets)
         }
     }
@@ -198,6 +201,8 @@ public final class Preferences {
         set { defaults.set(newValue, forKey: Key.floatingEnabled) }
     }
 
+    /// Unused by the UI since v6 (the popover tab switcher is gone). Kept in
+    /// place so old stored values stay harmless; no migration needed.
     public var lastMode: String {
         get { defaults.string(forKey: Key.lastMode) ?? "timer" }
         set { defaults.set(newValue, forKey: Key.lastMode) }
