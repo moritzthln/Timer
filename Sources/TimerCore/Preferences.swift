@@ -248,6 +248,39 @@ public final class Preferences {
         set { defaults.set(newValue, forKey: Key.focusBlockEnabled) }
     }
 
+    /// Appends `app` to the blocklist (no-op on a duplicate bundle ID).
+    /// Arm-on-configure: the very first blocklist entry (apps + domains
+    /// combined) enables the shield — who builds a blocklist wants blocking.
+    public func addBlockedApp(_ app: BlockedApp) {
+        var apps = blockedApps
+        guard !apps.contains(where: { $0.bundleID == app.bundleID }) else { return }
+        armShieldOnFirstEntry()
+        apps.append(app)
+        blockedApps = apps
+    }
+
+    /// Sanitizes and appends `raw` to the domain blocklist. Returns the
+    /// stored domain, or nil when sanitizing dropped the input or the domain
+    /// was already listed. Arms the shield like `addBlockedApp`.
+    @discardableResult
+    public func addBlockedDomain(_ raw: String) -> String? {
+        guard let sanitized = Self.sanitizeDomain(raw) else { return nil }
+        var domains = blockedDomains
+        guard !domains.contains(sanitized) else { return nil }
+        armShieldOnFirstEntry()
+        domains.append(sanitized)
+        blockedDomains = domains
+        return sanitized
+    }
+
+    /// Enables the shield only while the blocklist is still completely empty;
+    /// a deliberately disarmed shield stays off once any entry exists.
+    private func armShieldOnFirstEntry() {
+        if blockedApps.isEmpty && blockedDomains.isEmpty {
+            focusBlockEnabled = true
+        }
+    }
+
     // MARK: - Hotkeys
 
     /// Spec defaults: ⌃⌥T opens the popover, ⌃⌥S quick-starts.

@@ -106,6 +106,45 @@ func runPreferencesTests() {
         try expect(prefs.focusBlockEnabled, "on")
     }
 
+    test("first blocklist entry arms the shield, later ones respect the toggle") {
+        let prefs = freshPrefs()
+        try expect(!prefs.focusBlockEnabled, "starts off")
+        prefs.addBlockedApp(BlockedApp(bundleID: "com.hnc.Discord", name: "Discord"))
+        try expect(prefs.focusBlockEnabled, "first app entry arms")
+        prefs.focusBlockEnabled = false
+        prefs.addBlockedDomain("youtube.com")
+        try expect(!prefs.focusBlockEnabled, "non-empty blocklist never re-arms")
+        try expectEqual(prefs.blockedDomains, ["youtube.com"], "domain still added")
+    }
+
+    test("first domain entry arms the shield too") {
+        let prefs = freshPrefs()
+        prefs.addBlockedDomain("instagram.com")
+        try expect(prefs.focusBlockEnabled, "first domain entry arms")
+    }
+
+    test("addBlockedDomain sanitizes, dedupes, and returns what stuck") {
+        let prefs = freshPrefs()
+        try expectEqual(
+            prefs.addBlockedDomain("https://www.Instagram.com/reels/"),
+            "www.instagram.com", "sanitized form is stored and reported"
+        )
+        try expectNil(prefs.addBlockedDomain("   "), "whitespace-only dropped")
+        try expectNil(prefs.addBlockedDomain("www.instagram.com"), "duplicate dropped")
+        try expectEqual(prefs.blockedDomains, ["www.instagram.com"], "stored exactly once")
+    }
+
+    test("addBlockedApp ignores duplicate bundle IDs") {
+        let prefs = freshPrefs()
+        prefs.addBlockedApp(BlockedApp(bundleID: "com.hnc.Discord", name: "Discord"))
+        prefs.addBlockedApp(BlockedApp(bundleID: "com.hnc.Discord", name: "Discord Again"))
+        try expectEqual(
+            prefs.blockedApps,
+            [BlockedApp(bundleID: "com.hnc.Discord", name: "Discord")],
+            "deduped by bundle ID"
+        )
+    }
+
     test("hotkeys default to spec combos, roundtrip, and clear explicitly") {
         let prefs = freshPrefs()
         try expectEqual(prefs.hotkeyPopover, HotkeyCombo(keyCode: 17, carbonModifiers: 6144), "default ⌃⌥T")
