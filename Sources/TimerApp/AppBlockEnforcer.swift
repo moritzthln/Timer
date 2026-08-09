@@ -10,11 +10,17 @@ import TimerCore
 /// `isHidden` a moment later and escalates if the app is still visible.
 final class AppBlockEnforcer {
     /// How long macOS gets to actually hide an app before the ladder judges
-    /// the attempt. Short enough to feel immediate, long enough for the
-    /// hide/space animation to have started.
-    private static let verifyDelay = 0.12
-    /// The same for the Space escape, whose switch is an animation.
-    private static let escapeVerifyDelay = 0.3
+    /// the attempt. Measured on this machine (Calculator, 6 runs): the
+    /// isHidden flag flips after 26–40 ms, median 32. 80 ms keeps double the
+    /// margin over the worst sample and still reads as instant.
+    private static let verifyDelay = 0.08
+    /// The same after the fullscreen escape — deliberately *longer* than the
+    /// hide check: control-command-F starts macOS's fullscreen-exit animation
+    /// (~0.5–0.7 s) and a retry that lands mid-animation reports "still
+    /// visible", which would escalate to minimising windows that were about to
+    /// come back anyway. Invisible to the user: the effective key event has
+    /// already fired, this only times the check.
+    private static let escapeVerifyDelay = 0.75
     /// v21: one Space escape per app per 3 s. Deliberately short — a longer
     /// window would hand the user a comfortable stay inside the distraction.
     private static let escapeInterval = 3.0
