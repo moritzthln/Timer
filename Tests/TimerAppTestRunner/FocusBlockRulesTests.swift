@@ -61,3 +61,17 @@ func runDndRulesTests() {
         ), "toggle off wins")
     }
 }
+
+func runBlockableHostTests() {
+    test("only real web pages carry a blockable host") {
+        try expectEqual(FocusBlockRules.blockableHost(urlString: "https://www.google.com/search?q=x"), "www.google.com", "https")
+        try expectEqual(FocusBlockRules.blockableHost(urlString: "http://example.com"), "example.com", "http")
+        try expectNil(FocusBlockRules.blockableHost(urlString: "chrome://newtab/"), "chrome new tab is neutral")
+        try expectNil(FocusBlockRules.blockableHost(urlString: "chrome://new-tab-page/"), "chrome new-tab-page is neutral")
+        try expectNil(FocusBlockRules.blockableHost(urlString: "about:blank"), "blank page is neutral")
+        try expectNil(FocusBlockRules.blockableHost(urlString: "arc://newtab"), "arc new tab is neutral")
+        try expectNil(FocusBlockRules.blockableHost(urlString: "safari-resource://start"), "safari start page is neutral")
+        try expectNil(FocusBlockRules.blockableHost(urlString: ""), "empty address bar")
+        try expectNil(FocusBlockRules.blockableHost(urlString: nil), "no url at all")
+    }
+}

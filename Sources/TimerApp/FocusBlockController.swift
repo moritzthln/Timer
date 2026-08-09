@@ -262,7 +262,7 @@ final class FocusBlockController {
         }
         for browser in runningSupportedBrowsers() {
             guard let urlString = BrowserScripting.run(browser.readURL),
-                  let host = URL(string: urlString)?.host else { continue }
+                  let host = FocusBlockRules.blockableHost(urlString: urlString) else { continue }
             // The configured entry, not the raw host: it is what the popup and
             // the cover show, and it keeps one clock across a site's
             // subdomains.
@@ -280,7 +280,7 @@ final class FocusBlockController {
         guard !domains.isEmpty else { dropSiteCover(); return }
         for browser in runningSupportedBrowsers() {
             guard let urlString = BrowserScripting.run(browser.readURL) else { continue }
-            let host = URL(string: urlString)?.host
+            let host = FocusBlockRules.blockableHost(urlString: urlString)
             // A nil host (internal and new-tab pages) is never a hit — that
             // decision belongs to the pure rule, not here.
             let hit = AllowlistRules.shouldCloseTab(host: host, allowedDomains: domains)
@@ -417,7 +417,7 @@ final class FocusBlockController {
         }
         let target = TabSwitchPlan.target(activeIndex: info.index, count: info.count) { index in
             let neighborURL = BrowserScripting.run(browser.tabURL(at: index))
-            return neighborBlocked(neighborURL.flatMap { URL(string: $0)?.host })
+            return neighborBlocked(FocusBlockRules.blockableHost(urlString: neighborURL))
         }
         let script: String
         switch target {

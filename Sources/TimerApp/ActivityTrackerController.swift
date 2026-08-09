@@ -164,7 +164,9 @@ final class ActivityTrackerController {
         }
         let now = Date()
         guard let urlString = BrowserScripting.run(browser.readURL),
-              let host = URL(string: urlString)?.host else {
+              // Same rule as the block: only http(s) pages have a real host —
+              // chrome://newtab/ would otherwise be tracked as the site "newtab".
+              let host = FocusBlockRules.blockableHost(urlString: urlString) else {
             closeSegment(&openSite, at: now)
             return
         }
