@@ -8,6 +8,12 @@ import TimerCore
 /// mode (v15) on unlisted regular apps and tabs on unlisted hosts. The mode
 /// is consulted per event/poll, so a mid-session mode change applies
 /// naturally on the next event.
+///
+/// v18 makes it fullscreen-proof: every app event runs through
+/// `AppBlockEnforcer`'s escalation ladder instead of a single `hide()`, and
+/// the 2 s poll re-checks the frontmost app — the only way to catch an app
+/// the user pushed back into fullscreen or a Space switch, neither of which
+/// posts a workspace notification.
 final class FocusBlockController {
     private let preferences: Preferences
     private let overlay: BlockOverlayController
@@ -127,7 +133,7 @@ final class FocusBlockController {
         launchObserver = workspaceObserver(for: NSWorkspace.didLaunchApplicationNotification)
         activateObserver = workspaceObserver(for: NSWorkspace.didActivateApplicationNotification)
         pollTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.pollBrowsers()
+            self?.poll()
         }
         pollTimer?.tolerance = 0.5 // v8 energy audit
         RunLoop.main.add(pollTimer!, forMode: .common)
@@ -154,11 +160,35 @@ final class FocusBlockController {
         pollTimer = nil
     }
 
+    // MARK: - Safety poll
+
+    /// The 2 s poll, v18: the frontmost app is re-checked before the
+    /// browsers. Fullscreen re-entry and Space switches fire no reliable
+    /// workspace notification, so this tick is the only thing that catches
+    /// them — and it is what makes the block relentless instead of
+    /// one-shot. Both arms read the mode per tick.
+    private func poll() {
+        guard active else { return }
+        enforceFrontmostApp()
+        pollBrowsers()
+    }
+
+    /// Runs whatever is in front right now through the escalation ladder
+    /// again if the active mode blocks it. Every ladder rung is idempotent,
+    /// so re-running costs nothing while the app stays hidden. Anything
+    /// harmless in front means no cover is warranted.
+    private func enforceFrontmostApp() {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return }
+        if let name = blockTarget(app) {
+            enforcer.enforce(app: app, name: name)
+        } else {
+            enforcer.releaseCover()
+        }
+    }
+
     // MARK: - Browsers
 
-    /// Reads the mode per poll tick.
     private func pollBrowsers() {
-        guard active else { return }
         switch preferences.blockMode {
         case .blocklist: pollBrowsersBlocklist()
         case .allowlist: pollBrowsersAllowlist()
