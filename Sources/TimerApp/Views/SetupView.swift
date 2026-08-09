@@ -235,7 +235,7 @@ struct SetupView: View {
             Divider()
             Button("Einstellungen…", action: onOpenSettings)
             Divider()
-            Button("Timer beenden") { NSApp.terminate(nil) }
+            Button("Timer beenden…") { NSApp.terminate(nil) }
                 .keyboardShortcut("q")
         } label: {
             Image(systemName: "ellipsis.circle")

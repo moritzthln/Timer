@@ -10,6 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBarController = StatusBarController(engine: engine, preferences: preferences)
     }
 
+    /// Target of the hidden ⌘Q menu item — see StatusBarController.closePopover().
+    @objc func closePopover(_ sender: Any?) {
+        statusBarController?.closePopover()
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         statusBarController?.prepareForTermination()
     }

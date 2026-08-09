@@ -17,17 +17,20 @@ let delegate = AppDelegate()
 app.delegate = delegate
 app.setActivationPolicy(.accessory)
 
-// Hidden main menu so ⌘Q works while the popover is key.
+// Hidden main menu. ⌘Q closes the popover rather than quitting: a reflexive
+// ⌘Q in the popover used to kill the running session, the activity tracking
+// and the block at once. Quitting lives in the ⋯ menu and the status item's
+// right-click menu, both without a shortcut.
 let mainMenu = NSMenu()
 let appMenuItem = NSMenuItem()
 let appMenu = NSMenu()
-appMenu.addItem(
-    NSMenuItem(
-        title: "Quit Timer",
-        action: #selector(NSApplication.terminate(_:)),
-        keyEquivalent: "q"
-    )
+let closeItem = NSMenuItem(
+    title: "Popover schließen",
+    action: #selector(AppDelegate.closePopover(_:)),
+    keyEquivalent: "q"
 )
+closeItem.target = delegate
+appMenu.addItem(closeItem)
 appMenuItem.submenu = appMenu
 mainMenu.addItem(appMenuItem)
 app.mainMenu = mainMenu

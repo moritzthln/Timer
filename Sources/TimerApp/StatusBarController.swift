@@ -141,7 +141,7 @@ final class StatusBarController {
             NSMenuItem(
                 title: "Timer beenden",
                 action: #selector(NSApplication.terminate(_:)),
-                keyEquivalent: "q"
+                keyEquivalent: ""
             )
         )
 
@@ -165,6 +165,14 @@ final class StatusBarController {
             )
             self?.refresh()
         }
+    }
+
+    /// ⌘Q closes the popover instead of quitting (user request): the app is a
+    /// background tracker, and a reflexive ⌘Q used to end the session, the
+    /// activity recording and the block in one keystroke. Quitting stays in
+    /// both menus, deliberately without a shortcut.
+    func closePopover() {
+        popover.performClose(nil)
     }
 
     // MARK: - Activity tracking
