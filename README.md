@@ -122,14 +122,33 @@ Lives in the menu bar only — no Dock icon, no window.
   watchers, the 2 s poll checks whatever app is frontmost right now and
   runs the ladder again. Pushing a blocked app back into fullscreen or
   switching Spaces posts no notification — this tick is what catches it.
+- **Blocked websites get covered first (v22), switched away second.**
+  Open a blocked site and within ~2 s the page — and only the page —
+  disappears behind the cover: "Fokus läuft · noch 12:34",
+  "<Domain> wartet bis zum Ende", "Tab wechseln oder warten — in 10 s
+  wechselt der Timer selbst." The browser's chrome stays untouched and
+  clickable (Arc's left sidebar included), because leaving the tab is
+  the way out and that needs the tab bar. Switch the tab yourself and
+  the cover goes; stay 10 s and the tab switch below runs. Covering
+  needs no new permission — the browser window's position and size come
+  from the window server, its title is never read. Only one site is
+  covered at a time, a different blocked site restarts the 10 s, and a
+  browser window too small for a readable cover skips straight to the
+  switch.
 - Blocked websites keep their tab: instead of closing it, the browser
   switches to the neighboring tab — or to a fresh empty tab when the
   neighbor is blocked too or the window has only that one tab. The
   blocked tab waits in the background; after the session one click
   resumes it exactly where it was (no ⌘⇧T needed). Re-activating it
-  during the session switches away again within ~2 s. Arc only: if
+  during the session covers it again within ~2 s. Arc only: if
   Arc's scripting rejects the tab switch at runtime, its blocked tabs
   are closed as before — decided automatically, once per session.
+- App cover and site cover never fight: there is one cover window, and
+  the app ladder outranks the site cover. A blocked *app* in front means
+  no site cover goes up (and an existing one yields the window); a
+  blocked *tab* in the browser you are using is the site cover's case
+  alone. Browsers you are not looking at keep the immediate tab switch,
+  as before v22.
 - Every intervention shows a small centered popup (replacing the old
   top toast): "Fokus läuft · noch 12:34" and "<App/Website> wartet bis
   zum Ende" — the same wording in both modes. It ignores clicks,
@@ -279,6 +298,11 @@ Lives in the menu bar only — no Dock icon, no window.
   out of the way. Works without any permission, catches you again ~2 s
   after every ⌘-Tab back, and can be tried on demand in Rechte →
   "Vollbild-Block testen".
+- v22 — blocked websites are covered before the tab is switched away:
+  the page vanishes behind the shield within ~2 s while the tab bar
+  stays yours, and only staying 10 s costs the tab. Same window as the
+  app cover, no new permission, and a mini browser window still gets the
+  plain switch.
 - **Privacy:** everything stays on this Mac — one JSON file per day
   under `~/Library/Application Support/Timer/activity/` (and, since
   v10, focus intervals under `…/Timer/focus/`), no network, ever.
