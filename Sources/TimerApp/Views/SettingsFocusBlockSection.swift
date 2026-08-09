@@ -73,6 +73,9 @@ struct FocusBlockSettingsSection: View {
         VStack(alignment: .leading, spacing: 2) {
             caption("Aktiv während Fokus-Sessions, wenn das Schild im Popover an ist.")
             caption("Website-Block braucht die Automation-Berechtigung (macOS fragt beim ersten Mal).")
+            // v18: the permission status itself lives in the "Rechte" tab —
+            // one place for all of them, so this stays a pointer.
+            caption("Vollbild-Apps brauchen zusätzlich die Bedienungshilfen — Status im Tab „Rechte“.")
         }
         .padding(.top, 2)
     }

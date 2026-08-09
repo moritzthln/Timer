@@ -66,6 +66,13 @@ enum BrowserScripting {
             }
         }
 
+        /// v18 permission probe: the most harmless read there is. It changes
+        /// nothing and still needs the automation permission, so its error
+        /// number tells the "Rechte" tab whether the permission is granted.
+        var permissionProbe: String {
+            "tell application \"\(appName)\" to return count of windows"
+        }
+
         /// Opens a new empty tab at the end and activates it.
         var newTab: String {
             switch style {
@@ -116,6 +123,44 @@ enum BrowserScripting {
         var error: NSDictionary?
         _ = script.executeAndReturnError(&error)
         return error == nil
+    }
+
+    // MARK: - Automation permission (v18)
+
+    /// What the "Rechte" tab knows about one browser's automation permission.
+    enum AutomationAccess: Equatable {
+        case granted
+        /// macOS refused the Apple event (errAEEventNotPermitted).
+        case denied
+        /// Nothing to probe — the browser is not running.
+        case notRunning
+        /// Any other scripting failure, carrying the AppleScript error number.
+        case unknown(Int)
+    }
+
+    /// errAEEventNotPermitted — "not authorized to send Apple events".
+    private static let notPermittedError = -1743
+
+    /// Probes one browser's automation permission with a harmless read.
+    /// Only ever called from the explicit "Prüfen" / "Alle prüfen" buttons:
+    /// the first probe of an unknown browser can surface the one-time macOS
+    /// consent prompt, which must never happen just by opening a tab.
+    static func probeAutomation(_ browser: Browser) -> AutomationAccess {
+        let running = NSWorkspace.shared.runningApplications
+            .contains { $0.bundleIdentifier == browser.bundleID }
+        guard running else { return .notRunning }
+        guard let code = errorNumber(running: browser.permissionProbe) else { return .granted }
+        return code == notPermittedError ? .denied : .unknown(code)
+    }
+
+    /// Runs a script and returns nil on success, otherwise the AppleScript
+    /// error number.
+    private static func errorNumber(running source: String) -> Int? {
+        guard let script = NSAppleScript(source: source) else { return -1 }
+        var error: NSDictionary?
+        _ = script.executeAndReturnError(&error)
+        guard let error else { return nil }
+        return (error[NSAppleScript.errorNumber] as? Int) ?? -1
     }
 
     /// Parses the "index|count" payload of a `tabInfo` read.

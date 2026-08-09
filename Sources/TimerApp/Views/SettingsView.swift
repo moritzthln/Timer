@@ -21,10 +21,11 @@ struct SettingsView: View {
     private static let roundsRange = 1...12
     private static let idleRange = 1...30
 
-    /// v17: the four settings tabs. Selection is per-window-session — the
-    /// window rebuilds its view on every show(), so it opens on Timer.
+    /// v17: the settings tabs (v18 added "Rechte"). Selection is
+    /// per-window-session — the window rebuilds its view on every show(),
+    /// so it opens on Timer.
     private enum SettingsTab: CaseIterable {
-        case timer, fokus, aktivitaet, allgemein
+        case timer, fokus, aktivitaet, allgemein, rechte
 
         var label: String {
             switch self {
@@ -32,6 +33,7 @@ struct SettingsView: View {
             case .fokus: return "Fokus"
             case .aktivitaet: return "Aktivität"
             case .allgemein: return "Allgemein"
+            case .rechte: return "Rechte"
             }
         }
     }
@@ -89,10 +91,17 @@ struct SettingsView: View {
                     menuBarSection
                     hotkeysSection
                 }
+                tabPane(.rechte) {
+                    PermissionsSettingsSection(
+                        preferences: preferences, focusMode: focusMode
+                    )
+                }
             }
         }
         .padding(20)
-        .frame(width: 360)
+        // v18: 400 instead of v17's 360 — five segments need the room, and
+        // the permission rows carry a badge plus two buttons per line.
+        .frame(width: 400)
         // v17: switching tabs drops field focus, so pending numeric input
         // runs through the same snap-back as any other focus loss.
         .onChange(of: tab) { _ in focusedNumberField = nil }
