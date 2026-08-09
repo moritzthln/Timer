@@ -155,10 +155,13 @@ final class StatusBarController {
 
     // MARK: - Activity tracking
 
-    /// Final activity flush + best-effort Focus-mode off on quit.
+    /// Final activity flush + best-effort Focus-mode off on quit; v16 also
+    /// unhides everything the focus block hid, so nothing stays invisible
+    /// after the Timer is gone.
     func prepareForTermination() {
         activityTracker?.flush()
         focusMode.deactivateForTermination()
+        focusBlock.restoreHiddenApps()
     }
 
     // MARK: - Hotkey actions
