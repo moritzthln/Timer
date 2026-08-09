@@ -2,8 +2,8 @@ import AppKit
 import TimerCore
 
 /// v18: runs the `BlockEscalation` ladder for one app and owns everything the
-/// ladder touches — the v16 popup, the hidden-apps restore record, and (from
-/// the next rung on) the Accessibility un-fullscreen.
+/// ladder touches — the v16 popup, the hidden-apps restore record, the
+/// Accessibility un-fullscreen, and the cover overlay.
 ///
 /// Every rung verifies instead of assuming: `hide()` reports success even for
 /// fullscreen apps that stay right where they are, so the enforcer re-reads
@@ -15,6 +15,7 @@ final class AppBlockEnforcer {
     private static let verifyDelay = 0.25
 
     private let popup: BlockOverlayController
+    private let cover: BlockCoverController
     private let remainingSeconds: () -> Int
     private var hiddenApps = HiddenAppsRecord()
 
@@ -22,8 +23,13 @@ final class AppBlockEnforcer {
     /// when the session ended, paused, or the shield went off meanwhile.
     var isActive: () -> Bool = { true }
 
-    init(popup: BlockOverlayController, remainingSeconds: @escaping () -> Int) {
+    init(
+        popup: BlockOverlayController,
+        cover: BlockCoverController,
+        remainingSeconds: @escaping () -> Int
+    ) {
         self.popup = popup
+        self.cover = cover
         self.remainingSeconds = remainingSeconds
     }
 
@@ -32,9 +38,21 @@ final class AppBlockEnforcer {
         run(step: .start, app: app, name: name)
     }
 
+    /// Undoes every intervention: the cover comes down and everything the
+    /// block hid is unhidden. Runs on block deactivation and on app quit.
+    func restore() {
+        cover.hide()
+        restoreHiddenApps()
+    }
+
+    /// Takes the cover down because the covered app is no longer frontmost.
+    func releaseCover() {
+        cover.hide()
+    }
+
     /// Unhides every app this enforcer hid and clears the record. Apps the
     /// user hid manually were never recorded and stay untouched.
-    func restoreHiddenApps() {
+    private func restoreHiddenApps() {
         let ids = hiddenApps.drain()
         guard !ids.isEmpty else { return }
         for app in NSWorkspace.shared.runningApplications {
@@ -62,11 +80,13 @@ final class AppBlockEnforcer {
             hideAndRecord(app)
             verify(after: action, app: app, name: name)
         case .overlay:
-            // The cover overlay lands in the next step of v18; until then the
-            // popup stays the last word, exactly as in v16.
-            announce(name)
+            cover.show(
+                target: name, bundleID: app.bundleIdentifier,
+                remainingSeconds: remainingSeconds()
+            )
         case .done:
-            break
+            // The app is out of sight — so is any cover that belonged to it.
+            cover.hide(ifCovering: app.bundleIdentifier)
         }
     }
 

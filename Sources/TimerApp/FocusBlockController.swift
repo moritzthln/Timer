@@ -14,6 +14,8 @@ final class FocusBlockController {
     /// v18: runs the escalation ladder (hide → un-fullscreen + hide →
     /// cover overlay) and owns the restore record.
     private let enforcer: AppBlockEnforcer
+    /// v18 last resort of the ladder — the full-screen cover panel.
+    private let cover = BlockCoverController()
     /// Live remaining session seconds, read at popup display moments.
     private let remainingSeconds: () -> Int
     private var active = false
@@ -33,7 +35,9 @@ final class FocusBlockController {
         self.preferences = preferences
         self.overlay = overlay
         self.remainingSeconds = remainingSeconds
-        enforcer = AppBlockEnforcer(popup: overlay, remainingSeconds: remainingSeconds)
+        enforcer = AppBlockEnforcer(
+            popup: overlay, cover: cover, remainingSeconds: remainingSeconds
+        )
         // Delayed ladder steps stop as soon as the block is off.
         enforcer.isActive = { [weak self] in self?.active ?? false }
     }
@@ -51,15 +55,16 @@ final class FocusBlockController {
             startWatching()
         } else {
             stopWatching()
-            restoreHiddenApps()
+            restoreBlockedApps()
         }
     }
 
-    /// Unhides every app the block hid and clears the record. Runs on every
-    /// block deactivation and on app quit (prepareForTermination). Apps the
-    /// user hid manually were never recorded and stay untouched.
-    func restoreHiddenApps() {
-        enforcer.restoreHiddenApps()
+    /// Undoes everything the block did: every app it hid is unhidden and any
+    /// cover overlay comes down. Runs on every block deactivation and on app
+    /// quit (prepareForTermination). Apps the user hid manually were never
+    /// recorded and stay untouched.
+    func restoreBlockedApps() {
+        enforcer.restore()
     }
 
     // MARK: - Apps
@@ -108,7 +113,13 @@ final class FocusBlockController {
     /// matters because hidden apps keep running: clicking one in the Dock
     /// unhides it without a launch event, so it must be hidden again.
     private func handleLaunchOrActivate(_ app: NSRunningApplication) {
-        guard let name = blockTarget(app) else { return }
+        guard let name = blockTarget(app) else {
+            // Something harmless came forward, so whatever the ladder covered
+            // is not frontmost anymore — the cover goes immediately instead
+            // of waiting for the next poll.
+            enforcer.releaseCover()
+            return
+        }
         enforcer.enforce(app: app, name: name)
     }
 
