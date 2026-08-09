@@ -4,15 +4,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-# Xcode is installed since 2026-08-09, so SwiftPM can build both slices in one
-# pass. The former two-triple + lipo dance is kept as a fallback for a machine
-# with Command Line Tools only (xcbuild missing).
-echo "▸ Building universal release binary (arm64 + x86_64)…"
-if swift build -c release --arch arm64 --arch x86_64 2>&1 | tail -1; then
+# Works on both toolchains. `swift build --arch` needs full Xcode (xcbuild);
+# with Command Line Tools selected we build each slice by triple and lipo them
+# together. The active toolchain decides, not what happens to be installed.
+if [ -x "$(xcode-select -p 2>/dev/null)/usr/bin/xcodebuild" ]; then
+  echo "▸ Building universal release binary (Xcode toolchain)…"
+  swift build -c release --arch arm64 --arch x86_64 2>&1 | tail -1
   BINARY=".build/apple/Products/Release/TimerApp"
-fi
-if [ ! -f "${BINARY:-}" ]; then
-  echo "▸ Falling back to per-triple builds…"
+else
+  echo "▸ Building both slices (Command Line Tools)…"
   swift build -c release --triple arm64-apple-macosx13.0 2>&1 | tail -1
   swift build -c release --triple x86_64-apple-macosx13.0 2>&1 | tail -1
   BINARY="$(mktemp -d)/TimerApp"
