@@ -29,6 +29,15 @@ final class AppBlockEnforcer {
     /// otherwise read as "something harmless came forward" and undo the
     /// escape before its retry-hide even ran.
     private static let escapeCoverGrace = 1.5
+    /// v23.2: after any intervention the enforcer keeps checking that the app
+    /// really went away. macOS swallows a hide() that lands inside the
+    /// fullscreen-exit animation, and a single check left the app sitting
+    /// there until the next poll — or forever, if it was no longer frontmost.
+    private static let ensureInterval = 0.3
+    private static let ensureAttempts = 12          // ~3.6 s of insistence
+    /// From this attempt on, minimising joins the hide attempts.
+    private static let ensureMinimizeFrom = 2
+
     /// How long the cover of a diagnostic run stays up after its report.
     private static let probeCoverLinger = 1.2
 
@@ -155,16 +164,22 @@ final class AppBlockEnforcer {
             verify(after: action, app: app, name: name)
         case .spaceEscape:
             escape(app: app, name: name)
+            // The fullscreen animation is precisely when a hide() gets
+            // swallowed, so the insisting chain starts right after it instead
+            // of relying on the single verify below.
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.escapeVerifyDelay) {
+                [weak self] in self?.ensureGone(app: app, attempt: 0)
+            }
             // The ladder retries the hide right after the switch: an app that
             // no longer holds the screen usually accepts it, and then the
             // cover comes down on its own (`.done`).
             verify(after: action, app: app, name: name)
         case .overlay:
-            // v23.1: the cover window is gone (user: "Sperrfenster weg").
-            // Minimising every window is the equivalent last resort — no
-            // overlay, and the user gets the windows back from the Dock.
-            AccessibilityAccess.minimizeWindows(pid: app.processIdentifier)
+            // v23.1: the cover window is gone (user: "Sperrfenster weg") —
+            // hiding, then minimising, is the last resort. v23.2: keep at it
+            // until the app is actually gone.
             announce(name)
+            ensureGone(app: app, attempt: 0)
         case .done:
             break
         }
@@ -198,6 +213,24 @@ final class AppBlockEnforcer {
         lastEscapeAt = now
     }
 
+
+    /// Repeats hide (and, from the second attempt, minimise) until the app is
+    /// out of sight — or the budget runs out. Every attempt re-checks first,
+    /// so a successful hide stops the chain immediately; a block that ended
+    /// meanwhile stops it too.
+    private func ensureGone(app: NSRunningApplication, attempt: Int) {
+        guard isActive() || isProbing(app) else { return }
+        guard isVisible(app) else { return }
+        guard attempt < Self.ensureAttempts else { return }
+
+        hideAndRecord(app)
+        if attempt >= Self.ensureMinimizeFrom {
+            AccessibilityAccess.minimizeWindows(pid: app.processIdentifier)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.ensureInterval) { [weak self] in
+            self?.ensureGone(app: app, attempt: attempt + 1)
+        }
+    }
 
     /// Re-runs the ladder once macOS had its moment, unless the block ended
     /// in the meantime. The escape gets a longer moment than the hides: its
