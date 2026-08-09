@@ -100,11 +100,14 @@ final class AppBlockEnforcer {
 
     /// Takes the cover down because the covered app is no longer frontmost —
     /// unless a Space escape just put it there (see `escapeCoverGrace`).
+    /// Scoped to app covers since v22: "something harmless is in front" is the
+    /// normal state of a covered browser tab, and the site cover owns that
+    /// case itself.
     func releaseCover() {
         if let lastEscapeAt, Date().timeIntervalSince(lastEscapeAt) < Self.escapeCoverGrace {
             return
         }
-        cover.hide()
+        cover.hideApp()
     }
 
     /// Unhides every app this enforcer hid and clears the record. Apps the
