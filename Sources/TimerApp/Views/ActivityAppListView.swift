@@ -4,8 +4,9 @@ import TimerCore
 /// v10: the app usage list shared by the day and the week view — same row
 /// design in both: name, duration, 7-day sparkline, proportional color bar,
 /// and a browser domain disclosure where site data exists (week: aggregated
-/// per week). Clicking a row selects the app for the timeline drill-down;
-/// clicking it again (or another row) deselects/switches.
+/// per week). Clicking a row selects it for the timeline drill-down (v19:
+/// promoted website rows included); clicking it again (or another row)
+/// deselects/switches.
 struct ActivityAppListView: View {
     let apps: [AppUsage]                       // sorted by total desc
     let sitesByBrowser: [String: [SiteUsage]]

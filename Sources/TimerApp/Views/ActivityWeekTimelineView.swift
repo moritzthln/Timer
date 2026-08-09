@@ -16,7 +16,13 @@ struct ActivityWeekTimelineView: View {
     let days: [WeekDay]
     let colorFor: (String) -> Color
     /// v10 drill-down: with a selection, other apps' segments dim to 0.15.
+    /// v19: a promoted website row matches no app, so all of them dim and
+    /// that domain's site spans are drawn on top — in every one of the seven
+    /// rows, each against its own day's segments.
     let selectedBundleID: String?
+    /// v19: the configured promoted domains — the ownership rule behind the
+    /// highlighted spans (first matching entry wins, as in the row totals).
+    let promotedSites: [String]
     /// v12: with the filter on, each row's segments outside that day's focus
     /// intervals dim to ~0.15 (`FocusDimMask`), multiplying with the
     /// drill-down dimming.
@@ -45,11 +51,13 @@ struct ActivityWeekTimelineView: View {
         return formatter
     }()
 
-    private static let hourFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "H:mm"
-        return formatter
-    }()
+    private static var hourFormatter: DateFormatter { TimelineClock.hour }
+
+    /// The selected promoted row's domain (nil while an app — or nothing —
+    /// is selected).
+    private var selectedDomain: String? {
+        selectedBundleID.flatMap(SitePromotion.domain(forRowID:))
+    }
 
     /// Shared axis as seconds since local midnight, or nil for an all-empty
     /// week (rows then render as blank tracks without ticks).
@@ -144,6 +152,7 @@ struct ActivityWeekTimelineView: View {
             RoundedRectangle(cornerRadius: 3).fill(.quaternary.opacity(0.6))
             if let axis {
                 segmentLayer(day, axis: axis, width: width)
+                highlightLayer(day, axis: axis, width: width)
                 FocusBarOverlay(fractions: focusFractions(day, axis: axis), width: width)
             }
         }
@@ -157,11 +166,41 @@ struct ActivityWeekTimelineView: View {
     private func segmentLayer(
         _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval), width: CGFloat
     ) -> some View {
-        ZStack(alignment: .leading) {
-            segments(day, axis: axis, width: width)
-        }
-        .frame(width: width, height: Self.rowHeight, alignment: .leading)
+        TimelineSegmentsView(
+            spans: TimelineSpan.apps(
+                day.summary, origin: origin(day, axis: axis), selectedID: selectedBundleID,
+                colorFor: colorFor, tooltips: false
+            ),
+            axisSpan: axis.span, width: width, height: Self.rowHeight
+        )
         .mask(alignment: .leading) { dimMask(day, axis: axis, width: width) }
+    }
+
+    /// v19: with a promoted website row selected, that day's spans of the
+    /// domain sit on top of the dimmed app segments at full opacity — clipped
+    /// to the day's focus intervals while the filter is on, and the only rects
+    /// in the week rows carrying a tooltip.
+    @ViewBuilder
+    private func highlightLayer(
+        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval), width: CGFloat
+    ) -> some View {
+        if let domain = selectedDomain, let selectedBundleID {
+            TimelineSegmentsView(
+                spans: TimelineSpan.promotedSites(
+                    day.summary, origin: origin(day, axis: axis), domain: domain,
+                    promoted: promotedSites, clip: focusOnly ? day.focus : nil,
+                    color: colorFor(selectedBundleID), tooltips: true
+                ),
+                axisSpan: axis.span, width: width, height: Self.rowHeight
+            )
+        }
+    }
+
+    /// Wall-clock time the shared week axis starts at on `day`.
+    private func origin(
+        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval)
+    ) -> Date {
+        Calendar.current.startOfDay(for: day.date).addingTimeInterval(axis.start)
     }
 
     @ViewBuilder
@@ -173,29 +212,6 @@ struct ActivityWeekTimelineView: View {
         } else {
             Rectangle()
         }
-    }
-
-    private func segments(
-        _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval), width: CGFloat
-    ) -> some View {
-        let dayStart = Calendar.current.startOfDay(for: day.date)
-        let allSegments = day.summary.apps.flatMap(\.segments)
-        return ForEach(allSegments) { segment in
-            if case .app(let bundleID, _) = segment.kind {
-                let x = (segment.start.timeIntervalSince(dayStart) - axis.start) / axis.span
-                let w = segment.end.timeIntervalSince(segment.start) / axis.span
-                Rectangle()
-                    .fill(colorFor(bundleID))
-                    .opacity(dimOpacity(for: bundleID))
-                    .frame(width: max(1, width * w))
-                    .offset(x: width * x)
-            }
-        }
-    }
-
-    private func dimOpacity(for bundleID: String) -> Double {
-        guard let selectedBundleID else { return 1 }
-        return selectedBundleID == bundleID ? 1 : 0.15
     }
 
     /// v11: the day's focus intervals as clamped fractions of the shared

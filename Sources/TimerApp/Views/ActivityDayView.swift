@@ -184,10 +184,9 @@ struct ActivityDayView: View {
         }
     }
 
-    /// v13: promoted rows have no timeline drill-down — clicking them does
-    /// nothing (the timeline draws app segments, not site segments).
+    /// v19: promoted website rows select exactly like app rows — the timeline
+    /// draws that domain's site spans on top of the dimmed app segments.
     private func toggleSelection(_ bundleID: String) {
-        guard !SitePromotion.isPromotedRowID(bundleID) else { return }
         selectedBundleID = selectedBundleID == bundleID ? nil : bundleID
     }
 
@@ -236,6 +235,7 @@ struct ActivityDayView: View {
                     first: first, last: last, summary: summary,
                     colorFor: colorFor,
                     selectedBundleID: selectedBundleID,
+                    promotedSites: promotedSites(),
                     focusIntervals: focusIntervals,
                     focusOnly: focusOnly
                 )

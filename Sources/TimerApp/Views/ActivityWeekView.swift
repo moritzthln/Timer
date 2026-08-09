@@ -64,6 +64,7 @@ struct ActivityWeekView: View {
                     days: data.days,
                     colorFor: colorFor,
                     selectedBundleID: selectedBundleID,
+                    promotedSites: promotedSites(),
                     focusOnly: focusOnly,
                     onOpenDay: onOpenDay
                 )
@@ -141,10 +142,9 @@ struct ActivityWeekView: View {
         )
     }
 
-    /// v13: promoted rows have no timeline drill-down — clicking them does
-    /// nothing (the week rows draw app segments, not site segments).
+    /// v19: promoted website rows select exactly like app rows — every week
+    /// row draws that domain's site spans on top of its dimmed app segments.
     private func toggleSelection(_ bundleID: String) {
-        guard !SitePromotion.isPromotedRowID(bundleID) else { return }
         selectedBundleID = selectedBundleID == bundleID ? nil : bundleID
     }
 

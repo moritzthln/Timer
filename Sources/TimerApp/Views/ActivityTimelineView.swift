@@ -7,14 +7,21 @@ import TimerCore
 /// rebuilds its view tree on every open (reset on reopen). Only this strip
 /// scrolls horizontally — the rest of the tab never does. v11: the zoom
 /// and pan mechanics live in the shared `TimelineZoomContainer` (also used
-/// by the week view); this file keeps only the day content.
+/// by the week view); this file keeps only the day content. v19: the rects
+/// themselves come from the shared `TimelineSegmentsView`, which also draws
+/// the highlight layer of a selected promoted website row.
 struct ActivityTimelineView: View {
     let first: Date
     let last: Date
     let summary: DaySummary
     let colorFor: (String) -> Color
     /// v10 drill-down: with a selection, other apps' segments dim to 0.15.
+    /// v19: a promoted website row matches no app, so all of them dim and
+    /// that domain's site spans are drawn on top instead.
     let selectedBundleID: String?
+    /// v19: the configured promoted domains — the ownership rule behind the
+    /// highlighted spans (first matching entry wins, as in the row totals).
+    let promotedSites: [String]
     /// v10: focus sessions drawn as an accent trace under the bar, on the
     /// same axis (so it zooms and pans with the bar). v11: additionally
     /// overlaid on the bar itself as a wash + edge lines (`FocusBarOverlay`).
@@ -32,13 +39,15 @@ struct ActivityTimelineView: View {
     static let totalHeight: CGFloat =
         TimelineZoom.controlsHeight + barHeight + traceHeight + labelHeight + 3 * rowSpacing
 
-    private static let hourFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "H:mm"
-        return formatter
-    }()
+    private static var hourFormatter: DateFormatter { TimelineClock.hour }
 
     private var span: TimeInterval { last.timeIntervalSince(first) }
+
+    /// The selected promoted row's domain (nil while an app — or nothing —
+    /// is selected).
+    private var selectedDomain: String? {
+        selectedBundleID.flatMap(SitePromotion.domain(forRowID:))
+    }
 
     var body: some View {
         TimelineZoomContainer(spacing: Self.rowSpacing) { width, viewportWidth in
@@ -57,6 +66,7 @@ struct ActivityTimelineView: View {
         ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 4).fill(.quaternary.opacity(0.6))
             segmentLayer(width: width)
+            highlightLayer(width: width)
             FocusBarOverlay(fractions: focusFractions, width: width)
         }
         .frame(width: width, height: Self.barHeight)
@@ -67,23 +77,32 @@ struct ActivityTimelineView: View {
     /// regions outside focus intervals without touching the track
     /// background, the wash or the edge lines.
     private func segmentLayer(width: CGFloat) -> some View {
-        let allSegments = summary.apps.flatMap(\.segments)
-        return ZStack(alignment: .leading) {
-            ForEach(allSegments) { segment in
-                if case .app(let bundleID, let name) = segment.kind {
-                    let x = segment.start.timeIntervalSince(first) / span
-                    let w = segment.end.timeIntervalSince(segment.start) / span
-                    Rectangle()
-                        .fill(colorFor(bundleID))
-                        .opacity(dimOpacity(for: bundleID))
-                        .frame(width: max(1, width * w))
-                        .offset(x: width * x)
-                        .help(Self.tooltip(name: name, segment: segment))
-                }
-            }
-        }
-        .frame(width: width, height: Self.barHeight, alignment: .leading)
+        TimelineSegmentsView(
+            spans: TimelineSpan.apps(
+                summary, origin: first, selectedID: selectedBundleID,
+                colorFor: colorFor, tooltips: true
+            ),
+            axisSpan: span, width: width, height: Self.barHeight
+        )
         .mask(alignment: .leading) { dimMask(width: width) }
+    }
+
+    /// v19: with a promoted website row selected, that domain's site spans sit
+    /// on top of the dimmed app segments at full opacity. The focus filter
+    /// clips them in the data, so this layer needs no dim mask; the wash and
+    /// the edge lines still go over it.
+    @ViewBuilder
+    private func highlightLayer(width: CGFloat) -> some View {
+        if let domain = selectedDomain, let selectedBundleID {
+            TimelineSegmentsView(
+                spans: TimelineSpan.promotedSites(
+                    summary, origin: first, domain: domain, promoted: promotedSites,
+                    clip: focusOnly ? focusIntervals : nil,
+                    color: colorFor(selectedBundleID), tooltips: true
+                ),
+                axisSpan: span, width: width, height: Self.barHeight
+            )
+        }
     }
 
     @ViewBuilder
@@ -105,11 +124,6 @@ struct ActivityTimelineView: View {
                 span: span
             )
         }
-    }
-
-    private func dimOpacity(for bundleID: String) -> Double {
-        guard let selectedBundleID else { return 1 }
-        return selectedBundleID == bundleID ? 1 : 0.15
     }
 
     /// 5 pt rounded accent marks under the bar where focus sessions ran
@@ -140,17 +154,6 @@ struct ActivityTimelineView: View {
     /// drawn mark is clamped to the axis).
     static func focusTooltip(_ interval: FocusInterval) -> String {
         "Fokus · \(hourFormatter.string(from: interval.start))–\(hourFormatter.string(from: interval.end))"
-    }
-
-    /// "Safari · 9:12–9:47 (35 min)". Presence gaps draw no segment rect,
-    /// so they naturally get no tooltip.
-    static func tooltip(name: String, segment: ActivitySegment) -> String {
-        let start = hourFormatter.string(from: segment.start)
-        let end = hourFormatter.string(from: segment.end)
-        let duration = TimeFormatting.wording(
-            seconds: segment.end.timeIntervalSince(segment.start)
-        )
-        return "\(name) · \(start)–\(end) (\(duration))"
     }
 
     // MARK: - Tick labels
