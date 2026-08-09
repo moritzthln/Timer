@@ -13,14 +13,17 @@ import TimerCore
 /// `AppBlockEnforcer`'s escalation ladder instead of a single `hide()`, and
 /// the 2 s poll re-checks the frontmost app — the only way to catch an app
 /// the user pushed back into fullscreen or a Space switch, neither of which
-/// posts a workspace notification.
+/// posts a workspace notification. v21 gave that ladder the Space escape, so
+/// the poll is also what catches a ⌘-Tab back into the blocked app: within
+/// ~2 s the escape pulls the screen away from it again.
 final class FocusBlockController {
     private let preferences: Preferences
     private let overlay: BlockOverlayController
     /// v18: runs the escalation ladder (hide → un-fullscreen + hide →
-    /// cover overlay) and owns the restore record.
+    /// v21 Space escape → cover overlay) and owns the restore record.
     private let enforcer: AppBlockEnforcer
-    /// v18 last resort of the ladder — the full-screen cover panel.
+    /// The ladder's last two rungs — the key-capable full-screen cover that
+    /// both performs the v21 Space escape and stays as the v18 last resort.
     private let cover = BlockCoverController()
     /// Live remaining session seconds, read at popup display moments.
     private let remainingSeconds: () -> Int

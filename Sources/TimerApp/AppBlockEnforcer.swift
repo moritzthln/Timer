@@ -3,7 +3,7 @@ import TimerCore
 
 /// v18: runs the `BlockEscalation` ladder for one app and owns everything the
 /// ladder touches — the v16 popup, the hidden-apps restore record, the
-/// Accessibility un-fullscreen, and the cover overlay.
+/// Accessibility un-fullscreen, the v21 Space escape, and the cover overlay.
 ///
 /// Every rung verifies instead of assuming: `hide()` reports success even for
 /// fullscreen apps that stay right where they are, so the enforcer re-reads
@@ -13,11 +13,25 @@ final class AppBlockEnforcer {
     /// the attempt. Short enough to feel immediate, long enough for the
     /// hide/space animation to have started.
     private static let verifyDelay = 0.25
+    /// The same for the Space escape, whose switch is an animation.
+    private static let escapeVerifyDelay = 0.6
+    /// v21: one Space escape per app per 3 s. Deliberately short — a longer
+    /// window would hand the user a comfortable stay inside the distraction.
+    private static let escapeInterval = 3.0
+    /// How long after an escape the poll must keep its hands off the cover:
+    /// right after activating, *we* are the frontmost app, which would
+    /// otherwise read as "something harmless came forward" and undo the
+    /// escape before its retry-hide even ran.
+    private static let escapeCoverGrace = 1.5
 
     private let popup: BlockOverlayController
     private let cover: BlockCoverController
     private let remainingSeconds: () -> Int
     private var hiddenApps = HiddenAppsRecord()
+    /// When each app was last pulled out of its Space (throttle memory).
+    private var lastEscape: [String: Date] = [:]
+    /// When the most recent escape of any app happened (cover grace).
+    private var lastEscapeAt: Date?
 
     /// Whether the block is still active — delayed ladder steps drop out
     /// when the session ended, paused, or the shield went off meanwhile.
@@ -41,12 +55,18 @@ final class AppBlockEnforcer {
     /// Undoes every intervention: the cover comes down and everything the
     /// block hid is unhidden. Runs on block deactivation and on app quit.
     func restore() {
+        lastEscape = [:]
+        lastEscapeAt = nil
         cover.hide()
         restoreHiddenApps()
     }
 
-    /// Takes the cover down because the covered app is no longer frontmost.
+    /// Takes the cover down because the covered app is no longer frontmost —
+    /// unless a Space escape just put it there (see `escapeCoverGrace`).
     func releaseCover() {
+        if let lastEscapeAt, Date().timeIntervalSince(lastEscapeAt) < Self.escapeCoverGrace {
+            return
+        }
         cover.hide()
     }
 
@@ -67,8 +87,9 @@ final class AppBlockEnforcer {
     private func run(step: BlockEscalation.Step, app: NSRunningApplication, name: String) {
         let visible = isVisible(app)
         let action = BlockEscalation.next(
-            step: step, appVisible: visible,
-            accessibilityGranted: accessibilityGranted(atStep: step, visible: visible)
+            step: step, appVisible: visible, appFrontmost: isFrontmost(app),
+            accessibilityGranted: accessibilityGranted(atStep: step, visible: visible),
+            escapeAllowed: escapeAllowed(app)
         )
         switch action {
         case .hide:
@@ -79,26 +100,49 @@ final class AppBlockEnforcer {
             AccessibilityAccess.exitFullscreen(pid: app.processIdentifier)
             hideAndRecord(app)
             verify(after: action, app: app, name: name)
-        // `.spaceEscape` is unreachable until the enforcer feeds the ladder
-        // its escape inputs (next step) — until then it degrades to the cover.
-        case .spaceEscape, .overlay:
-            cover.show(
-                target: name, bundleID: app.bundleIdentifier,
-                remainingSeconds: remainingSeconds()
-            )
+        case .spaceEscape:
+            escape(app: app, name: name)
+            // The ladder retries the hide right after the switch: an app that
+            // no longer holds the screen usually accepts it, and then the
+            // cover comes down on its own (`.done`).
+            verify(after: action, app: app, name: name)
+        case .overlay:
+            showCover(target: name, bundleID: app.bundleIdentifier, escaped: false)
         case .done:
             // The app is out of sight — so is any cover that belonged to it.
             cover.hide(ifCovering: app.bundleIdentifier)
         }
     }
 
+    /// v21 rung 3: the cover goes up on the Timer's own Space first, then the
+    /// app activates and makes it key. That is the whole trick — macOS moves
+    /// the user to wherever the activated app's key window lives, which is
+    /// anywhere but the blocked app's fullscreen Space.
+    private func escape(app: NSRunningApplication, name: String) {
+        showCover(target: name, bundleID: app.bundleIdentifier, escaped: true)
+        cover.escape()
+        let now = Date()
+        lastEscape[Self.escapeKey(app)] = now
+        lastEscapeAt = now
+    }
+
+    private func showCover(target name: String, bundleID: String?, escaped: Bool) {
+        cover.show(
+            target: name, bundleID: bundleID,
+            remainingSeconds: remainingSeconds(), escaped: escaped
+        )
+    }
+
     /// Re-runs the ladder once macOS had its moment, unless the block ended
-    /// in the meantime.
+    /// in the meantime. The escape gets a longer moment than the hides: its
+    /// Space switch is an animation, and the retry-hide should land after it
+    /// rather than into it.
     private func verify(
         after action: BlockEscalation.Action, app: NSRunningApplication, name: String
     ) {
         let next = BlockEscalation.Step.after(action)
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.verifyDelay) { [weak self] in
+        let delay = action == .spaceEscape ? Self.escapeVerifyDelay : Self.verifyDelay
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self, self.isActive() else { return }
             self.run(step: next, app: app, name: name)
         }
@@ -116,6 +160,25 @@ final class AppBlockEnforcer {
 
     private func isVisible(_ app: NSRunningApplication) -> Bool {
         !app.isTerminated && !app.isHidden
+    }
+
+    /// The escape only makes sense while the app still owns the screen; once
+    /// the user left on his own, a Space switch would be the intrusion.
+    private func isFrontmost(_ app: NSRunningApplication) -> Bool {
+        NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
+    }
+
+    /// The 3 s throttle. Between two escapes the ladder keeps trying to hide
+    /// the app silently and falls back to the cover, so a user who ⌘-Tabs
+    /// straight back is not thrown around the Spaces twice per second.
+    private func escapeAllowed(_ app: NSRunningApplication) -> Bool {
+        guard let last = lastEscape[Self.escapeKey(app)] else { return true }
+        return Date().timeIntervalSince(last) >= Self.escapeInterval
+    }
+
+    /// Bundle id where there is one; unbundled helpers fall back to their pid.
+    private static func escapeKey(_ app: NSRunningApplication) -> String {
+        app.bundleIdentifier ?? "pid:\(app.processIdentifier)"
     }
 
     /// Gentle intervention: hide and remember what *we* hid, so restore never
