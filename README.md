@@ -232,9 +232,7 @@ Lives in the menu bar only — no Dock icon, no window.
   rest under "Nur Fokus-Zeit". The browsers' rows show the remainder
   (their domain breakdowns omit promoted domains), so nothing counts
   twice. The list change is display-time only — history follows the
-  current list automatically. Promoted rows have no timeline
-  drill-down (the timeline draws app segments); clicking them does
-  nothing.
+  current list automatically.
 - v14 — usage percentages: every main row of the app list (apps,
   promoted sites, browser remainders, "Sonstige") shows its share of
   the displayed period right of the duration — "2 h 41 min · 39 %".
@@ -243,6 +241,15 @@ Lives in the menu bar only — no Dock icon, no window.
   fraction of my focus time went where". Whole percents, tiny shares
   render "<1 %", and the per-domain disclosure rows stay
   percentage-free.
+- v19 — website drill-down: promoted rows click like app rows. Select
+  instagram.com or youtube.com and the app segments dim while that
+  domain's browsing spans light up on top in the row's color — in the
+  day bar and in all seven week rows, on the same axis, so they stay
+  aligned while you zoom and pan. Spans merge across browsers and
+  include subdomains, "Nur Fokus-Zeit" trims them to the focus windows
+  like everything else, and hovering one shows "youtube.com ·
+  14:02–14:31 (29 min)". Click again to deselect; navigation and view
+  switches reset it, exactly as for apps.
 - **Privacy:** everything stays on this Mac — one JSON file per day
   under `~/Library/Application Support/Timer/activity/` (and, since
   v10, focus intervals under `…/Timer/focus/`), no network, ever.
