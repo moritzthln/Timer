@@ -211,8 +211,8 @@ struct SetupView: View {
         .buttonStyle(.plain)
         .help(
             blockMode == .blocklist
-                ? "Modus: Blockieren — beendet markierte Apps und schließt Tabs markierter Websites. Klicken wechselt zu \"Nur Erlaubte\"."
-                : "Modus: Nur Erlaubte — beendet alle Apps außer den erlaubten, schließt Tabs außer auf erlaubten Websites (leere Liste blockt nichts). Klicken wechselt zu \"Blockieren\"."
+                ? "Modus: Blockieren — blendet markierte Apps aus, Tabs markierter Websites warten im Hintergrund. Klicken wechselt zu \"Nur Erlaubte\"."
+                : "Modus: Nur Erlaubte — blendet alle Apps außer den erlaubten aus, nur Tabs erlaubter Websites bleiben vorn (leere Liste blockt nichts). Klicken wechselt zu \"Blockieren\"."
         )
     }
 
