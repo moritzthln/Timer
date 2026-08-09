@@ -166,6 +166,18 @@ final class AppBlockEnforcer {
     /// the user to wherever the activated app's key window lives, which is
     /// anywhere but the blocked app's fullscreen Space.
     private func escape(app: NSRunningApplication, name: String) {
+        // macOS 14+ ignores the deprecated activate(ignoringOtherApps:) under
+        // cooperative activation, so the v21 escape alone left fullscreen apps
+        // untouched. Synthetic ⌃⌘F goes through the target app's own menu
+        // handling and works where AXFullScreen writes are rejected; ⌃← then
+        // moves off the Space for the rare app that ignores ⌃⌘F.
+        if app.isActive {
+            FullscreenExit.sendExitFullscreen()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                guard let self, app.isActive, !app.isHidden else { return }
+                FullscreenExit.sendSpaceLeft()
+            }
+        }
         showCover(target: name, bundleID: app.bundleIdentifier, escaped: true)
         cover.escape()
         let now = Date()

@@ -73,14 +73,19 @@ enum BrowserScripting {
             "tell application \"\(appName)\" to return count of windows"
         }
 
-        /// Opens a new empty tab at the end and activates it.
+        /// Opens a blank tab at the end and activates it.
+        ///
+        /// Explicitly about:blank, never the browser's configured new-tab page:
+        /// a new-tab page set to google.com (or any other real site) would be
+        /// judged by the block rules right away and bounce the user again.
+        /// about:blank has no host, so it can never be blocked.
         var newTab: String {
             switch style {
             case .safari:
                 return """
                 tell application "\(appName)"
                     tell front window
-                        set current tab to (make new tab at end of tabs)
+                        set current tab to (make new tab at end of tabs with properties {URL:"about:blank"})
                     end tell
                 end tell
                 """
@@ -88,7 +93,7 @@ enum BrowserScripting {
                 return """
                 tell application "\(appName)"
                     tell front window
-                        make new tab
+                        make new tab with properties {URL:"about:blank"}
                         set active tab index to (count of tabs)
                     end tell
                 end tell
