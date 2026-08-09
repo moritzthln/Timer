@@ -8,17 +8,9 @@ import Foundation
 public enum PromotedSegments {
     /// A drawable time range on a timeline axis. Sorted and non-overlapping
     /// by construction, so `start` identifies it inside one day's list.
-    public struct Span: Equatable, Identifiable {
-        public let start: Date
-        public let end: Date
-
-        public init(start: Date, end: Date) {
-            self.start = start
-            self.end = end
-        }
-
-        public var id: Date { start }
-    }
+    /// v20: the shared span type — these spans are what carves the browsers'
+    /// app segments, so both sides speak the same currency.
+    public typealias Span = SpanCarving.Span
 
     /// The spans of `domain` in one day's site segments.
     ///
@@ -47,18 +39,7 @@ public enum PromotedSegments {
             else { return nil }
             return Span(start: segment.start, end: segment.end)
         }
-        return merged(clip.map { clipped(owned, to: $0) } ?? owned)
-    }
-
-    /// Every span ∩ every interval, dropping empty intersections.
-    private static func clipped(_ spans: [Span], to intervals: [FocusInterval]) -> [Span] {
-        spans.flatMap { span in
-            intervals.compactMap { interval -> Span? in
-                let start = max(span.start, interval.start)
-                let end = min(span.end, interval.end)
-                return end > start ? Span(start: start, end: end) : nil
-            }
-        }
+        return merged(clip.map { SpanCarving.clip(owned, to: $0) } ?? owned)
     }
 
     /// Sorts by start and coalesces touching or overlapping spans.
