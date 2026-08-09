@@ -19,6 +19,14 @@ public enum SitePromotion {
         id.hasPrefix(idPrefix)
     }
 
+    /// The domain behind a promoted row id, or nil for app bundle ids (v19:
+    /// the timeline drill-down reads the selected domain off the selection).
+    public static func domain(forRowID id: String) -> String? {
+        guard isPromotedRowID(id) else { return nil }
+        let domain = String(id.dropFirst(idPrefix.count))
+        return domain.isEmpty ? nil : domain
+    }
+
     /// Merges promoted domains out of the per-browser site lists: each
     /// promoted entry with time becomes one synthesized row (cross-browser
     /// sum, suffix matching via `FocusBlockRules.domainMatches`, first entry

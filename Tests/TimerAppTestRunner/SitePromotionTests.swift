@@ -239,4 +239,18 @@ func runSitePromotionTests() {
             "bundle ids are not promoted ids"
         )
     }
+
+    test("row ids resolve back to their domain") {
+        try expectEqual(
+            SitePromotion.domain(forRowID: "site:youtube.com"), "youtube.com",
+            "the v19 drill-down reads the selected domain off the row id"
+        )
+        try expectNil(
+            SitePromotion.domain(forRowID: "com.apple.Safari"),
+            "app selections carry no domain"
+        )
+        try expectNil(
+            SitePromotion.domain(forRowID: "site:"), "an empty domain is no domain"
+        )
+    }
 }
