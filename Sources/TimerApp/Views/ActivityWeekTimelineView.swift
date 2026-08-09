@@ -12,6 +12,8 @@ import TimerCore
 /// jumps to that day (arbitrated after the double-click via
 /// `WeekRowHit` + `ExclusiveGesture`); clicking a day label jumps
 /// immediately. The parent resets zoom per week via `.id(weekStart)`.
+/// v20: every row's browser segments come in carved — promoted spans as
+/// their own colored pieces, each row against its own day's data.
 struct ActivityWeekTimelineView: View {
     let days: [WeekDay]
     let colorFor: (String) -> Color
@@ -162,14 +164,17 @@ struct ActivityWeekTimelineView: View {
 
     /// The row's app segments as one layer, so the v12 focus mask can dim
     /// the regions outside that day's focus intervals without touching the
-    /// track background, the wash or the edge lines.
+    /// track background, the wash or the edge lines. v20: each row's browser
+    /// segments arrive already carved by that day's promoted spans (its own
+    /// focus intervals as the clip), so all seven rows mirror the list.
     private func segmentLayer(
         _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval), width: CGFloat
     ) -> some View {
         TimelineSegmentsView(
             spans: TimelineSpan.apps(
                 day.summary, origin: origin(day, axis: axis), selectedID: selectedBundleID,
-                colorFor: colorFor, tooltips: false
+                colorFor: colorFor, tooltips: false,
+                promoted: promotedSites, clip: focusOnly ? day.focus : nil
             ),
             axisSpan: axis.span, width: width, height: Self.rowHeight
         )
@@ -177,9 +182,10 @@ struct ActivityWeekTimelineView: View {
     }
 
     /// v19: with a promoted website row selected, that day's spans of the
-    /// domain sit on top of the dimmed app segments at full opacity — clipped
-    /// to the day's focus intervals while the filter is on, and the only rects
-    /// in the week rows carrying a tooltip.
+    /// domain sit on top of the app segments at full opacity — clipped to the
+    /// day's focus intervals while the filter is on, and the only rects in the
+    /// week rows carrying a tooltip (the carved v20 pieces stay tooltip-free
+    /// here, as every week-row segment has since v10).
     @ViewBuilder
     private func highlightLayer(
         _ day: WeekDay, axis: (start: TimeInterval, span: TimeInterval), width: CGFloat

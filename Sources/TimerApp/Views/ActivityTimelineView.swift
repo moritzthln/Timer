@@ -9,7 +9,9 @@ import TimerCore
 /// and pan mechanics live in the shared `TimelineZoomContainer` (also used
 /// by the week view); this file keeps only the day content. v19: the rects
 /// themselves come from the shared `TimelineSegmentsView`, which also draws
-/// the highlight layer of a selected promoted website row.
+/// the highlight layer of a selected promoted website row. v20: the browsers'
+/// segments come in carved — promoted spans as their own colored pieces, so
+/// the bar mirrors the list instead of double-counting them.
 struct ActivityTimelineView: View {
     let first: Date
     let last: Date
@@ -75,12 +77,15 @@ struct ActivityTimelineView: View {
 
     /// The app segments as one layer, so the v12 focus mask can dim the
     /// regions outside focus intervals without touching the track
-    /// background, the wash or the edge lines.
+    /// background, the wash or the edge lines. v20: the browsers' segments
+    /// arrive already carved — promoted spans in their rows' colors, the
+    /// remainder in the browser's, mirroring the list underneath.
     private func segmentLayer(width: CGFloat) -> some View {
         TimelineSegmentsView(
             spans: TimelineSpan.apps(
                 summary, origin: first, selectedID: selectedBundleID,
-                colorFor: colorFor, tooltips: true
+                colorFor: colorFor, tooltips: true,
+                promoted: promotedSites, clip: focusOnly ? focusIntervals : nil
             ),
             axisSpan: span, width: width, height: Self.barHeight
         )
@@ -88,9 +93,12 @@ struct ActivityTimelineView: View {
     }
 
     /// v19: with a promoted website row selected, that domain's site spans sit
-    /// on top of the dimmed app segments at full opacity. The focus filter
-    /// clips them in the data, so this layer needs no dim mask; the wash and
-    /// the edge lines still go over it.
+    /// on top of the app segments at full opacity. The focus filter clips them
+    /// in the data, so this layer needs no dim mask; the wash and the edge
+    /// lines still go over it. v20 draws the same pieces inside the carved
+    /// segment layer, so this is mostly a repaint — it still guarantees the
+    /// highlight where a site segment reaches beyond its browser's app
+    /// segments.
     @ViewBuilder
     private func highlightLayer(width: CGFloat) -> some View {
         if let domain = selectedDomain, let selectedBundleID {

@@ -4,7 +4,9 @@ import TimerCore
 /// v19: one drawable rect of an activity timeline — offsets in seconds from
 /// the axis origin plus how to paint it. App segments and promoted-site spans
 /// differ only in their source list and color, so both become spans and run
-/// through the same rect math (and therefore the same zoom math).
+/// through the same rect math (and therefore the same zoom math). v20: one
+/// app segment can now yield several spans — a browser's segment splits into
+/// its remainders and the promoted pieces carved out of it.
 struct TimelineSpan: Identifiable {
     let id: String
     let startOffset: TimeInterval
@@ -56,25 +58,56 @@ struct TimelineSegmentsView: View {
 
 extension TimelineSpan {
     /// A day's app segments as spans on an axis starting at `origin`: palette
-    /// color per bundle id and the v10 drill-down dimming. A promoted website
-    /// selection matches no bundle id, so it dims every app segment — exactly
-    /// the v19 backdrop for the highlight layer.
+    /// color per bundle id and the v10 drill-down dimming.
+    ///
+    /// v20: a browser's segments are carved by the promoted spans they
+    /// contain — the remainders keep the browser's color and tooltip, the
+    /// carved-out pieces get the promoted row's color and its
+    /// "youtube.com · H:mm–H:mm (Dauer)" tooltip. So the bar shows what the
+    /// list has counted since v13 (browser minus its promoted seconds), and
+    /// selection follows for free: the browser highlights only its
+    /// remainders, a promoted row only its own pieces. `promoted` empty (or
+    /// no promoted time) reproduces the pre-v20 whole segments exactly.
     static func apps(
         _ summary: DaySummary, origin: Date, selectedID: String?,
-        colorFor: (String) -> Color, tooltips: Bool
+        colorFor: (String) -> Color, tooltips: Bool,
+        promoted: [String] = [], clip: [FocusInterval]? = nil
     ) -> [TimelineSpan] {
-        summary.apps.flatMap(\.segments).compactMap { segment -> TimelineSpan? in
-            guard case .app(let bundleID, let name) = segment.kind else { return nil }
-            return TimelineSpan(
-                id: segment.id.uuidString,
-                startOffset: segment.start.timeIntervalSince(origin),
-                endOffset: segment.end.timeIntervalSince(origin),
-                color: colorFor(bundleID),
-                opacity: selectedID == nil || selectedID == bundleID ? 1 : dimmedOpacity,
+        let carve = PromotedCarve(summary: summary, promoted: promoted, clippedTo: clip)
+
+        /// One drawn piece: its own owner decides color, dimming, and label.
+        func span(
+            _ piece: SpanCarving.Span, of segment: ActivitySegment,
+            ownerID: String, name: String
+        ) -> TimelineSpan {
+            TimelineSpan(
+                id: "\(segment.id.uuidString)@\(piece.start.timeIntervalSinceReferenceDate)",
+                startOffset: piece.start.timeIntervalSince(origin),
+                endOffset: piece.end.timeIntervalSince(origin),
+                color: colorFor(ownerID),
+                opacity: selectedID == nil || selectedID == ownerID ? 1 : dimmedOpacity,
                 tooltip: tooltips
-                    ? TimelineClock.tooltip(name: name, start: segment.start, end: segment.end)
+                    ? TimelineClock.tooltip(name: name, start: piece.start, end: piece.end)
                     : nil
             )
+        }
+
+        return summary.apps.flatMap(\.segments).flatMap { segment -> [TimelineSpan] in
+            guard case .app(let bundleID, let name) = segment.kind else { return [] }
+            let whole = SpanCarving.Span(start: segment.start, end: segment.end)
+            let remainders = SpanCarving
+                .subtract(span: whole, minus: carve.cuts(browser: bundleID))
+                .map { span($0, of: segment, ownerID: bundleID, name: name) }
+            let carved = carve.pieces(browser: bundleID, in: whole).flatMap { entry in
+                entry.spans.map {
+                    span(
+                        $0, of: segment,
+                        ownerID: SitePromotion.rowID(forDomain: entry.domain),
+                        name: entry.domain
+                    )
+                }
+            }
+            return remainders + carved
         }
     }
 
