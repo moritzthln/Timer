@@ -28,7 +28,11 @@ final class StatusBarController {
         floatingController = FloatingPanelController(engine: engine, preferences: preferences)
         focusMode = FocusModeController(preferences: preferences)
         settingsController = SettingsWindowController(preferences: preferences, focusMode: focusMode)
-        focusBlock = FocusBlockController(preferences: preferences, overlay: overlay)
+        focusBlock = FocusBlockController(
+            preferences: preferences, overlay: overlay,
+            // v16: the popup shows the live remaining time at display moment.
+            remainingSeconds: { [weak engine] in engine?.remainingSeconds ?? 0 }
+        )
         statsWindow = StatsWindowController(
             stats: stats, activity: activityStore, focusLog: focusLog,
             liveFocusStart: { [weak engine] in engine?.activeFocusStart },

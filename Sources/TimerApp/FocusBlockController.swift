@@ -11,6 +11,8 @@ import TimerCore
 final class FocusBlockController {
     private let preferences: Preferences
     private let overlay: BlockOverlayController
+    /// Live remaining session seconds, read at popup display moments.
+    private let remainingSeconds: () -> Int
     private var active = false
     private var pollTimer: Foundation.Timer?
     private var launchObserver: NSObjectProtocol?
@@ -21,9 +23,14 @@ final class FocusBlockController {
     /// close fallback until the next activation probes again.
     private var tabSwitchUnsupported: Set<String> = []
 
-    init(preferences: Preferences, overlay: BlockOverlayController) {
+    init(
+        preferences: Preferences,
+        overlay: BlockOverlayController,
+        remainingSeconds: @escaping () -> Int
+    ) {
         self.preferences = preferences
         self.overlay = overlay
+        self.remainingSeconds = remainingSeconds
     }
 
     /// Reevaluates against the engine phase; idempotent.
@@ -102,12 +109,12 @@ final class FocusBlockController {
         guard hide(app) else { return }
         let name = preferences.blockedApps.first { $0.bundleID == app.bundleIdentifier }?.name
             ?? app.localizedName ?? "App"
-        overlay.show(blocked: name)
+        overlay.show(target: name, remainingSeconds: remainingSeconds())
     }
 
     private func hideNotAllowed(_ app: NSRunningApplication) {
         guard hide(app) else { return }
-        overlay.show(notAllowed: app.localizedName ?? "App")
+        overlay.show(target: app.localizedName ?? "App", remainingSeconds: remainingSeconds())
     }
 
     /// Gentle intervention: hide and remember what *we* hid. An app that is
@@ -192,7 +199,7 @@ final class FocusBlockController {
             let matched = domains.first { FocusBlockRules.domainMatches(host: host, entry: $0) }
             if let matched {
                 switchAway(in: browser, neighborBlocked: blocked)
-                overlay.show(blocked: matched)
+                overlay.show(target: matched, remainingSeconds: remainingSeconds())
             }
         }
     }
@@ -210,7 +217,7 @@ final class FocusBlockController {
             switchAway(in: browser) { neighborHost in
                 AllowlistRules.shouldCloseTab(host: neighborHost, allowedDomains: domains)
             }
-            overlay.show(notAllowed: host)
+            overlay.show(target: host, remainingSeconds: remainingSeconds())
         }
     }
 
