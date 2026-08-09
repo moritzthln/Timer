@@ -14,8 +14,9 @@ Lives in the menu bar only — no Dock icon, no window.
   the typed value is highlighted.
 - The ⌃⌥T → type → Enter flow works exactly as before.
 - While running, the menu bar shows **only the time** (no icon);
-  paused shows a pause icon plus the time. Settings → Menüleiste can
-  switch the time to a compact "25m" format or hide it entirely.
+  paused shows a pause icon plus the time. Settings → Allgemein →
+  Menüleiste can switch the time to a compact "25m" format or hide it
+  entirely.
 - When time is up: popover opens automatically and a ~5-second bell
   swell plays (bundled synthesized sound; mute via "Ton" in the
   popover's "⋯" menu, volume in Settings).
@@ -102,7 +103,7 @@ Lives in the menu bar only — no Dock icon, no window.
   zum Ende" — the same wording in both modes. It ignores clicks,
   disappears after 2.5 s, and announces each target at most once per
   10 s.
-- Both lists live in Settings → Fokus-Block, split into "Blockieren"
+- Both lists live in Settings → Fokus → Fokus-Block, split into "Blockieren"
   and "Nur Erlaubte" subsections with the same UI: the "App hinzufügen"
   button opens a menu of running apps (or "Andere…" from /Applications),
   the domain field takes entries like `instagram.com` (subdomains match
@@ -243,15 +244,16 @@ Lives in the menu bar only — no Dock icon, no window.
   "Timer Fokus an" / "Timer Fokus aus", so v7 setups keep working.
 - On at focus start, off at pause/stop/break; best-effort off when the
   app quits while a focus phase is active.
-- Settings → Nicht stören has the toggle, the two dropdowns, setup
+- Settings → Fokus → Nicht stören has the toggle, the two dropdowns, setup
   instructions (for users who have no suitable shortcut yet), a test
   button per shortcut, and a one-line status when a shortcut is missing
   or fails.
 
 ### Global hotkeys
 
-Three system-wide shortcuts, configured in Settings → Hotkeys (click a
-recorder field, press a combo with ⌘/⌃/⌥; Esc cancels, "×" clears):
+Three system-wide shortcuts, configured in Settings → Allgemein →
+Hotkeys (click a recorder field, press a combo with ⌘/⌃/⌥; Esc
+cancels, "×" clears):
 
 - **Popover öffnen** — opens the popover with the input focused.
 - **Sofort-Start** — idle: starts the last duration; running: pauses;
@@ -261,10 +263,16 @@ recorder field, press a combo with ⌘/⌃/⌥; Esc cancels, "×" clears):
 
 ### Settings
 
-Open via the popover's "⋯" menu → "Einstellungen…". All changes save
-immediately — since v9 the number fields save while you type, and
-input that does not parse into the allowed range snaps back to the
-stored value when you leave the field:
+Open via the popover's "⋯" menu → "Einstellungen…". Since v17 the
+window is split into four tabs — **Timer**, **Fokus**, **Aktivität**,
+**Allgemein** — behind a segmented switcher at the top (opens on
+Timer; the window height fits the tallest tab, so nothing scrolls at
+default size). All changes save immediately — since v9 the number
+fields save while you type, and input that does not parse into the
+allowed range snaps back to the stored value when you leave the field
+(switching tabs counts as leaving the field).
+
+Tab **Timer**:
 
 - **Presets:** the four quick-start chips (1–720 min each). A custom
   six-preset set from before v6 falls back to the 5/15/25/45 default
@@ -275,17 +283,9 @@ stored value when you leave the field:
   bell swell (the mute toggle sits in the popover's "⋯" menu). The two
   alarm sounds are bundled .caf files; if they are missing the app
   falls back to the old four-chime Glass sequence, never silence.
-- **Allgemein:** "Beim Anmelden starten" with a live status line —
-  "Aktiv", "Wartet auf Freigabe" (plus a button opening the Login
-  Items pane), or "Aktiv (LaunchAgent)" when macOS rejected
-  `SMAppService` and the app fell back to a user LaunchAgent
-  (`~/Library/LaunchAgents/com.moritzthelen.timer.plist`). Toggling
-  off removes whichever mechanism is active. Plus the floating display
-  toggle.
-- **Menüleiste:** time format "Standard" (24:37) or "Kompakt" (whole
-  minutes rounded up — "25m", "1h 5m"), and "Nur Symbol" hiding the
-  time entirely (each state keeps a distinguishable icon; caption
-  recommends the floating display).
+
+Tab **Fokus**:
+
 - **Fokus-Block:** two subsections since v15. "Blockieren" holds the
   blocked apps ("App hinzufügen" menu + "Andere…" file picker; the
   Timer itself, Finder, and the default browser are not blockable) and
@@ -299,14 +299,31 @@ stored value when you leave the field:
   blocking is active and the automation permission.
 - **Nicht stören:** the DND toggle, the two shortcut dropdowns with a
   refresh button, setup instructions, and the two test buttons.
-- **Hotkeys:** three recorder fields (popover, quick-start, extend);
-  duplicate combos are rejected with an inline hint.
+
+Tab **Aktivität**:
+
 - **Aktivität:** "Tracking pausieren" toggle (pausing fully stops the
   polling — no background wakeups while paused), the idle threshold
   "Inaktiv nach (min)" (1–30, default 5), and v13 "Eigene Einträge
   (Websites)" — the promoted-websites list (same domain UI as the
   block list: Enter or "Hinzufügen" commits, rows removable, the list
   shows exactly what was stored; an emptied list stays empty).
+
+Tab **Allgemein**:
+
+- **Allgemein:** "Beim Anmelden starten" with a live status line —
+  "Aktiv", "Wartet auf Freigabe" (plus a button opening the Login
+  Items pane), or "Aktiv (LaunchAgent)" when macOS rejected
+  `SMAppService` and the app fell back to a user LaunchAgent
+  (`~/Library/LaunchAgents/com.moritzthelen.timer.plist`). Toggling
+  off removes whichever mechanism is active. Plus the floating display
+  toggle.
+- **Menüleiste:** time format "Standard" (24:37) or "Kompakt" (whole
+  minutes rounded up — "25m", "1h 5m"), and "Nur Symbol" hiding the
+  time entirely (each state keeps a distinguishable icon; caption
+  recommends the floating display).
+- **Hotkeys:** three recorder fields (popover, quick-start, extend);
+  duplicate combos are rejected with an inline hint.
 
 ## Build & install
 

@@ -21,7 +21,23 @@ struct SettingsView: View {
     private static let roundsRange = 1...12
     private static let idleRange = 1...30
 
+    /// v17: the four settings tabs. Selection is per-window-session — the
+    /// window rebuilds its view on every show(), so it opens on Timer.
+    private enum SettingsTab: CaseIterable {
+        case timer, fokus, aktivitaet, allgemein
+
+        var label: String {
+            switch self {
+            case .timer: return "Timer"
+            case .fokus: return "Fokus"
+            case .aktivitaet: return "Aktivität"
+            case .allgemein: return "Allgemein"
+            }
+        }
+    }
+
     @FocusState private var focusedNumberField: NumberField?
+    @State private var tab: SettingsTab = .timer
     @State private var presetTexts: [String] = []
     @State private var focusText = ""
     @State private var breakText = ""
@@ -47,25 +63,63 @@ struct SettingsView: View {
     @State private var menuBarIconOnly = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                presetsSection
-                pomodoroSection
-                alarmSection
-                generalSection
-                menuBarSection
-                FocusBlockSettingsSection(preferences: preferences)
-                hotkeysSection
-                activitySection
-                dndSection
+        VStack(spacing: 12) {
+            Picker("", selection: $tab) {
+                ForEach(SettingsTab.allCases, id: \.self) { pane in
+                    Text(pane.label).tag(pane)
+                }
             }
-            .padding(20)
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            ZStack(alignment: .top) {
+                tabPane(.timer) {
+                    presetsSection
+                    pomodoroSection
+                    alarmSection
+                }
+                tabPane(.fokus) {
+                    FocusBlockSettingsSection(preferences: preferences)
+                    dndSection
+                }
+                tabPane(.aktivitaet) {
+                    activitySection
+                }
+                tabPane(.allgemein) {
+                    generalSection
+                    menuBarSection
+                    hotkeysSection
+                }
+            }
         }
-        .frame(width: 360, height: 700)
+        .padding(20)
+        .frame(width: 360)
+        // v17: switching tabs drops field focus, so pending numeric input
+        // runs through the same snap-back as any other focus loss.
+        .onChange(of: tab) { _ in focusedNumberField = nil }
         // v9: leaving a numeric field snaps pending (unsaved) input back to
         // the stored value — in-range input was already live-saved.
         .onChange(of: focusedNumberField) { _ in reloadNumberTexts() }
         .onAppear(perform: load)
+    }
+
+    /// v17: one settings tab. All four panes stay mounted in the ZStack —
+    /// hidden panes keep their layout size, so the window height derived by
+    /// SettingsWindowController fits the tallest tab and the per-tab
+    /// ScrollView only ever scrolls as overflow safety (e.g. grown lists).
+    @ViewBuilder private func tabPane(
+        _ pane: SettingsTab, @ViewBuilder content: () -> some View
+    ) -> some View {
+        let scroll = ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        if tab == pane {
+            scroll
+        } else {
+            scroll.hidden().disabled(true)
+        }
     }
 
     private var presetsSection: some View {
