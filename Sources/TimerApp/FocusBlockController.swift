@@ -11,13 +11,15 @@ import TimerCore
 final class FocusBlockController {
     private let preferences: Preferences
     private let overlay: BlockOverlayController
+    /// v18: runs the escalation ladder (hide → un-fullscreen + hide →
+    /// cover overlay) and owns the restore record.
+    private let enforcer: AppBlockEnforcer
     /// Live remaining session seconds, read at popup display moments.
     private let remainingSeconds: () -> Int
     private var active = false
     private var pollTimer: Foundation.Timer?
     private var launchObserver: NSObjectProtocol?
     private var activateObserver: NSObjectProtocol?
-    private var hiddenApps = HiddenAppsRecord()
     /// Bundle ids whose tab-switch scripting failed this activation (Arc
     /// when its Chromium-style commands are rejected); they use the v15
     /// close fallback until the next activation probes again.
@@ -31,6 +33,9 @@ final class FocusBlockController {
         self.preferences = preferences
         self.overlay = overlay
         self.remainingSeconds = remainingSeconds
+        enforcer = AppBlockEnforcer(popup: overlay, remainingSeconds: remainingSeconds)
+        // Delayed ladder steps stop as soon as the block is off.
+        enforcer.isActive = { [weak self] in self?.active ?? false }
     }
 
     /// Reevaluates against the engine phase; idempotent.
@@ -50,42 +55,36 @@ final class FocusBlockController {
         }
     }
 
-    /// Unhides every app this controller hid and clears the record. Runs on
-    /// every block deactivation and on app quit (prepareForTermination).
-    /// Apps the user hid manually were never recorded and stay untouched.
+    /// Unhides every app the block hid and clears the record. Runs on every
+    /// block deactivation and on app quit (prepareForTermination). Apps the
+    /// user hid manually were never recorded and stay untouched.
     func restoreHiddenApps() {
-        let ids = hiddenApps.drain()
-        guard !ids.isEmpty else { return }
-        for app in NSWorkspace.shared.runningApplications {
-            if let id = app.bundleIdentifier, ids.contains(id) {
-                _ = app.unhide()
-            }
-        }
+        enforcer.restoreHiddenApps()
     }
 
     // MARK: - Apps
 
     /// Activation sweep over the already-running apps, per the current mode.
     private func sweepRunningApps() {
-        switch preferences.blockMode {
-        case .blocklist: hideRunningBlockedApps()
-        case .allowlist: hideRunningDisallowedApps()
-        }
-    }
-
-    private func hideRunningBlockedApps() {
-        let blockedIDs = Set(preferences.blockedApps.map(\.bundleID))
-        guard !blockedIDs.isEmpty else { return }
         for app in NSWorkspace.shared.runningApplications {
-            if let id = app.bundleIdentifier, blockedIDs.contains(id) {
-                hideBlocked(app)
+            if let name = blockTarget(app) {
+                enforcer.enforce(app: app, name: name)
             }
         }
     }
 
-    private func hideRunningDisallowedApps() {
-        for app in NSWorkspace.shared.runningApplications where shouldHideInAllowlist(app) {
-            hideNotAllowed(app)
+    /// The active mode's block predicate, folded together with the name to
+    /// display: non-nil means "this app must go away right now".
+    private func blockTarget(_ app: NSRunningApplication) -> String? {
+        switch preferences.blockMode {
+        case .blocklist:
+            guard let id = app.bundleIdentifier,
+                  let entry = preferences.blockedApps.first(where: { $0.bundleID == id })
+            else { return nil }
+            return entry.name.isEmpty ? (app.localizedName ?? "App") : entry.name
+        case .allowlist:
+            guard shouldHideInAllowlist(app) else { return nil }
+            return app.localizedName ?? "App"
         }
     }
 
@@ -105,43 +104,12 @@ final class FocusBlockController {
         )
     }
 
-    private func hideBlocked(_ app: NSRunningApplication) {
-        guard hide(app) else { return }
-        let name = preferences.blockedApps.first { $0.bundleID == app.bundleIdentifier }?.name
-            ?? app.localizedName ?? "App"
-        overlay.show(target: name, remainingSeconds: remainingSeconds())
-    }
-
-    private func hideNotAllowed(_ app: NSRunningApplication) {
-        guard hide(app) else { return }
-        overlay.show(target: app.localizedName ?? "App", remainingSeconds: remainingSeconds())
-    }
-
-    /// Gentle intervention: hide and remember what *we* hid. An app that is
-    /// already hidden (e.g. by the user) is skipped entirely, and only a
-    /// successful hide is recorded — restore never touches anything this
-    /// controller did not hide itself. Returns whether to announce.
-    private func hide(_ app: NSRunningApplication) -> Bool {
-        guard !app.isHidden, app.hide() else { return false }
-        if let id = app.bundleIdentifier {
-            hiddenApps.add(id)
-        }
-        return true
-    }
-
     /// Launch/activation handler; reads the mode per event. Activation
     /// matters because hidden apps keep running: clicking one in the Dock
     /// unhides it without a launch event, so it must be hidden again.
     private func handleLaunchOrActivate(_ app: NSRunningApplication) {
-        switch preferences.blockMode {
-        case .blocklist:
-            guard let id = app.bundleIdentifier,
-                  preferences.blockedApps.contains(where: { $0.bundleID == id }) else { return }
-            hideBlocked(app)
-        case .allowlist:
-            guard shouldHideInAllowlist(app) else { return }
-            hideNotAllowed(app)
-        }
+        guard let name = blockTarget(app) else { return }
+        enforcer.enforce(app: app, name: name)
     }
 
     private func startWatching() {
