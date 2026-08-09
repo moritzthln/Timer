@@ -2,7 +2,8 @@ import AppKit
 import TimerCore
 
 /// Enforces the focus block while a focus session runs — gently since v16:
-/// apps are hidden (never terminated) and restored when the block ends.
+/// apps are hidden (never terminated) and restored when the block ends, and
+/// blocked browser tabs stay open while the browser switches away from them.
 /// Blocklist mode intervenes on blocklisted apps and browser tabs; allowlist
 /// mode (v15) on unlisted regular apps and tabs on unlisted hosts. The mode
 /// is consulted per event/poll, so a mid-session mode change applies
@@ -15,6 +16,10 @@ final class FocusBlockController {
     private var launchObserver: NSObjectProtocol?
     private var activateObserver: NSObjectProtocol?
     private var hiddenApps = HiddenAppsRecord()
+    /// Bundle ids whose tab-switch scripting failed this activation (Arc
+    /// when its Chromium-style commands are rejected); they use the v15
+    /// close fallback until the next activation probes again.
+    private var tabSwitchUnsupported: Set<String> = []
 
     init(preferences: Preferences, overlay: BlockOverlayController) {
         self.preferences = preferences
@@ -29,6 +34,7 @@ final class FocusBlockController {
         guard shouldBeActive != active else { return }
         active = shouldBeActive
         if active {
+            tabSwitchUnsupported = []
             sweepRunningApps()
             startWatching()
         } else {
@@ -176,12 +182,16 @@ final class FocusBlockController {
     private func pollBrowsersBlocklist() {
         let domains = preferences.blockedDomains
         guard !domains.isEmpty else { return }
+        let blocked: (String?) -> Bool = { host in
+            guard let host else { return false }
+            return domains.contains { FocusBlockRules.domainMatches(host: host, entry: $0) }
+        }
         for browser in runningSupportedBrowsers() {
             guard let urlString = BrowserScripting.run(browser.readURL),
                   let host = URL(string: urlString)?.host else { continue }
             let matched = domains.first { FocusBlockRules.domainMatches(host: host, entry: $0) }
             if let matched {
-                _ = BrowserScripting.run(browser.closeTab)
+                switchAway(in: browser, neighborBlocked: blocked)
                 overlay.show(blocked: matched)
             }
         }
@@ -197,9 +207,49 @@ final class FocusBlockController {
             let host = URL(string: urlString)?.host
             guard AllowlistRules.shouldCloseTab(host: host, allowedDomains: domains),
                   let host else { continue }
-            _ = BrowserScripting.run(browser.closeTab)
+            switchAway(in: browser) { neighborHost in
+                AllowlistRules.shouldCloseTab(host: neighborHost, allowedDomains: domains)
+            }
             overlay.show(notAllowed: host)
         }
+    }
+
+    /// v16 gentle tab blocking: the blocked tab stays open in the background
+    /// while the browser switches to a neighbor tab — or to a fresh empty
+    /// tab when there is no (unblocked) neighbor. A browser whose switch
+    /// scripting errors (Arc's Chromium compatibility is only claimed) falls
+    /// back to the v15 close for the rest of this block activation.
+    private func switchAway(
+        in browser: BrowserScripting.Browser, neighborBlocked: (String?) -> Bool
+    ) {
+        guard !tabSwitchUnsupported.contains(browser.bundleID) else {
+            _ = BrowserScripting.runVoid(browser.closeTab)
+            return
+        }
+        guard let info = BrowserScripting.parseTabInfo(BrowserScripting.run(browser.tabInfo)) else {
+            fallBackToClose(browser)
+            return
+        }
+        let target = TabSwitchPlan.target(activeIndex: info.index, count: info.count) { index in
+            let neighborURL = BrowserScripting.run(browser.tabURL(at: index))
+            return neighborBlocked(neighborURL.flatMap { URL(string: $0)?.host })
+        }
+        let script: String
+        switch target {
+        case .neighbor(let index): script = browser.activateTab(at: index)
+        case .newTab: script = browser.newTab
+        }
+        if !BrowserScripting.runVoid(script) {
+            fallBackToClose(browser)
+        }
+    }
+
+    /// Runtime capability decision, made at most once per block activation:
+    /// this browser cannot switch tabs — close the blocked tab v15-style
+    /// now and for every further hit in this activation (no repeated probes).
+    private func fallBackToClose(_ browser: BrowserScripting.Browser) {
+        tabSwitchUnsupported.insert(browser.bundleID)
+        _ = BrowserScripting.runVoid(browser.closeTab)
     }
 
     private func runningSupportedBrowsers() -> [BrowserScripting.Browser] {

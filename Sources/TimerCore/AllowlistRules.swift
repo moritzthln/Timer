@@ -27,10 +27,12 @@ public enum AllowlistRules {
         return !allowed.contains(bundleID) && !essential.contains(bundleID)
     }
 
-    /// True iff the browser's current tab should close: the host is present
-    /// and matches no allowed domain (suffix semantics like the blocklist).
-    /// Internal/blank pages (nil or empty host, e.g. new tabs) are never
-    /// closed; with zero allowed domains the tab arm never engages.
+    /// True iff the browser's current tab should be intervened on (v16:
+    /// switched away from — closing remains only the Arc fallback): the host
+    /// is present and matches no allowed domain (suffix semantics like the
+    /// blocklist). Internal/blank pages (nil or empty host, e.g. new tabs)
+    /// are never touched; with zero allowed domains the tab arm never
+    /// engages.
     public static func shouldCloseTab(host: String?, allowedDomains: [String]) -> Bool {
         guard !allowedDomains.isEmpty, let host, !host.isEmpty else { return false }
         return !allowedDomains.contains { FocusBlockRules.domainMatches(host: host, entry: $0) }
