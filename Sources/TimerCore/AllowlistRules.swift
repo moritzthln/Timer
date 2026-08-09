@@ -1,9 +1,10 @@
 import Foundation
 
-/// v15 allowlist semantics: while the shield runs in allowlist mode, regular
-/// user apps not on the list terminate and browser tabs on unlisted hosts
-/// close. Each arm guards independently against an empty list — an empty
-/// allowlist blocks nothing (instead of everything).
+/// v15 allowlist semantics (v16: gentle — the app arm now decides hiding
+/// instead of termination): while the shield runs in allowlist mode, regular
+/// user apps not on the list are hidden and browser tabs on unlisted hosts
+/// are intervened on. Each arm guards independently against an empty list —
+/// an empty allowlist blocks nothing (instead of everything).
 public enum AllowlistRules {
     /// Always implicitly allowed, so the machine stays operable: the Timer
     /// itself, Finder, and System Settings.
@@ -13,11 +14,11 @@ public enum AllowlistRules {
         "com.apple.systempreferences",
     ]
 
-    /// True iff the app should be terminated: not allowed and not essential.
+    /// True iff the app should be hidden: not allowed and not essential.
     /// Callers pre-filter to regular user apps — the activation policy is an
     /// AppKit concept the pure rule cannot see. With zero allowed apps the
     /// app arm never engages.
-    public static func shouldTerminate(
+    public static func shouldHide(
         bundleID: String,
         allowed: Set<String>,
         essential: Set<String> = essentialBundleIDs

@@ -68,7 +68,7 @@ final class FocusBlockController {
         let essential = AllowlistRules.essentialBundleIDs.union(
             [Bundle.main.bundleIdentifier].compactMap { $0 }
         )
-        return AllowlistRules.shouldTerminate(
+        return AllowlistRules.shouldHide(
             bundleID: id,
             allowed: Set(preferences.allowedApps.map(\.bundleID)),
             essential: essential

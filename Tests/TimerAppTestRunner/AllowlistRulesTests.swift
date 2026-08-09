@@ -4,39 +4,39 @@ import TimerCore
 func runAllowlistRulesTests() {
     let allowed: Set<String> = ["com.apple.dt.Xcode", "com.apple.Safari"]
 
-    test("essential apps are never terminated") {
+    test("essential apps are never hidden") {
         for id in ["com.moritzthelen.timer", "com.apple.finder", "com.apple.systempreferences"] {
             try expect(
                 AllowlistRules.essentialBundleIDs.contains(id),
                 "\(id) belongs to the essential set"
             )
             try expect(
-                !AllowlistRules.shouldTerminate(bundleID: id, allowed: allowed),
+                !AllowlistRules.shouldHide(bundleID: id, allowed: allowed),
                 "\(id) survives even when unlisted"
             )
         }
     }
 
-    test("allowed apps survive, unlisted regular apps terminate") {
+    test("allowed apps survive, unlisted regular apps hide") {
         try expect(
-            !AllowlistRules.shouldTerminate(bundleID: "com.apple.dt.Xcode", allowed: allowed),
+            !AllowlistRules.shouldHide(bundleID: "com.apple.dt.Xcode", allowed: allowed),
             "allowed app survives"
         )
         try expect(
-            AllowlistRules.shouldTerminate(bundleID: "com.hnc.Discord", allowed: allowed),
-            "unlisted regular app terminates"
+            AllowlistRules.shouldHide(bundleID: "com.hnc.Discord", allowed: allowed),
+            "unlisted regular app hides"
         )
     }
 
     test("custom essential set overrides the default") {
         try expect(
-            !AllowlistRules.shouldTerminate(
+            !AllowlistRules.shouldHide(
                 bundleID: "com.example.helper", allowed: allowed, essential: ["com.example.helper"]
             ),
             "custom essential survives"
         )
         try expect(
-            AllowlistRules.shouldTerminate(
+            AllowlistRules.shouldHide(
                 bundleID: "com.apple.finder", allowed: allowed, essential: []
             ),
             "empty essential set protects nothing"
@@ -45,7 +45,7 @@ func runAllowlistRulesTests() {
 
     test("empty allowed apps disengage the app arm") {
         try expect(
-            !AllowlistRules.shouldTerminate(bundleID: "com.hnc.Discord", allowed: []),
+            !AllowlistRules.shouldHide(bundleID: "com.hnc.Discord", allowed: []),
             "zero allowed apps: the app arm never fires"
         )
     }
