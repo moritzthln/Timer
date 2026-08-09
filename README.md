@@ -90,20 +90,34 @@ Lives in the menu bar only — no Dock icon, no window.
   change into a break, and when the Timer itself quits. Apps you hid
   yourself stay hidden; re-opening a hidden blocked app during the
   session just hides it again.
-- **Fullscreen-proof since v18.** macOS ignores "Ausblenden" for apps in
-  native fullscreen (own Space), so every block event now walks an
-  escalation ladder instead of hoping: hide → check ~0.25 s later
-  whether it worked → if the app is still there, pull its windows out of
-  fullscreen (needs the Bedienungshilfen permission) and hide again →
-  if that fails too, cover the screen. The permission is only ever asked
-  for the first time the second rung is actually needed — never at
-  launch, never if plain hiding works.
-- **The cover overlay** is the last resort: an opaque panel above
-  everything (including fullscreen windows and the menu bar) with the
-  same wording as the popup, but it swallows clicks, so the app
-  underneath is unusable. It never blocks the keyboard — ⌘Tab to
-  another app and the cover disappears immediately. It also goes on
-  session end, pause, shield off, and when the Timer quits.
+- **Fullscreen-proof since v18, actually working since v21.** macOS
+  ignores "Ausblenden" for apps in native fullscreen (own Space), so
+  every block event walks an escalation ladder instead of hoping:
+  hide → check ~0.25 s later whether it worked → if the app is still
+  there, pull its windows out of fullscreen (needs the
+  Bedienungshilfen permission) and hide again → **if the app is still
+  in front, escape its Space** → cover the screen. The permission is
+  only ever asked for the first time the second rung is actually
+  needed — never at launch, never if plain hiding works.
+- **The Space escape (v21)** is the rung that makes fullscreen apps
+  blockable at all, and it needs no permission. A background app's
+  window is never drawn inside another app's fullscreen Space, so the
+  Timer puts its cover on its own Space and then *activates*: macOS
+  follows the activated app and takes the screen away from the
+  fullscreen app. Half a second later the ladder retries hiding — which
+  now usually works — and takes the cover down again, so you land on
+  your desktop with the app hidden and restorable as always. It fires
+  whenever the app is still in front after the gentler rungs, no matter
+  why they failed (Catalyst and Electron windows routinely refuse to
+  leave fullscreen even with the permission granted), at most once per
+  app per 3 s. ⌘-Tab back in and the 2 s poll pulls you out again.
+- **The cover overlay** is both the vehicle of that escape and the last
+  resort: an opaque window above everything (including fullscreen
+  windows and the menu bar) with the popup's wording — plus "Vollbild
+  beendet — zurück zum Fokus." when it came up for an escape. It
+  swallows clicks, so the app underneath is unusable, but never the
+  keyboard: ⌘Tab to another app and the cover disappears. It also goes
+  on session end, pause, shield off, and when the Timer quits.
 - **Relentless re-enforcement:** besides the launch and activation
   watchers, the 2 s poll checks whatever app is frontmost right now and
   runs the ladder again. Pushing a blocked app back into fullscreen or
@@ -259,6 +273,12 @@ Lives in the menu bar only — no Dock icon, no window.
   the site tooltip, and the numbers in the list and the colors in the
   bar finally tell the same story. Non-promoted domains keep living
   inside their browser.
+- v21 — fullscreen apps are blockable at all: the block no longer draws
+  into a Space you cannot see, it takes the screen away from the
+  fullscreen app by activating the Timer, then hides the app and gets
+  out of the way. Works without any permission, catches you again ~2 s
+  after every ⌘-Tab back, and can be tried on demand in Rechte →
+  "Vollbild-Block testen".
 - **Privacy:** everything stays on this Mac — one JSON file per day
   under `~/Library/Application Support/Timer/activity/` (and, since
   v10, focus intervals under `…/Timer/focus/`), no network, ever.
@@ -368,7 +388,16 @@ explanation) and its buttons:
 
 - **Bedienungshilfen (Vollbild-Block):** read live via
   `AXIsProcessTrusted()` (never prompts), "Öffnen" jumps into System
-  Settings → Privacy → Accessibility.
+  Settings → Privacy → Accessibility. Nice to have, not required since
+  v21 — the Space escape works without it.
+- **Vollbild-Block testen (v21):** "Testen" starts a 3 s countdown —
+  switch into the app you want to check (fullscreen is the interesting
+  case) and the complete ladder runs against it once, without a block
+  list and without a running session. The result appears in the
+  caption: "WhatsApp — Space gewechselt", "… versteckt", "… aus
+  Vollbild geholt", "… kein Eingriff nötig" or "… überdeckt". The
+  tested app stays hidden, exactly as a real block would leave it (one
+  Dock click brings it back); the cover comes down on its own.
 - **Automation: Safari / Google Chrome / Arc:** one row each.
   "Prüfen" runs a harmless read against the **running** browser — the
   first one may raise the one-time macOS consent prompt, which is
