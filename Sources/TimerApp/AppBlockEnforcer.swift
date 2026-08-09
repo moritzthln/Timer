@@ -79,7 +79,9 @@ final class AppBlockEnforcer {
             AccessibilityAccess.exitFullscreen(pid: app.processIdentifier)
             hideAndRecord(app)
             verify(after: action, app: app, name: name)
-        case .overlay:
+        // `.spaceEscape` is unreachable until the enforcer feeds the ladder
+        // its escape inputs (next step) — until then it degrades to the cover.
+        case .spaceEscape, .overlay:
             cover.show(
                 target: name, bundleID: app.bundleIdentifier,
                 remainingSeconds: remainingSeconds()
