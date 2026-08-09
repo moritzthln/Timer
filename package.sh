@@ -4,18 +4,21 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-# Universal builds via `swift build --arch` need full Xcode (xcbuild); with
-# Command Line Tools only we build each slice by triple and lipo them together.
-echo "▸ Building Apple Silicon slice…"
-swift build -c release --triple arm64-apple-macosx13.0 2>&1 | tail -1
-echo "▸ Building Intel slice…"
-swift build -c release --triple x86_64-apple-macosx13.0 2>&1 | tail -1
-
-ARM=".build/arm64-apple-macosx/release/TimerApp"
-INTEL=".build/x86_64-apple-macosx/release/TimerApp"
-BINARY="$(mktemp -d)/TimerApp"
-echo "▸ Merging into a universal binary…"
-lipo -create "$ARM" "$INTEL" -output "$BINARY"
+# Xcode is installed since 2026-08-09, so SwiftPM can build both slices in one
+# pass. The former two-triple + lipo dance is kept as a fallback for a machine
+# with Command Line Tools only (xcbuild missing).
+echo "▸ Building universal release binary (arm64 + x86_64)…"
+if swift build -c release --arch arm64 --arch x86_64 2>&1 | tail -1; then
+  BINARY=".build/apple/Products/Release/TimerApp"
+fi
+if [ ! -f "${BINARY:-}" ]; then
+  echo "▸ Falling back to per-triple builds…"
+  swift build -c release --triple arm64-apple-macosx13.0 2>&1 | tail -1
+  swift build -c release --triple x86_64-apple-macosx13.0 2>&1 | tail -1
+  BINARY="$(mktemp -d)/TimerApp"
+  lipo -create ".build/arm64-apple-macosx/release/TimerApp" \
+       ".build/x86_64-apple-macosx/release/TimerApp" -output "$BINARY"
+fi
 
 APP="share/Timer.app"
 rm -rf share

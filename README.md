@@ -441,7 +441,8 @@ run when the window opens.
 
     ./build.sh
 
-Builds a release binary with Swift Package Manager (no Xcode required),
+Builds a release binary with Swift Package Manager (works with or
+without Xcode),
 assembles `Timer.app`, ad-hoc signs it, and installs to `/Applications`
 (falls back to `~/Applications`).
 
