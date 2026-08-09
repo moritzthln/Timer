@@ -90,6 +90,24 @@ Lives in the menu bar only — no Dock icon, no window.
   change into a break, and when the Timer itself quits. Apps you hid
   yourself stay hidden; re-opening a hidden blocked app during the
   session just hides it again.
+- **Fullscreen-proof since v18.** macOS ignores "Ausblenden" for apps in
+  native fullscreen (own Space), so every block event now walks an
+  escalation ladder instead of hoping: hide → check ~0.25 s later
+  whether it worked → if the app is still there, pull its windows out of
+  fullscreen (needs the Bedienungshilfen permission) and hide again →
+  if that fails too, cover the screen. The permission is only ever asked
+  for the first time the second rung is actually needed — never at
+  launch, never if plain hiding works.
+- **The cover overlay** is the last resort: an opaque panel above
+  everything (including fullscreen windows and the menu bar) with the
+  same wording as the popup, but it swallows clicks, so the app
+  underneath is unusable. It never blocks the keyboard — ⌘Tab to
+  another app and the cover disappears immediately. It also goes on
+  session end, pause, shield off, and when the Timer quits.
+- **Relentless re-enforcement:** besides the launch and activation
+  watchers, the 2 s poll checks whatever app is frontmost right now and
+  runs the ladder again. Pushing a blocked app back into fullscreen or
+  switching Spaces posts no notification — this tick is what catches it.
 - Blocked websites keep their tab: instead of closing it, the browser
   switches to the neighboring tab — or to a fresh empty tab when the
   neighbor is blocked too or the window has only that one tab. The
@@ -119,8 +137,9 @@ Lives in the menu bar only — no Dock icon, no window.
   away are free time (everything hidden is restored on pause too).
 - **Honest limits:** this is determined nudging, not enforcement.
   Stopping the timer (or toggling the shield off) lifts the block
-  immediately, and there is no system-wide network filter — that would
-  need Apple entitlements an ad-hoc-signed app cannot get.
+  immediately, the cover overlay never locks the keyboard, and there is
+  no system-wide network filter — that would need Apple entitlements an
+  ad-hoc-signed app cannot get.
 
 ### Statistics
 
@@ -264,10 +283,10 @@ cancels, "×" clears):
 ### Settings
 
 Open via the popover's "⋯" menu → "Einstellungen…". Since v17 the
-window is split into four tabs — **Timer**, **Fokus**, **Aktivität**,
-**Allgemein** — behind a segmented switcher at the top (opens on
-Timer; the window height fits the tallest tab, so nothing scrolls at
-default size). All changes save immediately — since v9 the number
+window is split into tabs behind a segmented switcher at the top —
+**Timer**, **Fokus**, **Aktivität**, **Allgemein**, and since v18
+**Rechte** (opens on Timer; the window height fits the tallest tab, so
+nothing scrolls at default size). All changes save immediately — since v9 the number
 fields save while you type, and input that does not parse into the
 allowed range snaps back to the stored value when you leave the field
 (switching tabs counts as leaving the field).
@@ -324,6 +343,30 @@ Tab **Allgemein**:
   recommends the floating display).
 - **Hotkeys:** three recorder fields (popover, quick-start, extend);
   duplicate combos are rejected with an inline hint.
+
+Tab **Rechte** (v18) — every permission the app depends on, in one
+place, because macOS resets some of them on a reinstall. One row per
+item with a traffic-light badge (green granted/active, amber
+unknown/browser not open, red missing; hover for a one-line
+explanation) and its buttons:
+
+- **Bedienungshilfen (Vollbild-Block):** read live via
+  `AXIsProcessTrusted()` (never prompts), "Öffnen" jumps into System
+  Settings → Privacy → Accessibility.
+- **Automation: Safari / Google Chrome / Arc:** one row each.
+  "Prüfen" runs a harmless read against the **running** browser — the
+  first one may raise the one-time macOS consent prompt, which is
+  exactly why nothing is probed automatically when the tab opens.
+  A browser that is not running reports "Browser nicht geöffnet".
+- **Kurzbefehle (Nicht stören):** checks that both configured shortcut
+  names appear in `shortcuts list`; the caption points to the Fokus tab
+  where they are selected.
+- **Beim Anmelden starten:** the same status as the Allgemein tab, with
+  a button into Login Items.
+
+"Alle prüfen" in the header re-runs everything at once. The
+non-prompting checks (Accessibility, login item, shortcuts list) also
+run when the window opens.
 
 ## Build & install
 
