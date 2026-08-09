@@ -183,39 +183,37 @@ struct SetupView: View {
         .help(focusBlockOn ? "Fokus-Block aus" : "Fokus-Block an")
     }
 
-    /// v15: two-segment mode choice next to the shield, only while it is on.
+    /// v15.1: a single toggle chip showing the active mode fully readable —
+    /// two labeled segments truncated at 240 pt (user report). Clicking
+    /// switches to the other mode; the tooltip explains both.
     private var modeControl: some View {
-        HStack(spacing: 3) {
-            modeChip(
-                "Blockieren", .blocklist,
-                help: "Blockieren: beendet markierte Apps und schließt Tabs markierter Websites — alles andere bleibt frei."
-            )
-            modeChip(
-                "Nur Erlaubte", .allowlist,
-                help: "Nur Erlaubte: beendet alle Apps außer den erlaubten und schließt Tabs außer auf erlaubten Websites. Leere Liste = dieser Teil blockt nichts."
-            )
-        }
-    }
-
-    private func modeChip(_ title: String, _ mode: BlockMode, help: String) -> some View {
-        let isActive = blockMode == mode
-        return Button {
-            blockMode = mode
-            preferences.blockMode = mode
+        Button {
+            let next: BlockMode = blockMode == .blocklist ? .allowlist : .blocklist
+            blockMode = next
+            preferences.blockMode = next
         } label: {
-            Text(title)
-                .font(.system(size: 9, weight: .medium))
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(isActive ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.06))
-                )
-                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
-                .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            HStack(spacing: 3) {
+                Image(systemName: blockMode == .blocklist ? "nosign" : "checkmark.circle")
+                    .font(.system(size: 8, weight: .semibold))
+                Text(blockMode == .blocklist ? "Blockieren" : "Nur Erlaubte")
+                    .font(.system(size: 9, weight: .medium))
+                    .fixedSize()
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.2))
+            )
+            .foregroundStyle(Color.accentColor)
+            .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
         }
         .buttonStyle(.plain)
-        .help(help)
+        .help(
+            blockMode == .blocklist
+                ? "Modus: Blockieren — beendet markierte Apps und schließt Tabs markierter Websites. Klicken wechselt zu \"Nur Erlaubte\"."
+                : "Modus: Nur Erlaubte — beendet alle Apps außer den erlaubten, schließt Tabs außer auf erlaubten Websites (leere Liste blockt nichts). Klicken wechselt zu \"Blockieren\"."
+        )
     }
 
     private var moreMenu: some View {
