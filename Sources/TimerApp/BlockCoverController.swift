@@ -179,6 +179,19 @@ final class BlockCoverController {
 
     /// Swaps the content, reusing the hosting view when the target did not
     /// change so a refresh neither flickers nor re-orders the window.
+    /// Builds the hosting view before the first block event so the first
+    /// cover does not pay for NSHostingView creation while the user is already
+    /// looking at a distraction. Called when the block arms.
+    func prewarm() {
+        guard hosting == nil else { return }
+        render(
+            BlockCoverView(
+                headline: "Fokus-Block", targetName: "", note: nil, hint: "", compact: false
+            ),
+            reuseHosting: false
+        )
+    }
+
     private func render(_ view: BlockCoverView, reuseHosting: Bool) {
         if let hosting, reuseHosting {
             hosting.rootView = view

@@ -183,6 +183,12 @@ final class AppBlockEnforcer {
         // untouched. Synthetic ⌃⌘F goes through the target app's own menu
         // handling and works where AXFullScreen writes are rejected; ⌃← then
         // moves off the Space for the rare app that ignores ⌃⌘F.
+        // Cover first, key events second: macOS animates its way out of
+        // fullscreen either way, and the user should see the block land before
+        // that animation rather than after it. The cover joins all Spaces at
+        // shielding level, so it is on screen in the same frame.
+        showCover(target: name, bundleID: app.bundleIdentifier, escaped: true)
+        cover.escape()
         if app.isActive {
             FullscreenExit.sendExitFullscreen()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
@@ -190,8 +196,6 @@ final class AppBlockEnforcer {
                 FullscreenExit.sendSpaceLeft()
             }
         }
-        showCover(target: name, bundleID: app.bundleIdentifier, escaped: true)
-        cover.escape()
         let now = Date()
         lastEscape[Self.escapeKey(app)] = now
         lastEscapeAt = now

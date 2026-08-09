@@ -77,6 +77,9 @@ final class FocusBlockController {
         active = shouldBeActive
         if active {
             tabSwitchUnsupported = []
+            // Build the cover's view tree while nothing is urgent, so the
+            // first real block does not pay for it.
+            cover.prewarm()
             sweepRunningApps()
             startWatching()
         } else {
