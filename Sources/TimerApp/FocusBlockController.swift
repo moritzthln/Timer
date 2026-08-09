@@ -18,10 +18,10 @@ import TimerCore
 /// ~2 s the escape pulls the screen away from it again.
 ///
 /// v22 gives blocked *websites* the same two-stage treatment the apps got:
-/// the tab is covered first (`SiteCoverPlan`, cover over the browser's content
+/// blocked tabs are switched away as soon as they are seen (v23.1: the
 /// area only, chrome untouched) and switched away only after ~10 s of the user
 /// staying. Arbitration with the app ladder is one rule — an app cover on
-/// screen outranks any site cover — enforced here (`cover.isShowingApp`) and
+/// cover windows were removed on user request) and
 /// in `BlockCoverController`, which owns the single window and its mode.
 final class FocusBlockController {
     private let preferences: Preferences
@@ -29,9 +29,6 @@ final class FocusBlockController {
     /// v18: runs the escalation ladder (hide → un-fullscreen + hide →
     /// v21 Space escape → cover overlay) and owns the restore record.
     private let enforcer: AppBlockEnforcer
-    /// The ladder's last two rungs — the key-capable full-screen cover that
-    /// both performs the v21 Space escape and stays as the v18 last resort.
-    private let cover = BlockCoverController()
     /// Live remaining session seconds, read at popup display moments.
     private let remainingSeconds: () -> Int
     private var active = false
@@ -42,16 +39,7 @@ final class FocusBlockController {
     /// when its Chromium-style commands are rejected); they use the v15
     /// close fallback until the next activation probes again.
     private var tabSwitchUnsupported: Set<String> = []
-    /// v22: which blocked host is covered right now, in which browser, and
-    /// since when — the clock `SiteCoverPlan` measures against.
-    private var siteCover: SiteCover?
 
-    /// The live site cover (v22). Property order is the memberwise init order.
-    private struct SiteCover {
-        let host: String
-        let browserID: String
-        let since: Date
-    }
 
     init(
         preferences: Preferences,
@@ -62,7 +50,7 @@ final class FocusBlockController {
         self.overlay = overlay
         self.remainingSeconds = remainingSeconds
         enforcer = AppBlockEnforcer(
-            popup: overlay, cover: cover, remainingSeconds: remainingSeconds
+            popup: overlay, remainingSeconds: remainingSeconds
         )
         // Delayed ladder steps stop as soon as the block is off.
         enforcer.isActive = { [weak self] in self?.active ?? false }
@@ -79,7 +67,6 @@ final class FocusBlockController {
             tabSwitchUnsupported = []
             // Build the cover's view tree while nothing is urgent, so the
             // first real block does not pay for it.
-            cover.prewarm()
             sweepRunningApps()
             startWatching()
         } else {
@@ -95,7 +82,6 @@ final class FocusBlockController {
     /// every block deactivation and on app quit (prepareForTermination). Apps
     /// the user hid manually were never recorded and stay untouched.
     func restoreBlockedApps() {
-        siteCover = nil
         enforcer.restore()
     }
 
@@ -167,11 +153,6 @@ final class FocusBlockController {
     private func handleLaunchOrActivate(_ app: NSRunningApplication) {
         // v22: leaving the covered browser takes its site cover along right
         // away instead of at the next poll. The Timer coming forward is not
-        // leaving — a click on the cover itself activates it, and the page
-        // underneath must not be handed back for that.
-        if app.isActive, !isSelf(app), app.bundleIdentifier != siteCover?.browserID {
-            dropSiteCover()
-        }
         guard let name = blockTarget(app) else {
             // Something harmless came forward, so whatever the ladder covered
             // is not frontmost anymore — the cover goes immediately instead
@@ -310,67 +291,11 @@ final class FocusBlockController {
         frontmost: NSRunningApplication?,
         neighborBlocked: (String?) -> Bool
     ) {
-        guard !cover.isShowingApp, isCoverFront(browser, frontmost: frontmost) else {
-            if siteCover?.browserID == browser.bundleID { dropSiteCover() }
-            if let hit {
-                switchAwayAndAnnounce(browser: browser, target: hit, neighborBlocked: neighborBlocked)
-            }
-            return
-        }
-        let current = siteCover.flatMap { $0.browserID == browser.bundleID ? $0 : nil }
-        switch SiteCoverPlan.next(
-            host: hit, coveredHost: current?.host, coveredSince: current?.since, now: Date()
-        ) {
-        case .cover(let host):
-            showSiteCover(host: host, browser: browser, since: nil, neighborBlocked: neighborBlocked)
-        case .keepCovering:
-            guard let current else { return }
-            showSiteCover(
-                host: current.host, browser: browser, since: current.since,
-                neighborBlocked: neighborBlocked
-            )
-        case .switchAway:
-            dropSiteCover()
-            if let hit {
-                switchAwayAndAnnounce(browser: browser, target: hit, neighborBlocked: neighborBlocked)
-            }
-        case .dropCover:
-            dropSiteCover()
-        }
-    }
-
-    /// Puts the cover over the browser's content area. `since` nil starts the
-    /// 10 s clock, an existing date keeps the running one — so a refresh
-    /// follows a moved window and updates the countdown without buying the
-    /// user extra time. No room for a readable cover (mini window, browser
-    /// mostly off-screen) means the friendly rung is skipped: the tab switch
-    /// runs right away instead.
-    private func showSiteCover(
-        host: String, browser: BrowserScripting.Browser, since: Date?,
-        neighborBlocked: (String?) -> Bool
-    ) {
-        guard let frame = siteCoverFrame(for: browser),
-              cover.showSite(host: host, frame: frame, remainingSeconds: remainingSeconds())
-        else {
-            dropSiteCover()
-            switchAwayAndAnnounce(browser: browser, target: host, neighborBlocked: neighborBlocked)
-            return
-        }
-        siteCover = SiteCover(host: host, browserID: browser.bundleID, since: since ?? Date())
+        guard let hit else { return }
+        switchAwayAndAnnounce(browser: browser, target: hit, neighborBlocked: neighborBlocked)
     }
 
     /// The frame the cover may occupy inside this browser's front window, or
-    /// nil when there is no window or no room.
-    private func siteCoverFrame(for browser: BrowserScripting.Browser) -> NSRect? {
-        guard let app = NSWorkspace.shared.runningApplications
-            .first(where: { $0.bundleIdentifier == browser.bundleID }),
-            let window = BrowserWindowBounds.frontWindowFrame(pid: app.processIdentifier)
-        else { return nil }
-        return BrowserChromeInsets.contentRect(
-            windowFrame: window, bundleID: browser.bundleID,
-            screenFrame: BrowserWindowBounds.screenFrame(containing: window)
-        )
-    }
 
     /// Whether this browser counts as the one in front. The Timer itself
     /// counts as the covered browser: clicking the cover activates the Timer
@@ -380,19 +305,16 @@ final class FocusBlockController {
         _ browser: BrowserScripting.Browser, frontmost: NSRunningApplication?
     ) -> Bool {
         if frontmost?.bundleIdentifier == browser.bundleID { return true }
-        return isSelf(frontmost) && siteCover?.browserID == browser.bundleID
+        return false
     }
 
     private func isSelf(_ app: NSRunningApplication?) -> Bool {
         app?.processIdentifier == NSRunningApplication.current.processIdentifier
     }
 
-    /// Takes a site cover down and forgets its clock; a no-op when none is up
-    /// and never touches an app cover.
-    private func dropSiteCover() {
-        siteCover = nil
-        cover.hideSite()
-    }
+    /// v23.1: the site cover is gone (user: "Sperrfenster weg"); blocked tabs
+    /// are switched away right when they are seen.
+    private func dropSiteCover() {}
 
     /// The v16 escalation: switch the tab away and say so in the toast.
     private func switchAwayAndAnnounce(

@@ -57,6 +57,28 @@ enum AccessibilityAccess {
         return changed
     }
 
+    /// Minimises every window of the app into the Dock. The last resort of
+    /// the block since v23.1: it needs no cover window, survives apps that
+    /// refuse `hide()`, and the user gets the windows back from the Dock in
+    /// exactly the state they were in.
+    @discardableResult
+    static func minimizeWindows(pid: pid_t) -> Bool {
+        let application = AXUIElementCreateApplication(pid)
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            application, kAXWindowsAttribute as CFString, &value
+        ) == .success, let windows = value as? [AXUIElement] else { return false }
+
+        var changed = false
+        for window in windows {
+            let result = AXUIElementSetAttributeValue(
+                window, kAXMinimizedAttribute as CFString, kCFBooleanTrue
+            )
+            if result == .success { changed = true }
+        }
+        return changed
+    }
+
     /// Opens System Settings → Datenschutz & Sicherheit → Bedienungshilfen.
     static func openSettings() {
         guard let url = URL(

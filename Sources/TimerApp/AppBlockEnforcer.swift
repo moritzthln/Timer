@@ -3,7 +3,7 @@ import TimerCore
 
 /// v18: runs the `BlockEscalation` ladder for one app and owns everything the
 /// ladder touches — the v16 popup, the hidden-apps restore record, the
-/// Accessibility un-fullscreen, the v21 Space escape, and the cover overlay.
+/// Accessibility un-fullscreen, the v21 Space escape, and the minimise fallback.
 ///
 /// Every rung verifies instead of assuming: `hide()` reports success even for
 /// fullscreen apps that stay right where they are, so the enforcer re-reads
@@ -27,7 +27,6 @@ final class AppBlockEnforcer {
     private static let probeCoverLinger = 1.2
 
     private let popup: BlockOverlayController
-    private let cover: BlockCoverController
     private let remainingSeconds: () -> Int
     private var hiddenApps = HiddenAppsRecord()
     /// When each app was last pulled out of its Space (throttle memory).
@@ -48,11 +47,9 @@ final class AppBlockEnforcer {
 
     init(
         popup: BlockOverlayController,
-        cover: BlockCoverController,
         remainingSeconds: @escaping () -> Int
     ) {
         self.popup = popup
-        self.cover = cover
         self.remainingSeconds = remainingSeconds
     }
 
@@ -64,7 +61,7 @@ final class AppBlockEnforcer {
         case hidden = "versteckt"
         case unfullscreened = "aus Vollbild geholt"
         case spaceSwitched = "Space gewechselt"
-        case covered = "überdeckt"
+        case covered = "minimiert"
     }
 
     /// Entry point for every block event (sweep, launch, activation, poll).
@@ -94,7 +91,6 @@ final class AppBlockEnforcer {
     func restore() {
         lastEscape = [:]
         lastEscapeAt = nil
-        cover.hide()
         restoreHiddenApps()
     }
 
@@ -103,12 +99,9 @@ final class AppBlockEnforcer {
     /// Scoped to app covers since v22: "something harmless is in front" is the
     /// normal state of a covered browser tab, and the site cover owns that
     /// case itself.
-    func releaseCover() {
-        if let lastEscapeAt, Date().timeIntervalSince(lastEscapeAt) < Self.escapeCoverGrace {
-            return
-        }
-        cover.hideApp()
-    }
+    /// v23.1: nothing to release any more — the cover window is gone. Kept as
+    /// a no-op so the poll's call site stays readable.
+    func releaseCover() {}
 
     /// Unhides every app this enforcer hid and clears the record. Apps the
     /// user hid manually were never recorded and stay untouched.
@@ -161,10 +154,13 @@ final class AppBlockEnforcer {
             // cover comes down on its own (`.done`).
             verify(after: action, app: app, name: name)
         case .overlay:
-            showCover(target: name, bundleID: app.bundleIdentifier, escaped: false)
+            // v23.1: the cover window is gone (user: "Sperrfenster weg").
+            // Minimising every window is the equivalent last resort — no
+            // overlay, and the user gets the windows back from the Dock.
+            AccessibilityAccess.minimizeWindows(pid: app.processIdentifier)
+            announce(name)
         case .done:
-            // The app is out of sight — so is any cover that belonged to it.
-            cover.hide(ifCovering: app.bundleIdentifier)
+            break
         }
         // Both are terminal rungs: nothing verifies after them, so a probe
         // has seen everything it is going to see.
@@ -183,12 +179,7 @@ final class AppBlockEnforcer {
         // untouched. Synthetic ⌃⌘F goes through the target app's own menu
         // handling and works where AXFullScreen writes are rejected; ⌃← then
         // moves off the Space for the rare app that ignores ⌃⌘F.
-        // Cover first, key events second: macOS animates its way out of
-        // fullscreen either way, and the user should see the block land before
-        // that animation rather than after it. The cover joins all Spaces at
-        // shielding level, so it is on screen in the same frame.
-        showCover(target: name, bundleID: app.bundleIdentifier, escaped: true)
-        cover.escape()
+        announce(name)
         if app.isActive {
             FullscreenExit.sendExitFullscreen()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
@@ -201,12 +192,6 @@ final class AppBlockEnforcer {
         lastEscapeAt = now
     }
 
-    private func showCover(target name: String, bundleID: String?, escaped: Bool) {
-        cover.show(
-            target: name, bundleID: bundleID,
-            remainingSeconds: remainingSeconds(), escaped: escaped
-        )
-    }
 
     /// Re-runs the ladder once macOS had its moment, unless the block ended
     /// in the meantime. The escape gets a longer moment than the hides: its
@@ -243,7 +228,6 @@ final class AppBlockEnforcer {
         // strand the user behind a black rectangle.
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.probeCoverLinger) { [weak self] in
             guard let self, !self.isActive() else { return }
-            self.cover.hide()
         }
     }
 
