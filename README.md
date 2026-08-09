@@ -48,9 +48,10 @@ Lives in the menu bar only — no Dock icon, no window.
 ### Popover footer
 
 - Left: the **Fokus-Block** shield toggle (icon + caption, green when
-  armed). While the shield is on, a small two-segment mode control
-  "Blockieren | Nur Erlaubte" appears next to it (the shield collapses
-  to its icon to make room); tooltips explain both modes, the choice
+  armed). While the shield is on, a single mode chip showing the active
+  mode — "Blockieren" or "Nur Erlaubte" — appears next to it (the
+  shield collapses to its icon to make room); clicking the chip
+  switches to the other mode, the tooltip explains both, the choice
   persists.
 - Right: a chart button opening the stats window, and an "⋯" menu with
   "Ton", "Floating Display", "Einstellungen…", and "Timer beenden ⌘Q".
@@ -70,20 +71,37 @@ Lives in the menu bar only — no Dock icon, no window.
 ### Focus block
 
 - Arm the **Fokus-Block** shield toggle at the left of the popover
-  footer (the state sticks). The shield has two modes (v15), chosen via
-  the "Blockieren | Nur Erlaubte" control next to it:
-  - **Blockieren** (default, today's behavior): while a focus session
-    runs, blocklisted apps are terminated and blocklisted websites' tabs
-    are closed, each with a short "Geblockt: …" toast at the top of the
-    screen.
+  footer (the state sticks). The shield has two modes (v15), switched
+  via the mode chip next to it:
+  - **Blockieren** (default): while a focus session runs, the block
+    intervenes on blocklisted apps and blocklisted websites' tabs.
   - **Nur Erlaubte**: everything *except* the allowed list is blocked —
-    regular apps not on the allowed list are terminated and browser tabs
-    on non-allowed sites are closed ("Nicht erlaubt: …" toast). The
-    Timer itself, Finder, and System Settings are always allowed;
-    internal/new-tab pages are never closed. Each part guards
+    regular apps not on the allowed list and browser tabs on non-allowed
+    sites. The Timer itself, Finder, and System Settings are always
+    allowed; internal/new-tab pages are never touched. Each part guards
     independently: an empty allowed-apps list blocks no apps, an empty
-    allowed-domains list closes no tabs. Mode changes during a session
+    allowed-domains list blocks no tabs. Mode changes during a session
     apply from the next launch/poll.
+- **Gentle since v16 — nothing is destroyed.** A blocked app is hidden
+  (macOS "Ausblenden"), never quit: it keeps running with every window
+  and unsaved change intact, and everything the block hid reappears
+  automatically when the session ends — also on pause, stop, a phase
+  change into a break, and when the Timer itself quits. Apps you hid
+  yourself stay hidden; re-opening a hidden blocked app during the
+  session just hides it again.
+- Blocked websites keep their tab: instead of closing it, the browser
+  switches to the neighboring tab — or to a fresh empty tab when the
+  neighbor is blocked too or the window has only that one tab. The
+  blocked tab waits in the background; after the session one click
+  resumes it exactly where it was (no ⌘⇧T needed). Re-activating it
+  during the session switches away again within ~2 s. Arc only: if
+  Arc's scripting rejects the tab switch at runtime, its blocked tabs
+  are closed as before — decided automatically, once per session.
+- Every intervention shows a small centered popup (replacing the old
+  top toast): "Fokus läuft · noch 12:34" and "<App/Website> wartet bis
+  zum Ende" — the same wording in both modes. It ignores clicks,
+  disappears after 2.5 s, and announces each target at most once per
+  10 s.
 - Both lists live in Settings → Fokus-Block, split into "Blockieren"
   and "Nur Erlaubte" subsections with the same UI: the "App hinzufügen"
   button opens a menu of running apps (or "Andere…" from /Applications),
@@ -97,8 +115,7 @@ Lives in the menu bar only — no Dock icon, no window.
   permission per browser on first contact; a denied browser is skipped
   silently.
 - Pomodoro breaks and paused sessions never block — breaks and stepping
-  away are free time. Apps with unsaved changes are asked to quit, never
-  force-killed.
+  away are free time (everything hidden is restored on pause too).
 - **Honest limits:** this is determined nudging, not enforcement.
   Stopping the timer (or toggling the shield off) lifts the block
   immediately, and there is no system-wide network filter — that would
