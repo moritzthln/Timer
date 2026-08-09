@@ -8,6 +8,8 @@ extension Notification.Name {
 struct SettingsView: View {
     let preferences: Preferences
     @ObservedObject var focusMode: FocusModeController
+    /// v21: passed straight through to the "Rechte" tab.
+    let onTestFullscreenBlock: FullscreenBlockTester?
 
     /// v9: identity of every numeric field, for focus-loss snap-back.
     private enum NumberField: Hashable {
@@ -93,7 +95,8 @@ struct SettingsView: View {
                 }
                 tabPane(.rechte) {
                     PermissionsSettingsSection(
-                        preferences: preferences, focusMode: focusMode
+                        preferences: preferences, focusMode: focusMode,
+                        onTestFullscreenBlock: onTestFullscreenBlock
                     )
                 }
             }

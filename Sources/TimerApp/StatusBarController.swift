@@ -44,6 +44,7 @@ final class StatusBarController {
 
         wireEngineCallbacks()
         wireHotkeys()
+        wireDiagnostics()
         configurePopover()
         configureStatusItem()
         observeSettingsChanges()
@@ -109,6 +110,15 @@ final class StatusBarController {
             quickStart: preferences.hotkeyQuickStart,
             extend: preferences.hotkeyExtend
         )
+    }
+
+    /// v21: the "Rechte" tab's fullscreen-block test. Assigned here instead of
+    /// passed into the settings window, because the focus block that owns the
+    /// ladder is initialized in the same init and cannot be captured earlier.
+    private func wireDiagnostics() {
+        settingsController.onTestFullscreenBlock = { [weak self] report in
+            self?.focusBlock.testFullscreenBlock(report: report)
+        }
     }
 
     private func configurePopover() {

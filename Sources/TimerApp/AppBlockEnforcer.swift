@@ -23,6 +23,8 @@ final class AppBlockEnforcer {
     /// otherwise read as "something harmless came forward" and undo the
     /// escape before its retry-hide even ran.
     private static let escapeCoverGrace = 1.5
+    /// How long the cover of a diagnostic run stays up after its report.
+    private static let probeCoverLinger = 1.2
 
     private let popup: BlockOverlayController
     private let cover: BlockCoverController
@@ -32,6 +34,13 @@ final class AppBlockEnforcer {
     private var lastEscape: [String: Date] = [:]
     /// When the most recent escape of any app happened (cover grace).
     private var lastEscapeAt: Date?
+    /// Non-nil while a diagnostic run is in flight: who is being probed, the
+    /// rungs it took, and where to report. Keyed by pid because a real
+    /// session may keep enforcing other apps at the same time — their rungs
+    /// must not end up in the diagnostic's log.
+    private var probeReport: ((ProbeOutcome) -> Void)?
+    private var probeTarget: pid_t?
+    private var probeActions: [BlockEscalation.Action] = []
 
     /// Whether the block is still active — delayed ladder steps drop out
     /// when the session ended, paused, or the shield went off meanwhile.
@@ -47,8 +56,36 @@ final class AppBlockEnforcer {
         self.remainingSeconds = remainingSeconds
     }
 
+    /// What a v21 diagnostic run ended up doing. The wording is the one the
+    /// "Rechte" tab prints, so the mapping stays next to the ladder that
+    /// produces it.
+    enum ProbeOutcome: String {
+        case noAction = "kein Eingriff nötig"
+        case hidden = "versteckt"
+        case unfullscreened = "aus Vollbild geholt"
+        case spaceSwitched = "Space gewechselt"
+        case covered = "überdeckt"
+    }
+
     /// Entry point for every block event (sweep, launch, activation, poll).
     func enforce(app: NSRunningApplication, name: String) {
+        run(step: .start, app: app, name: name)
+    }
+
+    /// v21 "Vollbild-Block testen": the very same ladder, run once against
+    /// one app, ignoring both block lists and the session state — the point
+    /// is to see the real chain, not a simulation. Delayed rungs normally
+    /// stop at `isActive()`; while probing they keep going, the escape
+    /// ignores its throttle, and the cover is taken down afterwards because
+    /// a diagnostic must not leave a black screen behind.
+    func probe(
+        app: NSRunningApplication, name: String,
+        report: @escaping (ProbeOutcome) -> Void
+    ) {
+        guard probeReport == nil else { return }
+        probeReport = report
+        probeTarget = app.processIdentifier
+        probeActions = []
         run(step: .start, app: app, name: name)
     }
 
@@ -86,11 +123,13 @@ final class AppBlockEnforcer {
 
     private func run(step: BlockEscalation.Step, app: NSRunningApplication, name: String) {
         let visible = isVisible(app)
+        let probing = isProbing(app)
         let action = BlockEscalation.next(
             step: step, appVisible: visible, appFrontmost: isFrontmost(app),
             accessibilityGranted: accessibilityGranted(atStep: step, visible: visible),
-            escapeAllowed: escapeAllowed(app)
+            escapeAllowed: probing || escapeAllowed(app)
         )
+        if probing { probeActions.append(action) }
         switch action {
         case .hide:
             hideAndRecord(app)
@@ -111,6 +150,11 @@ final class AppBlockEnforcer {
         case .done:
             // The app is out of sight — so is any cover that belonged to it.
             cover.hide(ifCovering: app.bundleIdentifier)
+        }
+        // Both are terminal rungs: nothing verifies after them, so a probe
+        // has seen everything it is going to see.
+        if probing, action == .overlay || action == .done {
+            finishProbe(app: app)
         }
     }
 
@@ -143,9 +187,46 @@ final class AppBlockEnforcer {
         let next = BlockEscalation.Step.after(action)
         let delay = action == .spaceEscape ? Self.escapeVerifyDelay : Self.verifyDelay
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            guard let self, self.isActive() else { return }
+            guard let self, self.isActive() || self.isProbing(app) else { return }
             self.run(step: next, app: app, name: name)
         }
+    }
+
+    // MARK: - Diagnostics
+
+    /// Whether this very app is the one under diagnosis.
+    private func isProbing(_ app: NSRunningApplication) -> Bool {
+        probeReport != nil && probeTarget == app.processIdentifier
+    }
+
+    /// Reports the run and clears the stage again.
+    private func finishProbe(app: NSRunningApplication) {
+        guard let report = probeReport else { return }
+        let outcome = Self.probeOutcome(actions: probeActions, visible: isVisible(app))
+        probeReport = nil
+        probeTarget = nil
+        probeActions = []
+        report(outcome)
+        // Unless a real session owns the cover by now, it comes down after a
+        // moment on screen — long enough to be seen, short enough to not
+        // strand the user behind a black rectangle.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.probeCoverLinger) { [weak self] in
+            guard let self, !self.isActive() else { return }
+            self.cover.hide()
+        }
+    }
+
+    /// The strongest thing that actually happened wins: an app the ladder
+    /// never had to touch reports nothing, an escape outranks the hides that
+    /// came before it, and a still-visible app means the cover is all there
+    /// was.
+    private static func probeOutcome(
+        actions: [BlockEscalation.Action], visible: Bool
+    ) -> ProbeOutcome {
+        if actions.first == .done { return .noAction }
+        if actions.contains(.spaceEscape) { return .spaceSwitched }
+        guard !visible else { return .covered }
+        return actions.contains(.unfullscreenThenHide) ? .unfullscreened : .hidden
     }
 
     /// The permission is only ever asked for where the ladder would need it —

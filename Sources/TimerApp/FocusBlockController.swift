@@ -76,6 +76,26 @@ final class FocusBlockController {
         enforcer.restore()
     }
 
+    // MARK: - Diagnostics
+
+    /// v21 "Rechte" tab: runs the escalation ladder once against whatever is
+    /// in front right now — no block list, no running session. The Timer
+    /// itself is never a target: the button that starts this sits in its own
+    /// settings window, so the caller gives the user a moment to switch to
+    /// the app he wants to see blocked.
+    func testFullscreenBlock(report: @escaping (String) -> Void) {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.processIdentifier != NSRunningApplication.current.processIdentifier
+        else {
+            report("keine andere App im Vordergrund")
+            return
+        }
+        let name = app.localizedName ?? "App"
+        enforcer.probe(app: app, name: name) { outcome in
+            report("\(name) — \(outcome.rawValue)")
+        }
+    }
+
     // MARK: - Apps
 
     /// Activation sweep over the already-running apps, per the current mode.

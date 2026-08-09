@@ -6,6 +6,10 @@ final class SettingsWindowController {
     private var window: NSWindow?
     private let preferences: Preferences
     private let focusMode: FocusModeController
+    /// v21: the "Rechte" tab's fullscreen-block diagnostic. Wired by
+    /// StatusBarController after init, because the ladder it runs lives in
+    /// the focus block, which is built later in the same initializer.
+    var onTestFullscreenBlock: FullscreenBlockTester?
 
     init(preferences: Preferences, focusMode: FocusModeController) {
         self.preferences = preferences
@@ -29,7 +33,8 @@ final class SettingsWindowController {
         // Fresh view on every open so the stored values reload (and the
         // v17 tab selection resets to Timer).
         window.contentView = NSHostingView(rootView: SettingsView(
-            preferences: preferences, focusMode: focusMode
+            preferences: preferences, focusMode: focusMode,
+            onTestFullscreenBlock: onTestFullscreenBlock
         ))
         fitToContent(window)
         if firstShow { window.center() }

@@ -10,9 +10,15 @@ import TimerCore
 /// list) run when the settings window opens. The automation probes never do:
 /// probing an unknown browser can surface the one-time macOS consent prompt,
 /// so those only run on an explicit "Prüfen" / "Alle prüfen".
+/// What the "Rechte" tab needs from the focus block: run the v21 fullscreen
+/// diagnostic against the frontmost app and hand back one German status line.
+/// Wired by StatusBarController — the ladder lives in FocusBlockController.
+typealias FullscreenBlockTester = (@escaping (String) -> Void) -> Void
+
 struct PermissionsSettingsSection: View {
     let preferences: Preferences
     @ObservedObject var focusMode: FocusModeController
+    let onTestFullscreenBlock: FullscreenBlockTester?
 
     /// Traffic-light state of one row.
     private enum Level {
@@ -38,11 +44,15 @@ struct PermissionsSettingsSection: View {
     @State private var loginState: LaunchAtLogin.Status = .inactive
     /// Probe results per browser bundle id; missing = not probed yet.
     @State private var automation: [String: BrowserScripting.AutomationAccess] = [:]
+    /// v21 diagnostic: seconds left to switch apps, then the reported line.
+    @State private var testCountdown = 0
+    @State private var testResult: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
             accessibilityRow
+            fullscreenTestRow
             ForEach(BrowserScripting.supported, id: \.bundleID) { browser in
                 automationRow(browser)
             }
@@ -73,6 +83,36 @@ struct PermissionsSettingsSection: View {
             Button("Öffnen") { AccessibilityAccess.openSettings() }
                 .controlSize(.small)
         }
+    }
+
+    /// v21: the fullscreen block is invisible until it fires, so this runs the
+    /// real ladder on demand — hide, un-fullscreen, Space escape, cover — and
+    /// prints what it took. The countdown is not decoration: clicking the
+    /// button puts the Timer in front, so the user needs those seconds to
+    /// switch to the app he wants to see blocked.
+    private var fullscreenTestRow: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Text("Vollbild-Block testen")
+                    .font(.system(size: 12))
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button(testCountdown > 0 ? "\(testCountdown) …" : "Testen", action: startTest)
+                    .controlSize(.small)
+                    .disabled(testCountdown > 0 || onTestFullscreenBlock == nil)
+            }
+            caption(testHint)
+        }
+    }
+
+    private var testHint: String {
+        if testCountdown > 0 {
+            return "Jetzt in die App wechseln, die geprüft werden soll — gern im Vollbild."
+        }
+        if let testResult {
+            return "Ergebnis: \(testResult). Eine versteckte App holt ein Klick im Dock zurück."
+        }
+        return "Läuft einmal komplett gegen die App, die nach dem Klick vorne ist — ohne laufende Session."
     }
 
     private func automationRow(_ browser: BrowserScripting.Browser) -> some View {
@@ -248,6 +288,25 @@ struct PermissionsSettingsSection: View {
 
     private func probe(_ browser: BrowserScripting.Browser) {
         automation[browser.bundleID] = BrowserScripting.probeAutomation(browser)
+    }
+
+    /// Three seconds to get out of the settings window, then the ladder runs
+    /// against whatever ended up in front.
+    private func startTest() {
+        testResult = nil
+        testCountdown = 3
+        tickTest()
+    }
+
+    private func tickTest() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            testCountdown -= 1
+            guard testCountdown <= 0 else {
+                tickTest()
+                return
+            }
+            onTestFullscreenBlock?({ line in testResult = line })
+        }
     }
 
     private func openAutomationSettings() {
