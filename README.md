@@ -250,6 +250,15 @@ Lives in the menu bar only — no Dock icon, no window.
   like everything else, and hovering one shows "youtube.com ·
   14:02–14:31 (29 min)". Click again to deselect; navigation and view
   switches reset it, exactly as for apps.
+- v20 — the timeline mirrors the list: promoted time is cut out of the
+  browser's bar and drawn in its own row color, always — not only while
+  something is selected. A Chrome bar with two YouTube visits now reads
+  as Chrome · YouTube · Chrome · YouTube · Chrome instead of one solid
+  block, in the day bar and in all seven week rows. Selecting Chrome
+  lights up only what is really Chrome, hovering a cut-out piece shows
+  the site tooltip, and the numbers in the list and the colors in the
+  bar finally tell the same story. Non-promoted domains keep living
+  inside their browser.
 - **Privacy:** everything stays on this Mac — one JSON file per day
   under `~/Library/Application Support/Timer/activity/` (and, since
   v10, focus intervals under `…/Timer/focus/`), no network, ever.
