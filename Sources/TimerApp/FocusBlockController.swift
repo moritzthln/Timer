@@ -81,7 +81,7 @@ final class FocusBlockController {
             startWatching()
         } else {
             stopWatching()
-            dropSiteCover()
+            // Takes both covers with it — see `restoreBlockedApps()`.
             restoreBlockedApps()
         }
     }
