@@ -12,9 +12,9 @@ final class AppBlockEnforcer {
     /// How long macOS gets to actually hide an app before the ladder judges
     /// the attempt. Short enough to feel immediate, long enough for the
     /// hide/space animation to have started.
-    private static let verifyDelay = 0.25
+    private static let verifyDelay = 0.12
     /// The same for the Space escape, whose switch is an animation.
-    private static let escapeVerifyDelay = 0.6
+    private static let escapeVerifyDelay = 0.3
     /// v21: one Space escape per app per 3 s. Deliberately short — a longer
     /// window would hand the user a comfortable stay inside the distraction.
     private static let escapeInterval = 3.0
@@ -125,6 +125,18 @@ final class AppBlockEnforcer {
     // MARK: - Ladder
 
     private func run(step: BlockEscalation.Step, app: NSRunningApplication, name: String) {
+        // Fullscreen fast path: hide() is always refused there and the
+        // AXFullScreen write is rejected by Catalyst/Electron apps, so the two
+        // first rungs only burn ~0.4 s before the one that works. Jump
+        // straight to the key-event escape — the user should not perceive the
+        // mechanism at all, only that the app is gone.
+        if step == .start, isFrontmost(app), AccessibilityAccess.isAppFullscreen(
+            pid: app.processIdentifier
+        ) {
+            escape(app: app, name: name)
+            verify(after: .spaceEscape, app: app, name: name)
+            return
+        }
         let visible = isVisible(app)
         let probing = isProbing(app)
         let action = BlockEscalation.next(
@@ -173,7 +185,7 @@ final class AppBlockEnforcer {
         // moves off the Space for the rare app that ignores ⌃⌘F.
         if app.isActive {
             FullscreenExit.sendExitFullscreen()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 guard let self, app.isActive, !app.isHidden else { return }
                 FullscreenExit.sendSpaceLeft()
             }

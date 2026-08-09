@@ -65,6 +65,19 @@ enum AccessibilityAccess {
         NSWorkspace.shared.open(url)
     }
 
+    /// True when any of the app's windows is in native fullscreen. A cheap
+    /// read (no write, no prompt) that lets the block skip the rungs which
+    /// cannot work there — hide() is refused for fullscreen apps and Catalyst
+    /// or Electron windows reject the AXFullScreen write.
+    static func isAppFullscreen(pid: pid_t) -> Bool {
+        let application = AXUIElementCreateApplication(pid)
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            application, kAXWindowsAttribute as CFString, &value
+        ) == .success, let windows = value as? [AXUIElement] else { return false }
+        return windows.contains(where: isFullscreen)
+    }
+
     private static func isFullscreen(_ window: AXUIElement) -> Bool {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
