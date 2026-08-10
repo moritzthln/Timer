@@ -80,6 +80,10 @@ public final class Preferences {
         static let menuBarTimeFormat = "menuBarTimeFormat"
         static let menuBarShowTime = "menuBarShowTime"
         static let promotedSites = "promotedSites"
+        static let emergencyEndDate = "emergencyEndDate"
+        static let emergencyApps = "emergencyApps"
+        static let emergencyDomains = "emergencyDomains"
+        static let emergencyMinutes = "emergencyMinutes"
     }
 
     public init(defaults: UserDefaults = .standard) {
@@ -359,6 +363,109 @@ public final class Preferences {
             focusBlockEnabled = true
             blockMode = .allowlist
         }
+    }
+
+    // MARK: - Emergency mode (v24)
+
+    /// The persisted end date of a running emergency session, or nil. Written
+    /// raw — the elapsed-session check belongs to `emergencySession(now:)`.
+    public var emergencyEndDate: Date? {
+        get {
+            guard let timestamp = defaults.object(forKey: Key.emergencyEndDate) as? Double else {
+                return nil
+            }
+            return Date(timeIntervalSince1970: timestamp)
+        }
+        set {
+            if let newValue {
+                defaults.set(newValue.timeIntervalSince1970, forKey: Key.emergencyEndDate)
+            } else {
+                defaults.removeObject(forKey: Key.emergencyEndDate)
+            }
+        }
+    }
+
+    /// The running emergency session, or nil. An end date that already passed
+    /// (the app was closed across it) is cleared right here, so a relaunch
+    /// never resurrects a session the user has long served.
+    public func emergencySession(now: Date = Date()) -> EmergencySession? {
+        guard let endDate = emergencyEndDate else { return nil }
+        let session = EmergencySession(endDate: endDate)
+        guard EmergencyMode.isActive(session: session, now: now) else {
+            emergencyEndDate = nil
+            return nil
+        }
+        return session
+    }
+
+    /// The single start path: the model clamps the duration, the clamped value
+    /// is what gets persisted and what the sheet offers next time.
+    @discardableResult
+    public func startEmergency(minutes: Int, now: Date = Date()) -> EmergencySession {
+        let session = EmergencyMode.start(minutes: minutes, now: now)
+        emergencyMinutes = minutes
+        emergencyEndDate = session.endDate
+        return session
+    }
+
+    public func endEmergency() {
+        emergencyEndDate = nil
+    }
+
+    /// Last used duration; the clamp mirrors the model on both directions, so
+    /// a hand-edited defaults entry cannot widen the cap either.
+    public var emergencyMinutes: Int {
+        get {
+            let value = defaults.object(forKey: Key.emergencyMinutes) as? Int
+                ?? EmergencyMode.defaultMinutes
+            return EmergencyMode.clamp(minutes: value)
+        }
+        set { defaults.set(EmergencyMode.clamp(minutes: newValue), forKey: Key.emergencyMinutes) }
+    }
+
+    /// The apps that stay reachable while an emergency session runs (allowlist
+    /// semantics; the essential set is added on top by the block controller).
+    public var emergencyApps: [BlockedApp] {
+        get {
+            guard let data = defaults.data(forKey: Key.emergencyApps),
+                  let apps = try? JSONDecoder().decode([BlockedApp].self, from: data) else {
+                return []
+            }
+            return apps
+        }
+        set {
+            defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.emergencyApps)
+        }
+    }
+
+    public var emergencyDomains: [String] {
+        get { defaults.stringArray(forKey: Key.emergencyDomains) ?? [] }
+        set {
+            let sanitized = newValue.compactMap(Self.sanitizeDomain)
+            defaults.set(sanitized, forKey: Key.emergencyDomains)
+        }
+    }
+
+    /// Appends `app` (no-op on a duplicate bundle ID). Deliberately without
+    /// arm-on-configure: the emergency mode is armed by starting a session,
+    /// never by a setting — configuring it must not lock anybody out.
+    public func addEmergencyApp(_ app: BlockedApp) {
+        var apps = emergencyApps
+        guard !apps.contains(where: { $0.bundleID == app.bundleID }) else { return }
+        apps.append(app)
+        emergencyApps = apps
+    }
+
+    /// Sanitizes and appends `raw`. Returns the stored domain, or nil when
+    /// sanitizing dropped the input or the domain was already listed.
+    @discardableResult
+    public func addEmergencyDomain(_ raw: String) -> String? {
+        guard let sanitized = Self.sanitizeDomain(raw) else { return nil }
+        var domains = emergencyDomains
+        guard !domains.contains(sanitized) else { return nil }
+        domains.append(sanitized)
+        emergencyDomains = domains
+        return sanitized
     }
 
     // MARK: - Hotkeys
