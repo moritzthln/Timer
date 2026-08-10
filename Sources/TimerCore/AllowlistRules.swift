@@ -18,12 +18,19 @@ public enum AllowlistRules {
     /// Callers pre-filter to regular user apps — the activation policy is an
     /// AppKit concept the pure rule cannot see. With zero allowed apps the
     /// app arm never engages.
+    /// `emptyListBlocksAll` decides what an empty allowed set means. The v15
+    /// shield mode passes false: a half-configured allowlist must not lock the
+    /// Mac down behind the user's back. The v24 emergency passes true —
+    /// starting it is a deliberate act with a duration, so "nothing selected"
+    /// means "nothing but the essentials" rather than "no block at all"
+    /// (user report: an empty list made the emergency do nothing).
     public static func shouldHide(
         bundleID: String,
         allowed: Set<String>,
-        essential: Set<String> = essentialBundleIDs
+        essential: Set<String> = essentialBundleIDs,
+        emptyListBlocksAll: Bool = false
     ) -> Bool {
-        guard !allowed.isEmpty else { return false }
+        guard !allowed.isEmpty || emptyListBlocksAll else { return false }
         return !allowed.contains(bundleID) && !essential.contains(bundleID)
     }
 

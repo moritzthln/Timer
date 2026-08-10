@@ -89,7 +89,7 @@ struct EmergencyStartPanel: View {
         VStack(alignment: .leading, spacing: 3) {
             caption("Nur deine Notfall-Apps sind erreichbar. Abbrechen erst nach 10 s Halten.")
             if preferences.emergencyApps.isEmpty {
-                caption("Noch keine Notfall-Apps — ohne Liste wird keine App ausgeblendet. Einstellungen → Fokus.")
+                caption("Noch keine Notfall-Apps gewählt — dann wird alles außer Timer, Finder und Systemeinstellungen ausgeblendet.")
             }
             caption("Timer beenden hebt die Sperre auf; beim nächsten Start läuft sie weiter.")
         }

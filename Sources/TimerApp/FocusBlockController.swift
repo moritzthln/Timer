@@ -167,8 +167,11 @@ final class FocusBlockController {
     /// display: non-nil means "this app must go away right now".
     private func blockTarget(_ app: NSRunningApplication) -> String? {
         // v24: the emergency session takes precedence over shield and mode.
+        // Its empty list means "only the essentials" — see shouldHide.
         if emergencyActive() {
-            return allowlistTarget(app, allowed: preferences.emergencyApps)
+            return allowlistTarget(
+                app, allowed: preferences.emergencyApps, emptyListBlocksAll: true
+            )
         }
         switch preferences.blockMode {
         case .blocklist:
@@ -188,14 +191,15 @@ final class FocusBlockController {
     /// additionally protected via its live bundle ID (covers dev builds whose
     /// ID differs from the packaged one).
     private func allowlistTarget(
-        _ app: NSRunningApplication, allowed: [BlockedApp]
+        _ app: NSRunningApplication, allowed: [BlockedApp], emptyListBlocksAll: Bool = false
     ) -> String? {
         guard app.activationPolicy == .regular, let id = app.bundleIdentifier else { return nil }
         let essential = AllowlistRules.essentialBundleIDs.union(
             [Bundle.main.bundleIdentifier].compactMap { $0 }
         )
         guard AllowlistRules.shouldHide(
-            bundleID: id, allowed: Set(allowed.map(\.bundleID)), essential: essential
+            bundleID: id, allowed: Set(allowed.map(\.bundleID)), essential: essential,
+            emptyListBlocksAll: emptyListBlocksAll
         ) else { return nil }
         return app.localizedName ?? "App"
     }

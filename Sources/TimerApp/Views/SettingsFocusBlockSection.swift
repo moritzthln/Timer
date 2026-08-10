@@ -217,7 +217,7 @@ struct FocusBlockSettingsSection: View {
             )
             emergencyDurationRow
             caption("Läuft unabhängig vom Schild und von jedem Timer — Start im Popover unter „⋯“ oder per Hotkey.")
-            caption("Leere Liste = dieser Teil blockt nichts. Timer, Finder und Systemeinstellungen bleiben immer erreichbar.")
+            caption("Leere App-Liste = alles außer Timer, Finder und Systemeinstellungen wird ausgeblendet. Leere Website-Liste = keine Seite wird gesperrt.")
         }
         .disabled(emergencyRunning)
     }

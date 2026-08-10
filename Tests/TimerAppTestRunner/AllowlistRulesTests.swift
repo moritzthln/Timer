@@ -97,3 +97,24 @@ func runAllowlistRulesTests() {
         )
     }
 }
+
+func runEmergencyAllowlistTests() {
+    test("an empty emergency list hides everything but the essentials") {
+        // v24.1: the shield mode must not lock down on a half-filled list…
+        try expect(!AllowlistRules.shouldHide(
+            bundleID: "com.hnc.Discord", allowed: [], emptyListBlocksAll: false
+        ), "shield mode: empty list blocks nothing")
+        // …while the emergency, started deliberately with a duration, treats
+        // "nothing selected" as "nothing but the essentials".
+        try expect(AllowlistRules.shouldHide(
+            bundleID: "com.hnc.Discord", allowed: [], emptyListBlocksAll: true
+        ), "emergency: empty list hides a normal app")
+        try expect(!AllowlistRules.shouldHide(
+            bundleID: "com.apple.finder", allowed: [], emptyListBlocksAll: true
+        ), "essentials survive an empty emergency list")
+        try expect(!AllowlistRules.shouldHide(
+            bundleID: "com.apple.dt.Xcode", allowed: ["com.apple.dt.Xcode"],
+            emptyListBlocksAll: true
+        ), "a listed app stays reachable")
+    }
+}
