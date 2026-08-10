@@ -92,6 +92,38 @@ enum AccessibilityAccess {
         return changed
     }
 
+    /// True once the block warned about the missing permission in this run.
+    private static var didWarn = false
+
+    /// Says out loud what used to fail silently. Without this permission the
+    /// block cannot touch a fullscreen app at all — neither the AX route nor
+    /// the keyboard shortcut, which macOS also gates behind it — so `hide()`
+    /// is all that is left, and apps in native fullscreen ignore that. The
+    /// user then sees a block that does nothing, with no hint why (which is
+    /// exactly what happened: an ad-hoc signed app loses the grant on every
+    /// reinstall, and macOS keeps showing the stale entry as if it were on).
+    ///
+    /// Shown at most once per app run, and only when a block actually starts.
+    static func warnIfMissing() {
+        guard !isTrusted, !didWarn else { return }
+        didWarn = true
+        let alert = NSAlert()
+        alert.messageText = "Timer fehlen die Bedienungshilfen"
+        alert.informativeText = """
+        Ohne dieses Recht kann der Block Apps im Vollbild weder beenden noch \
+        ausblenden — er wirkt dann wirkungslos.
+
+        Öffne Datenschutz & Sicherheit → Bedienungshilfen. Steht „Timer“ dort \
+        schon: mit „−“ entfernen und mit „+“ neu hinzufügen \
+        (/Applications/Timer.app). Nach jeder Neuinstallation ist das nötig, \
+        solange die App nur ad-hoc signiert ist.
+        """
+        alert.addButton(withTitle: "Einstellungen öffnen")
+        alert.addButton(withTitle: "Später")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn { openSettings() }
+    }
+
     /// Opens System Settings → Datenschutz & Sicherheit → Bedienungshilfen.
     static func openSettings() {
         guard let url = URL(

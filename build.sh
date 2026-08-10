@@ -23,7 +23,16 @@ fi
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 echo "▸ Code signing (ad-hoc)…"
-codesign --force --deep -s - "$APP"
+# TCC (Bedienungshilfen, Automation) keys an ad-hoc signature to the exact
+# binary hash, so every rebuild silently revokes the granted permissions. A
+# stable self-signed identity keeps them across builds — see README, section
+# "Signatur". Falls back to ad-hoc when the identity is absent.
+IDENTITY="Timer Local Signing"
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "$IDENTITY"; then
+  codesign --force --deep -s "$IDENTITY" "$APP"
+else
+  codesign --force --deep -s - "$APP"
+fi
 
 echo "▸ Installing…"
 pkill -x TimerApp 2>/dev/null || true

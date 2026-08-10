@@ -94,6 +94,9 @@ final class FocusBlockController {
 
     private func beginBlocking() {
         tabSwitchUnsupported = []
+        // A block without this permission silently does nothing to fullscreen
+        // apps — better to say so than to look broken.
+        AccessibilityAccess.warnIfMissing()
         sweepRunningApps()
         startWatching()
     }
