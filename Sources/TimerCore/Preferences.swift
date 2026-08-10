@@ -64,6 +64,7 @@ public final class Preferences {
         static let floatingEnabled = "floatingEnabled"
         static let lastMode = "lastMode"
         static let blockedApps = "blockedApps"
+        static let hiddenByBlock = "hiddenByBlock"
         static let blockedDomains = "blockedDomains"
         static let allowedApps = "allowedApps"
         static let allowedDomains = "allowedDomains"
@@ -227,6 +228,21 @@ public final class Preferences {
     }
 
     // MARK: - Focus block
+
+    /// The bundle ids the block currently has hidden. Written through on every
+    /// change, because the in-memory record dies with the process: a crash or
+    /// a force quit would otherwise leave the user's apps hidden with nothing
+    /// left to unhide them. Read once at launch, acted on, and cleared.
+    public var hiddenByBlock: [String] {
+        get { defaults.stringArray(forKey: Key.hiddenByBlock) ?? [] }
+        set {
+            if newValue.isEmpty {
+                defaults.removeObject(forKey: Key.hiddenByBlock)
+            } else {
+                defaults.set(newValue, forKey: Key.hiddenByBlock)
+            }
+        }
+    }
 
     public var blockedApps: [BlockedApp] {
         get {

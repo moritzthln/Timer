@@ -358,3 +358,17 @@ func runEmergencyHotkeyTests() {
         try expectNil(prefs.hotkeyEmergency, "cleared")
     }
 }
+
+func runHiddenByBlockTests() {
+    test("the hidden-apps record survives the process") {
+        let prefs = freshPrefs()
+        try expect(prefs.hiddenByBlock.isEmpty, "nothing hidden to begin with")
+        prefs.hiddenByBlock = ["com.hnc.Discord", "com.spotify.client"]
+        // A crash leaves exactly this behind — the next launch reads it and
+        // unhides what the block never got to restore.
+        try expect(prefs.hiddenByBlock.count == 2, "written through")
+        try expect(prefs.hiddenByBlock.contains("com.spotify.client"), "and readable")
+        prefs.hiddenByBlock = []
+        try expect(prefs.hiddenByBlock.isEmpty, "cleared once acted on")
+    }
+}

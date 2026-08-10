@@ -28,7 +28,7 @@ final class FocusBlockController {
     private let preferences: Preferences
     /// v25: runs the insisting block loop (shortcut out of fullscreen, hide,
     /// minimise — repeated until the app is gone) and owns the restore record.
-    private let enforcer = AppBlockEnforcer()
+    private let enforcer: AppBlockEnforcer
     /// v24: whether an emergency session runs right now — read live per event
     /// and per poll, exactly like the block mode, so starting or ending one
     /// mid-session applies on the next event.
@@ -50,6 +50,9 @@ final class FocusBlockController {
 
     init(preferences: Preferences) {
         self.preferences = preferences
+        enforcer = AppBlockEnforcer(preferences: preferences)
+        // A block that was cut short (crash, force quit) left its apps hidden.
+        enforcer.restoreLeftoversFromLastRun()
         // Delayed loop attempts stop as soon as the block is off.
         enforcer.isActive = { [weak self] in self?.active ?? false }
     }
@@ -157,13 +160,22 @@ final class FocusBlockController {
         }
         switch preferences.blockMode {
         case .blocklist:
-            guard let id = app.bundleIdentifier,
+            guard let id = app.bundleIdentifier, !isEssential(id),
                   let entry = preferences.blockedApps.first(where: { $0.bundleID == id })
             else { return nil }
             return entry.name.isEmpty ? (app.localizedName ?? "App") : entry.name
         case .allowlist:
             return allowlistTarget(app, allowed: preferences.allowedApps)
         }
+    }
+
+    /// Timer, Finder and System Settings stay reachable in *every* mode. The
+    /// allowlist arm has always covered them; the blocklist did not, so an
+    /// entry added through "Andere…" could lock the user out of his own
+    /// settings — or make the Timer hide itself.
+    private func isEssential(_ bundleID: String) -> Bool {
+        AllowlistRules.essentialBundleIDs.contains(bundleID)
+            || bundleID == Bundle.main.bundleIdentifier
     }
 
     /// Allowlist app arm, shared by the v15 mode and the v24 emergency:

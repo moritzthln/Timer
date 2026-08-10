@@ -37,8 +37,20 @@ final class AppBlockEnforcer {
     private static let probeDelay = 3.5
     /// How long macOS gets to act on a hide before the fallback judges it.
     private static let hideVerifyDelay = 0.3
+    /// After this many sweeps that ended without dissolving the app, it is
+    /// left alone for a while. Without that, an app that neither lists its
+    /// windows nor answers ⌃⌘F would be pulled to the front by every poll
+    /// tick — for the whole session, every few seconds.
+    private static let sweepFailureLimit = 3
+    /// How long such an app is left in peace before the next try.
+    private static let sweepBackoff = 60.0
 
+    private let preferences: Preferences
     private var hiddenApps = HiddenAppsRecord()
+    /// Sweeps that ended without dissolving the app, and until when it is
+    /// therefore left alone.
+    private var sweepFailures: [pid_t: Int] = [:]
+    private var sweepPausedUntil: [pid_t: Date] = [:]
     /// Apps with a hide loop in flight, so the poll never stacks loops.
     private var running: Set<pid_t> = []
     /// When each app last received a keyboard shortcut (throttle memory).
@@ -57,6 +69,22 @@ final class AppBlockEnforcer {
     /// Whether the block is still active — every delayed step drops out as
     /// soon as the session ended, paused, or the shield went off.
     var isActive: () -> Bool = { true }
+
+    init(preferences: Preferences) {
+        self.preferences = preferences
+    }
+
+    /// Undoes a block that never got to clean up after itself: a crash or a
+    /// force quit leaves the apps hidden and the in-memory record gone, so the
+    /// persisted list is the only way back. Runs once, at launch.
+    func restoreLeftoversFromLastRun() {
+        let ids = Set(preferences.hiddenByBlock)
+        guard !ids.isEmpty else { return }
+        preferences.hiddenByBlock = []
+        for app in NSWorkspace.shared.runningApplications {
+            if let id = app.bundleIdentifier, ids.contains(id) { _ = app.unhide() }
+        }
+    }
 
     /// What a diagnostic run found. The wording is what the "Rechte" tab
     /// prints, so it stays next to the code that produces it.
@@ -102,6 +130,8 @@ final class AppBlockEnforcer {
     /// on block deactivation and on app quit.
     func restore() {
         lastKeyEvent = [:]
+        sweepFailures = [:]
+        sweepPausedUntil = [:]
         abortSweep()
         restoreHiddenApps()
     }
@@ -113,6 +143,7 @@ final class AppBlockEnforcer {
     /// user hid manually were never recorded and stay untouched.
     private func restoreHiddenApps() {
         let ids = hiddenApps.drain()
+        preferences.hiddenByBlock = []
         guard !ids.isEmpty else { return }
         for app in NSWorkspace.shared.runningApplications {
             if let id = app.bundleIdentifier, ids.contains(id) {
@@ -136,6 +167,11 @@ final class AppBlockEnforcer {
         guard !plan.stop, attempt < Self.attempts else { return finish(app) }
         if plan.sweepFullscreen {
             finish(app)
+            // An app that has resisted the sweep often enough is left in peace
+            // for a minute and simply taken off the screen. Its Space survives
+            // that, which is the lesser evil: the alternative is the app being
+            // yanked to the front every few seconds for the whole session.
+            guard !isSweepPaused(app) else { return hideAndRecord(app) }
             return enqueueSweep(app)
         }
         if plan.unhide { _ = app.unhide() }
@@ -225,8 +261,25 @@ final class AppBlockEnforcer {
     /// out of budget (then the poll brings it back later).
     private func finishSweepStep(_ app: NSRunningApplication, done: Bool) {
         sweeping = nil
-        if done, !app.isTerminated { pendingHide.append(app) }
+        let pid = app.processIdentifier
+        if done {
+            sweepFailures[pid] = nil
+            sweepPausedUntil[pid] = nil
+            if !app.isTerminated { pendingHide.append(app) }
+        } else {
+            let failures = (sweepFailures[pid] ?? 0) + 1
+            sweepFailures[pid] = failures
+            if failures >= Self.sweepFailureLimit {
+                sweepPausedUntil[pid] = Date().addingTimeInterval(Self.sweepBackoff)
+                sweepFailures[pid] = 0
+            }
+        }
         startNextSweep()
+    }
+
+    private func isSweepPaused(_ app: NSRunningApplication) -> Bool {
+        guard let until = sweepPausedUntil[app.processIdentifier] else { return false }
+        return until > Date()
     }
 
     // MARK: - Phase two: hide everything that was dissolved
@@ -305,5 +358,9 @@ final class AppBlockEnforcer {
     private func hideAndRecord(_ app: NSRunningApplication) {
         guard !app.isHidden, app.hide(), let id = app.bundleIdentifier else { return }
         hiddenApps.add(id)
+        // Write through, so a crash or a force quit cannot strand the app.
+        if !preferences.hiddenByBlock.contains(id) {
+            preferences.hiddenByBlock.append(id)
+        }
     }
 }
