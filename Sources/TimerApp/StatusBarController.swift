@@ -161,7 +161,7 @@ final class StatusBarController {
     private func configurePopover() {
         popover.contentViewController = NSHostingController(
             rootView: TimerView(
-                engine: engine, preferences: preferences,
+                engine: engine, emergency: emergency, preferences: preferences,
                 onOpenSettings: { [weak self] in self?.openSettings() },
                 onToggleFloating: { [weak self] in self?.toggleFloating() },
                 onOpenStats: { [weak self] in

@@ -5,6 +5,9 @@ import TimerCore
 struct SetupView: View {
     @ObservedObject var engine: TimerEngine
     let preferences: Preferences
+    /// v24: only for the "Notfall-Modus …" entry in the ⋯ menu — the banner
+    /// itself lives above every phase, in `TimerView`.
+    @ObservedObject var emergency: EmergencyController
     var onOpenSettings: () -> Void
     var onToggleFloating: () -> Void
     var onOpenStats: () -> Void
@@ -257,6 +260,11 @@ struct SetupView: View {
                 }
             ))
             Divider()
+            // v24: hidden while a session runs — the banner above owns it
+            // then, and starting a second one would only reset the clock.
+            if !emergency.isActive {
+                Button("Notfall-Modus …") { emergency.isConfiguring = true }
+            }
             Button("Einstellungen…", action: onOpenSettings)
             Divider()
             Button("Timer beenden…") { NSApp.terminate(nil) }
