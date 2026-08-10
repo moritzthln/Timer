@@ -17,8 +17,25 @@ struct SetupView: View {
     @State private var presets: [Int] = [5, 15, 25, 45]
     @FocusState private var inputFocused: Bool
 
+    /// What the field shows and what Start uses. `minutesText` is only filled
+    /// by `onAppear`, and SwiftUI does not reliably re-run that when the idle
+    /// view comes back after "Fertig" — the field then sat empty with a dead
+    /// Start button (user report). Falling back to the stored value unless the
+    /// user is actively editing makes the display independent of lifecycle
+    /// events, while an empty field during typing stays empty.
+    private var displayedMinutes: String {
+        if minutesText.isEmpty, !inputFocused {
+            return String(preferences.lastMinutes)
+        }
+        return minutesText
+    }
+
+    private var minutesBinding: Binding<String> {
+        Binding(get: { displayedMinutes }, set: { minutesText = $0 })
+    }
+
     private var enteredMinutes: Int? {
-        guard let value = Int(minutesText), value >= 1 else { return nil }
+        guard let value = Int(displayedMinutes), value >= 1 else { return nil }
         return value
     }
 
@@ -30,6 +47,13 @@ struct SetupView: View {
             startButton
             footer
                 .padding(.top, 2)
+        }
+        .onChange(of: engine.phase) { phase in
+            // Coming back from a finished or stopped session: re-seed the
+            // field from the stored value and take focus again.
+            guard case .idle = phase else { return }
+            minutesText = String(preferences.lastMinutes)
+            DispatchQueue.main.async { inputFocused = true }
         }
         .onAppear {
             minutesText = String(preferences.lastMinutes)
@@ -46,7 +70,7 @@ struct SetupView: View {
 
     private var heroInput: some View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
-            TextField("25", text: $minutesText)
+            TextField("25", text: minutesBinding)
                 .textFieldStyle(.plain)
                 .font(.system(size: 34, weight: .medium, design: .monospaced))
                 .multilineTextAlignment(.center)
