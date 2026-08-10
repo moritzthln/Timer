@@ -19,7 +19,7 @@ enum FullscreenWindows {
     /// The window list is enumerated for the whole system, so a sweep over a
     /// dozen apps would ask for it a dozen times per second. One snapshot per
     /// tick is plenty — nothing decided here changes faster than that.
-    private static let cacheLifetime = 0.05
+    private static let cacheLifetime = 0.15
     private static var cached: [[String: Any]] = []
     private static var cachedAt: Date?
 

@@ -20,21 +20,19 @@ final class AppBlockEnforcer {
     private static let interval = 0.2
     /// One burst, ~6 s. The poll re-arms a still-visible app right after.
     private static let attempts = 30
-    /// Between two steps of the fullscreen sweep. The step itself is cheap
-    /// (one AX round trip against a 0.25 s timeout, plus a cached window
-    /// list), and what it waits for — a Space switch landing, an exit
-    /// animation finishing — is worth noticing early: every 0.1 s saved here
-    /// is saved once per app.
-    private static let sweepInterval = 0.1
-    /// ~2.5 s per app, then the sweep moves on and the poll brings it back.
-    /// Apps that need longer than that are not going to answer at all.
-    private static let sweepAttempts = 25
-    /// From this step on (~1.2 s), the Space-left shortcut joins in.
-    private static let spaceLeftFrom = 12
-    /// One exit-fullscreen shortcut per app per 0.5 s: the exit animation runs
-    /// about that long, and a second shortcut inside it would toggle the app
-    /// straight back in.
-    private static let keyEventInterval = 0.5
+    /// Between two steps of the fullscreen sweep. Slower than the hide loop:
+    /// every step waits on a Space switch or an exit animation. Tightening
+    /// this to 0.1 s did make the sweep quicker, but it also made it jumpy —
+    /// the calmer pace is the one that works (user: "lieber wie davor").
+    private static let sweepInterval = 0.25
+    /// ~4 s per app, then the sweep moves on and the poll brings it back.
+    private static let sweepAttempts = 16
+    /// From this step on (~2 s), the Space-left shortcut joins in.
+    private static let spaceLeftFrom = 8
+    /// One exit-fullscreen shortcut per app per 0.7 s: the exit animation runs
+    /// about half a second, and a second shortcut inside it would toggle the
+    /// app straight back in.
+    private static let keyEventInterval = 0.7
     /// How long the diagnostic watches before it reports.
     private static let probeDelay = 3.5
     /// How long macOS gets to act on a hide before the fallback judges it.
@@ -169,9 +167,7 @@ final class AppBlockEnforcer {
         guard !sweepQueue.isEmpty else { return hidePending() }
         sweeping = sweepQueue.removeFirst()
         sweepAttempt = 0
-        // Straight in, no scheduling round trip: the first step is where the
-        // cheap route is tried, and it costs nothing to try it now.
-        sweepStep()
+        scheduleSweepStep()
     }
 
     private func scheduleSweepStep() {
@@ -192,14 +188,7 @@ final class AppBlockEnforcer {
         sweepAttempt += 1
 
         guard isFrontmost(app) else {
-            // Some apps *do* answer Accessibility while inactive. For those
-            // the whole Space switch is unnecessary, so it is always tried
-            // first — one round trip against a 0.25 s timeout.
-            if AccessibilityAccess.exitFullscreen(pid: app.processIdentifier) {
-                return scheduleSweepStep()
-            }
-            // The rest have to be brought forward; the switch takes a moment,
-            // so keep asking until it lands.
+            // The Space switch takes a moment; keep asking until it lands.
             app.activate()
             return scheduleSweepStep()
         }
