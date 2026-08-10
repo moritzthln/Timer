@@ -9,20 +9,15 @@ import TimerCore
 /// is consulted per event/poll, so a mid-session mode change applies
 /// naturally on the next event.
 ///
-/// v18 makes it fullscreen-proof: every app event runs through
-/// `AppBlockEnforcer`'s escalation ladder instead of a single `hide()`, and
-/// the 2 s poll re-checks the frontmost app — the only way to catch an app
-/// the user pushed back into fullscreen or a Space switch, neither of which
-/// posts a workspace notification. v21 gave that ladder the Space escape, so
-/// the poll is also what catches a ⌘-Tab back into the blocked app: within
-/// ~2 s the escape pulls the screen away from it again.
+/// v25 makes it stubborn: every app event hands the app to
+/// `AppBlockEnforcer`, whose loop repeats every technique until the app is out
+/// of sight, and the 1 s poll re-arms that loop for every blocked app that is
+/// still visible. Fullscreen re-entry and Space switches post no workspace
+/// notification, so the poll is the only thing that catches them.
 ///
-/// v22 gives blocked *websites* the same two-stage treatment the apps got:
-/// blocked tabs are switched away as soon as they are seen (v23.1: the
-/// area only, chrome untouched) and switched away only after ~10 s of the user
-/// staying. Arbitration with the app ladder is one rule — an app cover on
-/// cover windows were removed on user request) and
-/// in `BlockCoverController`, which owns the single window and its mode.
+/// Blocked websites are handled in the same spirit: the tab stays open while
+/// the browser switches away from it. The v22 site cover and the v16 popup are
+/// both gone — v25 wants the block to pass unnoticed, not to announce itself.
 ///
 /// v24 adds the emergency branch on top: while an emergency session runs,
 /// both arms follow the emergency lists with allowlist semantics — regardless
@@ -31,12 +26,9 @@ import TimerCore
 /// consult.
 final class FocusBlockController {
     private let preferences: Preferences
-    private let overlay: BlockOverlayController
-    /// v18: runs the escalation ladder (hide → un-fullscreen + hide →
-    /// v21 Space escape → cover overlay) and owns the restore record.
-    private let enforcer: AppBlockEnforcer
-    /// Live remaining session seconds, read at popup display moments.
-    private let remainingSeconds: () -> Int
+    /// v25: runs the insisting block loop (shortcut out of fullscreen, hide,
+    /// minimise — repeated until the app is gone) and owns the restore record.
+    private let enforcer = AppBlockEnforcer()
     /// v24: whether an emergency session runs right now — read live per event
     /// and per poll, exactly like the block mode, so starting or ending one
     /// mid-session applies on the next event.
@@ -56,18 +48,9 @@ final class FocusBlockController {
     private var tabSwitchUnsupported: Set<String> = []
 
 
-    init(
-        preferences: Preferences,
-        overlay: BlockOverlayController,
-        remainingSeconds: @escaping () -> Int
-    ) {
+    init(preferences: Preferences) {
         self.preferences = preferences
-        self.overlay = overlay
-        self.remainingSeconds = remainingSeconds
-        enforcer = AppBlockEnforcer(
-            popup: overlay, remainingSeconds: remainingSeconds
-        )
-        // Delayed ladder steps stop as soon as the block is off.
+        // Delayed loop attempts stop as soon as the block is off.
         enforcer.isActive = { [weak self] in self?.active ?? false }
     }
 
@@ -111,23 +94,19 @@ final class FocusBlockController {
 
     private func beginBlocking() {
         tabSwitchUnsupported = []
-        // Build the cover's view tree while nothing is urgent, so the
-        // first real block does not pay for it.
         sweepRunningApps()
         startWatching()
     }
 
     private func endBlocking() {
         stopWatching()
-        // Takes both covers with it — see `restoreBlockedApps()`.
         restoreBlockedApps()
     }
 
-    /// Undoes everything the block did: every app it hid is unhidden and any
-    /// cover overlay comes down — the v21 app cover and the v22 site cover
-    /// alike, since `restore()` clears the window whatever it shows. Runs on
-    /// every block deactivation and on app quit (prepareForTermination). Apps
-    /// the user hid manually were never recorded and stay untouched.
+    /// Undoes everything the block did: every app it hid is unhidden again.
+    /// Runs on every block deactivation and on app quit
+    /// (prepareForTermination). Apps the user hid manually were never recorded
+    /// and stay untouched.
     func restoreBlockedApps() {
         enforcer.restore()
     }
@@ -208,25 +187,20 @@ final class FocusBlockController {
     /// matters because hidden apps keep running: clicking one in the Dock
     /// unhides it without a launch event, so it must be hidden again.
     private func handleLaunchOrActivate(_ app: NSRunningApplication) {
-        // v22: leaving the covered browser takes its site cover along right
-        // away instead of at the next poll. The Timer coming forward is not
-        guard let name = blockTarget(app) else {
-            // Something harmless came forward, so whatever the ladder covered
-            // is not frontmost anymore — the cover goes immediately instead
-            // of waiting for the next poll.
-            enforcer.releaseCover()
-            return
-        }
+        guard let name = blockTarget(app) else { return }
         enforcer.enforce(app: app, name: name)
     }
 
     private func startWatching() {
         launchObserver = workspaceObserver(for: NSWorkspace.didLaunchApplicationNotification)
         activateObserver = workspaceObserver(for: NSWorkspace.didActivateApplicationNotification)
-        pollTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+        // v25: 1 s instead of 2. The poll is what makes the block relentless —
+        // it re-arms the loop for every app that is still visible — so it ticks
+        // at the rate at which the user should stop noticing the block at all.
+        pollTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.poll()
         }
-        pollTimer?.tolerance = 0.5 // v8 energy audit
+        pollTimer?.tolerance = 0.2
         RunLoop.main.add(pollTimer!, forMode: .common)
     }
 
@@ -253,140 +227,68 @@ final class FocusBlockController {
 
     // MARK: - Safety poll
 
-    /// The 2 s poll, v18: the frontmost app is re-checked before the
-    /// browsers. Fullscreen re-entry and Space switches fire no reliable
-    /// workspace notification, so this tick is the only thing that catches
-    /// them — and it is what makes the block relentless instead of
-    /// one-shot. Both arms read the mode per tick.
+    /// The 1 s poll. v18 re-checked only the frontmost app, because fullscreen
+    /// re-entry and Space switches post no workspace notification. That left a
+    /// hole the user ran into (report: "nicht alle Apps werden aus Vollbild
+    /// geholt und gehidet"): a blocked app that is not in front — on its own
+    /// fullscreen Space, or simply behind something — got exactly one burst at
+    /// activation time and was never looked at again. v25 sweeps *all* of
+    /// them every tick; the enforcer ignores apps whose loop is still running
+    /// and apps that are already out of sight, so a clean tick costs one
+    /// array walk. Both arms read the mode per tick.
     private func poll() {
         guard active else { return }
-        enforceFrontmostApp()
+        sweepRunningApps()
         pollBrowsers()
-    }
-
-    /// Runs whatever is in front right now through the escalation ladder
-    /// again if the active mode blocks it. Every ladder rung is idempotent,
-    /// so re-running costs nothing while the app stays hidden. Anything
-    /// harmless in front means no cover is warranted.
-    private func enforceFrontmostApp() {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return }
-        if let name = blockTarget(app) {
-            enforcer.enforce(app: app, name: name)
-        } else {
-            enforcer.releaseCover()
-        }
     }
 
     // MARK: - Browsers
 
     private func pollBrowsers() {
-        let frontmost = NSWorkspace.shared.frontmostApplication
-        // A site cover whose browser is gone (quit, or the user left for a
-        // non-browser app) has nobody left to check it; the per-browser path
-        // below only sees browsers that are still running.
-        if !isSelf(frontmost),
-           BrowserScripting.browser(forBundleID: frontmost?.bundleIdentifier) == nil {
-            dropSiteCover()
-        }
         // v24: the emergency domains are an allowlist too, and they outrank
         // whatever the shield would do.
         if emergencyActive() {
-            pollBrowsersAllowlist(frontmost: frontmost, domains: preferences.emergencyDomains)
+            pollBrowsersAllowlist(domains: preferences.emergencyDomains)
             return
         }
         switch preferences.blockMode {
         case .blocklist:
-            pollBrowsersBlocklist(frontmost: frontmost)
+            pollBrowsersBlocklist()
         case .allowlist:
-            pollBrowsersAllowlist(frontmost: frontmost, domains: preferences.allowedDomains)
+            pollBrowsersAllowlist(domains: preferences.allowedDomains)
         }
     }
 
-    private func pollBrowsersBlocklist(frontmost: NSRunningApplication?) {
+    private func pollBrowsersBlocklist() {
         let domains = preferences.blockedDomains
-        guard !domains.isEmpty else { dropSiteCover(); return }
+        guard !domains.isEmpty else { return }
         let blocked: (String?) -> Bool = { host in
             guard let host else { return false }
             return domains.contains { FocusBlockRules.domainMatches(host: host, entry: $0) }
         }
         for browser in runningSupportedBrowsers() {
             guard let urlString = BrowserScripting.run(browser.readURL),
-                  let host = FocusBlockRules.blockableHost(urlString: urlString) else { continue }
-            // The configured entry, not the raw host: it is what the popup and
-            // the cover show, and it keeps one clock across a site's
-            // subdomains.
-            let matched = domains.first { FocusBlockRules.domainMatches(host: host, entry: $0) }
-            handleTab(
-                browser: browser, hit: matched, frontmost: frontmost, neighborBlocked: blocked
-            )
+                  let host = FocusBlockRules.blockableHost(urlString: urlString),
+                  blocked(host) else { continue }
+            switchAway(in: browser, neighborBlocked: blocked)
         }
     }
 
     /// Allowlist tab arm, shared by the v15 mode and the v24 emergency. The
     /// empty-list guard keeps the AppleScript probes (and their permission
     /// prompts) away entirely while nothing can match.
-    private func pollBrowsersAllowlist(frontmost: NSRunningApplication?, domains: [String]) {
-        guard !domains.isEmpty else { dropSiteCover(); return }
+    private func pollBrowsersAllowlist(domains: [String]) {
+        guard !domains.isEmpty else { return }
+        let blocked: (String?) -> Bool = { host in
+            AllowlistRules.shouldCloseTab(host: host, allowedDomains: domains)
+        }
         for browser in runningSupportedBrowsers() {
             guard let urlString = BrowserScripting.run(browser.readURL) else { continue }
-            let host = FocusBlockRules.blockableHost(urlString: urlString)
             // A nil host (internal and new-tab pages) is never a hit — that
             // decision belongs to the pure rule, not here.
-            let hit = AllowlistRules.shouldCloseTab(host: host, allowedDomains: domains)
-                ? host : nil
-            handleTab(browser: browser, hit: hit, frontmost: frontmost) { neighborHost in
-                AllowlistRules.shouldCloseTab(host: neighborHost, allowedDomains: domains)
-            }
+            guard blocked(FocusBlockRules.blockableHost(urlString: urlString)) else { continue }
+            switchAway(in: browser, neighborBlocked: blocked)
         }
-    }
-
-    // MARK: - Site cover (v22)
-
-    /// One poll tick for one browser. `hit` is the blocked (blocklist) or
-    /// non-allowed (allowlist) host of its front window's active tab, nil when
-    /// the tab is fine.
-    ///
-    /// The cover is only earned by the browser the user is actually in; a
-    /// background browser's blocked tab is switched away immediately, exactly
-    /// as before v22. An app cover on screen outranks the site cover, so the
-    /// whole friendly rung stands back while one is up.
-    private func handleTab(
-        browser: BrowserScripting.Browser,
-        hit: String?,
-        frontmost: NSRunningApplication?,
-        neighborBlocked: (String?) -> Bool
-    ) {
-        guard let hit else { return }
-        switchAwayAndAnnounce(browser: browser, target: hit, neighborBlocked: neighborBlocked)
-    }
-
-    /// The frame the cover may occupy inside this browser's front window, or
-
-    /// Whether this browser counts as the one in front. The Timer itself
-    /// counts as the covered browser: clicking the cover activates the Timer
-    /// (the click has to land somewhere), and that must not read as the user
-    /// having left — the clock keeps running instead.
-    private func isCoverFront(
-        _ browser: BrowserScripting.Browser, frontmost: NSRunningApplication?
-    ) -> Bool {
-        if frontmost?.bundleIdentifier == browser.bundleID { return true }
-        return false
-    }
-
-    private func isSelf(_ app: NSRunningApplication?) -> Bool {
-        app?.processIdentifier == NSRunningApplication.current.processIdentifier
-    }
-
-    /// v23.1: the site cover is gone (user: "Sperrfenster weg"); blocked tabs
-    /// are switched away right when they are seen.
-    private func dropSiteCover() {}
-
-    /// The v16 escalation: switch the tab away and say so in the toast.
-    private func switchAwayAndAnnounce(
-        browser: BrowserScripting.Browser, target: String, neighborBlocked: (String?) -> Bool
-    ) {
-        switchAway(in: browser, neighborBlocked: neighborBlocked)
-        overlay.show(target: target, remainingSeconds: remainingSeconds())
     }
 
     /// v16 gentle tab blocking: the blocked tab stays open in the background

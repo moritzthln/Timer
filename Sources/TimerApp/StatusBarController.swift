@@ -12,7 +12,6 @@ final class StatusBarController {
     private let floatingController: FloatingPanelController
     private let settingsController: SettingsWindowController
     private let stats = StatsStore()
-    private let overlay = BlockOverlayController()
     private let focusBlock: FocusBlockController
     private let focusMode: FocusModeController
     /// v24: the emergency session and its one-second ticker.
@@ -35,11 +34,7 @@ final class StatusBarController {
         focusMode = FocusModeController(preferences: preferences)
         emergency = EmergencyController(preferences: preferences)
         settingsController = SettingsWindowController(preferences: preferences, focusMode: focusMode)
-        focusBlock = FocusBlockController(
-            preferences: preferences, overlay: overlay,
-            // v16: the popup shows the live remaining time at display moment.
-            remainingSeconds: { [weak engine] in engine?.remainingSeconds ?? 0 }
-        )
+        focusBlock = FocusBlockController(preferences: preferences)
         statsWindow = StatsWindowController(
             stats: stats, activity: activityStore, focusLog: focusLog,
             liveFocusStart: { [weak engine] in engine?.activeFocusStart },

@@ -1,15 +1,14 @@
 import AppKit
 import ApplicationServices
 
-/// v18 Accessibility bridge — the second rung of the block escalation ladder.
-/// Apps in native macOS fullscreen ignore `NSRunningApplication.hide()`; the
-/// only way to get them out without killing anything is to flip their
-/// windows' `AXFullScreen` attribute, which needs the Accessibility
-/// permission.
+/// Accessibility bridge of the block. Apps in native macOS fullscreen ignore
+/// `NSRunningApplication.hide()`; the only way to get them out without killing
+/// anything is to flip their windows' `AXFullScreen` attribute — or, as a last
+/// resort, to minimise them. Both need the Accessibility permission.
 ///
 /// The permission is requested **lazily**: never at launch, only the first
-/// time the ladder actually reaches step 2 — and at most once per app run,
-/// so a denied permission never turns into a prompt loop.
+/// time the block actually runs — and at most once per app run, so a denied
+/// permission never turns into a prompt loop.
 enum AccessibilityAccess {
     /// Live, never-prompting read — the status source for Settings → Rechte.
     static var isTrusted: Bool { AXIsProcessTrusted() }
@@ -21,10 +20,24 @@ enum AccessibilityAccess {
     /// True once the macOS prompt was shown in this app run.
     private static var didPrompt = false
 
+    /// How long an app gets to answer an AX request. The default is six
+    /// seconds — and every one of them would be spent blocking the main
+    /// thread, which since v25 asks several times a second. A hung app is
+    /// exactly the kind that also refuses to hide, so waiting for it would
+    /// freeze the Timer on the worst possible occasion.
+    private static let messagingTimeout: Float = 0.25
+
+    /// An app element that answers quickly or not at all.
+    private static func element(pid: pid_t) -> AXUIElement {
+        let application = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(application, messagingTimeout)
+        return application
+    }
+
     /// Returns whether the app may drive other apps, prompting once if it
     /// may not. Already-trusted callers never see a prompt; a user who
-    /// declines is asked at most once per app run (the ladder then simply
-    /// skips step 2 and covers the app instead).
+    /// declines is asked at most once per app run (the loop then makes do
+    /// with hiding and the keyboard shortcut).
     static func requestIfNeeded() -> Bool {
         if isTrusted { return true }
         guard !didPrompt else { return false }
@@ -38,10 +51,10 @@ enum AccessibilityAccess {
     /// Pulls every fullscreen window of the given process out of fullscreen.
     /// Returns whether at least one window was changed; any missing
     /// permission, unscriptable app, or attribute error simply yields false
-    /// (the caller escalates to the cover overlay).
+    /// (the loop keeps trying its other techniques).
     @discardableResult
     static func exitFullscreen(pid: pid_t) -> Bool {
-        let application = AXUIElementCreateApplication(pid)
+        let application = element(pid: pid)
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
             application, kAXWindowsAttribute as CFString, &value
@@ -63,7 +76,7 @@ enum AccessibilityAccess {
     /// exactly the state they were in.
     @discardableResult
     static func minimizeWindows(pid: pid_t) -> Bool {
-        let application = AXUIElementCreateApplication(pid)
+        let application = element(pid: pid)
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
             application, kAXWindowsAttribute as CFString, &value
@@ -88,11 +101,11 @@ enum AccessibilityAccess {
     }
 
     /// True when any of the app's windows is in native fullscreen. A cheap
-    /// read (no write, no prompt) that lets the block skip the rungs which
-    /// cannot work there — hide() is refused for fullscreen apps and Catalyst
-    /// or Electron windows reject the AXFullScreen write.
+    /// read (no write, no prompt) that tells the loop whether the keyboard
+    /// shortcut is warranted — sending it to a windowed app would toggle it
+    /// *into* fullscreen.
     static func isAppFullscreen(pid: pid_t) -> Bool {
-        let application = AXUIElementCreateApplication(pid)
+        let application = element(pid: pid)
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
             application, kAXWindowsAttribute as CFString, &value

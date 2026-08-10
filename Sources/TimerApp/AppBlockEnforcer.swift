@@ -1,99 +1,74 @@
 import AppKit
 import TimerCore
 
-/// v18: runs the `BlockEscalation` ladder for one app and owns everything the
-/// ladder touches — the v16 popup, the hidden-apps restore record, the
-/// Accessibility un-fullscreen, the v21 Space escape, and the minimise fallback.
+/// v25: keeps one blocked app out of sight. Where v18–v21 climbed a ladder —
+/// one technique per rung, one verification, then out of ideas — this insists:
+/// a 0.2 s loop repeats every applicable technique (`BlockAttempt`) until the
+/// app is actually gone, and `FocusBlockController`'s poll re-arms it for as
+/// long as it is not. Nothing is destroyed; the app is hidden, minimised, or
+/// pulled out of its fullscreen Space, and everything the enforcer hid is
+/// unhidden again when the block ends.
 ///
-/// Every rung verifies instead of assuming: `hide()` reports success even for
-/// fullscreen apps that stay right where they are, so the enforcer re-reads
-/// `isHidden` a moment later and escalates if the app is still visible.
+/// v25 also drops the "Fokus läuft · noch MM:SS" popup: it announced what the
+/// user could see anyway and got in the way of the block being unnoticeable.
 final class AppBlockEnforcer {
-    /// How long macOS gets to actually hide an app before the ladder judges
-    /// the attempt. Measured on this machine (Calculator, 6 runs): the
-    /// isHidden flag flips after 26–40 ms, median 32. 80 ms keeps double the
-    /// margin over the worst sample and still reads as instant.
-    private static let verifyDelay = 0.08
-    /// The same after the fullscreen escape — deliberately *longer* than the
-    /// hide check: control-command-F starts macOS's fullscreen-exit animation
-    /// (~0.5–0.7 s) and a retry that lands mid-animation reports "still
-    /// visible", which would escalate to minimising windows that were about to
-    /// come back anyway. Invisible to the user: the effective key event has
-    /// already fired, this only times the check.
-    private static let escapeVerifyDelay = 0.75
-    /// v21: one Space escape per app per 3 s. Deliberately short — a longer
-    /// window would hand the user a comfortable stay inside the distraction.
-    private static let escapeInterval = 3.0
-    /// How long after an escape the poll must keep its hands off the cover:
-    /// right after activating, *we* are the frontmost app, which would
-    /// otherwise read as "something harmless came forward" and undo the
-    /// escape before its retry-hide even ran.
-    private static let escapeCoverGrace = 1.5
-    /// v23.2: after any intervention the enforcer keeps checking that the app
-    /// really went away. macOS swallows a hide() that lands inside the
-    /// fullscreen-exit animation, and a single check left the app sitting
-    /// there until the next poll — or forever, if it was no longer frontmost.
-    /// Leaving fullscreen is retried as well, not just hiding: a single
-    /// shortcut can land mid-animation and be swallowed.
-    private static let fullscreenInterval = 0.4
-    private static let fullscreenAttempts = 8       // ~3.2 s of insisting
-    private static let ensureInterval = 0.3
-    private static let ensureAttempts = 12          // ~3.6 s of insistence
-    /// From this attempt on, minimising joins the hide attempts.
-    private static let ensureMinimizeFrom = 2
+    /// Between two attempts. Short enough that a hide landing on the second
+    /// try still feels instant, long enough for macOS to have acted on the
+    /// first.
+    private static let interval = 0.2
+    /// One burst, ~6 s. The poll re-arms a still-visible app right after, so
+    /// this is a breather, not a surrender.
+    private static let attempts = 30
+    /// The diagnostic gets a shorter budget — it has to report something.
+    private static let probeAttempts = 15
+    /// One exit-fullscreen shortcut per app per 0.7 s: macOS's fullscreen-exit
+    /// animation runs about half a second, and a shortcut landing inside it
+    /// would put the app straight back in.
+    private static let keyEventInterval = 0.7
 
-    /// How long the cover of a diagnostic run stays up after its report.
-    private static let probeCoverLinger = 1.2
-
-    private let popup: BlockOverlayController
-    private let remainingSeconds: () -> Int
     private var hiddenApps = HiddenAppsRecord()
-    /// When each app was last pulled out of its Space (throttle memory).
-    private var lastEscape: [String: Date] = [:]
-    /// When the most recent escape of any app happened (cover grace).
-    private var lastEscapeAt: Date?
-    /// Non-nil while a diagnostic run is in flight: who is being probed, the
-    /// rungs it took, and where to report. Keyed by pid because a real
-    /// session may keep enforcing other apps at the same time — their rungs
-    /// must not end up in the diagnostic's log.
+    /// Apps with a loop in flight, so the 1 s poll never stacks a second one
+    /// on top of a burst that is still running.
+    private var running: Set<pid_t> = []
+    /// When each app last received a keyboard shortcut (the throttle memory).
+    private var lastKeyEvent: [pid_t: Date] = [:]
+
+    /// Non-nil while a diagnostic run is in flight: who is being probed, what
+    /// fired, and where to report. Keyed by pid because a real session may
+    /// keep enforcing other apps at the same time.
     private var probeReport: ((ProbeOutcome) -> Void)?
     private var probeTarget: pid_t?
-    private var probeActions: [BlockEscalation.Action] = []
+    private var probeFired: BlockPlan?
 
-    /// Whether the block is still active — delayed ladder steps drop out
-    /// when the session ended, paused, or the shield went off meanwhile.
+    /// Whether the block is still active — a loop drops out as soon as the
+    /// session ended, paused, or the shield went off.
     var isActive: () -> Bool = { true }
 
-    init(
-        popup: BlockOverlayController,
-        remainingSeconds: @escaping () -> Int
-    ) {
-        self.popup = popup
-        self.remainingSeconds = remainingSeconds
-    }
-
-    /// What a v21 diagnostic run ended up doing. The wording is the one the
-    /// "Rechte" tab prints, so the mapping stays next to the ladder that
-    /// produces it.
+    /// What a diagnostic run ended up doing. The wording is what the "Rechte"
+    /// tab prints, so it stays next to the loop that produces it.
     enum ProbeOutcome: String {
         case noAction = "kein Eingriff nötig"
         case hidden = "versteckt"
         case unfullscreened = "aus Vollbild geholt"
         case spaceSwitched = "Space gewechselt"
-        case covered = "minimiert"
+        case minimized = "minimiert"
+        case failed = "ließ sich nicht ausblenden"
     }
 
     /// Entry point for every block event (sweep, launch, activation, poll).
+    /// Starting a loop for an app that already has one is a no-op — it is
+    /// already insisting.
     func enforce(app: NSRunningApplication, name: String) {
-        run(step: .start, app: app, name: name)
+        let pid = app.processIdentifier
+        guard !running.contains(pid) else { return }
+        guard isVisible(app) else { return }
+        running.insert(pid)
+        insist(app: app, attempt: 0)
     }
 
-    /// v21 "Vollbild-Block testen": the very same ladder, run once against
-    /// one app, ignoring both block lists and the session state — the point
-    /// is to see the real chain, not a simulation. Delayed rungs normally
-    /// stop at `isActive()`; while probing they keep going, the escape
-    /// ignores its throttle, and the cover is taken down afterwards because
-    /// a diagnostic must not leave a black screen behind.
+    /// "Vollbild-Block testen" in the Rechte tab: the very same loop against
+    /// one app, ignoring both block lists and the session state — the point is
+    /// to see the real mechanism, not a simulation.
     func probe(
         app: NSRunningApplication, name: String,
         report: @escaping (ProbeOutcome) -> Void
@@ -101,26 +76,21 @@ final class AppBlockEnforcer {
         guard probeReport == nil else { return }
         probeReport = report
         probeTarget = app.processIdentifier
-        probeActions = []
-        run(step: .start, app: app, name: name)
+        probeFired = BlockPlan()
+        guard !running.contains(app.processIdentifier) else {
+            finishProbe(app: app)
+            return
+        }
+        running.insert(app.processIdentifier)
+        insist(app: app, attempt: 0)
     }
 
-    /// Undoes every intervention: the cover comes down and everything the
-    /// block hid is unhidden. Runs on block deactivation and on app quit.
+    /// Undoes every intervention: everything the block hid is unhidden. Runs
+    /// on block deactivation and on app quit.
     func restore() {
-        lastEscape = [:]
-        lastEscapeAt = nil
+        lastKeyEvent = [:]
         restoreHiddenApps()
     }
-
-    /// Takes the cover down because the covered app is no longer frontmost —
-    /// unless a Space escape just put it there (see `escapeCoverGrace`).
-    /// Scoped to app covers since v22: "something harmless is in front" is the
-    /// normal state of a covered browser tab, and the site cover owns that
-    /// case itself.
-    /// v23.1: nothing to release any more — the cover window is gone. Kept as
-    /// a no-op so the poll's call site stays readable.
-    func releaseCover() {}
 
     /// Unhides every app this enforcer hid and clears the record. Apps the
     /// user hid manually were never recorded and stay untouched.
@@ -134,138 +104,62 @@ final class AppBlockEnforcer {
         }
     }
 
-    // MARK: - Ladder
+    // MARK: - The loop
 
-    private func run(step: BlockEscalation.Step, app: NSRunningApplication, name: String) {
-        // Fullscreen fast path: hide() is always refused there and the
-        // AXFullScreen write is rejected by Catalyst/Electron apps, so the two
-        // first rungs only burn ~0.4 s before the one that works. Jump
-        // straight to the key-event escape — the user should not perceive the
-        // mechanism at all, only that the app is gone.
-        if step == .start, isFrontmost(app), AccessibilityAccess.isAppFullscreen(
-            pid: app.processIdentifier
-        ) {
-            escape(app: app, name: name)
-            verify(after: .spaceEscape, app: app, name: name)
-            return
-        }
-        let visible = isVisible(app)
+    /// One attempt, then the next — until the app is out of sight, the budget
+    /// runs out, or the block ends. Every technique is idempotent, so a
+    /// repeated attempt costs nothing but a system call.
+    private func insist(app: NSRunningApplication, attempt: Int) {
         let probing = isProbing(app)
-        let action = BlockEscalation.next(
-            step: step, appVisible: visible, appFrontmost: isFrontmost(app),
-            accessibilityGranted: accessibilityGranted(atStep: step, visible: visible),
-            escapeAllowed: probing || escapeAllowed(app)
+        guard isActive() || probing else { return finish(app) }
+        let budget = probing ? Self.probeAttempts : Self.attempts
+
+        let plan = BlockAttempt.plan(
+            attempt: attempt,
+            visible: isVisible(app),
+            frontmost: isFrontmost(app),
+            fullscreen: AccessibilityAccess.isAppFullscreen(pid: app.processIdentifier),
+            accessibilityGranted: accessibilityGranted(attempt: attempt),
+            keyEventAllowed: keyEventAllowed(app)
         )
-        if probing { probeActions.append(action) }
-        switch action {
-        case .hide:
-            hideAndRecord(app)
-            announce(name)
-            verify(after: action, app: app, name: name)
-        case .unfullscreenThenHide:
-            AccessibilityAccess.exitFullscreen(pid: app.processIdentifier)
-            hideAndRecord(app)
-            verify(after: action, app: app, name: name)
-        case .spaceEscape:
-            escape(app: app, name: name)
-            // The fullscreen animation is precisely when a hide() gets
-            // swallowed, so the insisting chain starts right after it instead
-            // of relying on the single verify below.
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.escapeVerifyDelay) {
-                [weak self] in self?.ensureGone(app: app, attempt: 0)
-            }
-            // The ladder retries the hide right after the switch: an app that
-            // no longer holds the screen usually accepts it, and then the
-            // cover comes down on its own (`.done`).
-            verify(after: action, app: app, name: name)
-        case .overlay:
-            // v23.1: the cover window is gone (user: "Sperrfenster weg") —
-            // hiding, then minimising, is the last resort. v23.2: keep at it
-            // until the app is actually gone.
-            announce(name)
-            ensureGone(app: app, attempt: 0)
-        case .done:
-            break
-        }
-        // Both are terminal rungs: nothing verifies after them, so a probe
-        // has seen everything it is going to see.
-        if probing, action == .overlay || action == .done {
-            finishProbe(app: app)
+        guard !plan.stop, attempt < budget else { return finish(app) }
+        perform(plan, on: app)
+        if probing { probeFired = probeFired.map { merge($0, plan) } }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.interval) { [weak self] in
+            self?.insist(app: app, attempt: attempt + 1)
         }
     }
 
-    /// v21 rung 3: the cover goes up on the Timer's own Space first, then the
-    /// app activates and makes it key. That is the whole trick — macOS moves
-    /// the user to wherever the activated app's key window lives, which is
-    /// anywhere but the blocked app's fullscreen Space.
-    private func escape(app: NSRunningApplication, name: String) {
-        // macOS 14+ ignores the deprecated activate(ignoringOtherApps:) under
-        // cooperative activation, so the v21 escape alone left fullscreen apps
-        // untouched. Synthetic ⌃⌘F goes through the target app's own menu
-        // handling and works where AXFullScreen writes are rejected; ⌃← then
-        // moves off the Space for the rare app that ignores ⌃⌘F.
-        announce(name)
-        ensureOutOfFullscreen(app: app, attempt: 0)
-        let now = Date()
-        lastEscape[Self.escapeKey(app)] = now
-        lastEscapeAt = now
+    private func perform(_ plan: BlockPlan, on app: NSRunningApplication) {
+        let pid = app.processIdentifier
+        // Keyboard first: it is the slowest to take effect, and while the app
+        // still owns a fullscreen Space every other technique is refused.
+        if plan.sendExitFullscreenKey {
+            FullscreenExit.sendExitFullscreen()
+            lastKeyEvent[pid] = Date()
+        }
+        if plan.sendSpaceLeftKey { FullscreenExit.sendSpaceLeft() }
+        if plan.exitFullscreenViaAX { _ = AccessibilityAccess.exitFullscreen(pid: pid) }
+        if plan.hide { hideAndRecord(app) }
+        if plan.minimize { _ = AccessibilityAccess.minimizeWindows(pid: pid) }
     }
 
-    /// Keeps sending the exit-fullscreen shortcut until the app has actually
-    /// left fullscreen, then hands over to `ensureGone`. One shot was not
-    /// enough (user report: the block sometimes did nothing) — a key event that
-    /// lands while the app is animating or busy is simply swallowed. From the
-    /// second attempt the Space-left shortcut joins in, for apps that ignore
-    /// control-command-F entirely.
-    private func ensureOutOfFullscreen(app: NSRunningApplication, attempt: Int) {
-        guard isActive() || isProbing(app) else { return }
-        // No longer in front, already out of fullscreen, or out of attempts:
-        // hiding takes over from here.
-        guard app.isActive,
-              AccessibilityAccess.isAppFullscreen(pid: app.processIdentifier),
-              attempt < Self.fullscreenAttempts else {
-            ensureGone(app: app, attempt: 0)
-            return
-        }
-        FullscreenExit.sendExitFullscreen()
-        if attempt >= 1 { FullscreenExit.sendSpaceLeft() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.fullscreenInterval) { [weak self] in
-            self?.ensureOutOfFullscreen(app: app, attempt: attempt + 1)
-        }
+    /// Clears the in-flight marker and reports a diagnostic if this was one.
+    private func finish(_ app: NSRunningApplication) {
+        running.remove(app.processIdentifier)
+        if isProbing(app) { finishProbe(app: app) }
     }
 
-
-    /// Repeats hide (and, from the second attempt, minimise) until the app is
-    /// out of sight — or the budget runs out. Every attempt re-checks first,
-    /// so a successful hide stops the chain immediately; a block that ended
-    /// meanwhile stops it too.
-    private func ensureGone(app: NSRunningApplication, attempt: Int) {
-        guard isActive() || isProbing(app) else { return }
-        guard isVisible(app) else { return }
-        guard attempt < Self.ensureAttempts else { return }
-
-        hideAndRecord(app)
-        if attempt >= Self.ensureMinimizeFrom {
-            AccessibilityAccess.minimizeWindows(pid: app.processIdentifier)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.ensureInterval) { [weak self] in
-            self?.ensureGone(app: app, attempt: attempt + 1)
-        }
-    }
-
-    /// Re-runs the ladder once macOS had its moment, unless the block ended
-    /// in the meantime. The escape gets a longer moment than the hides: its
-    /// Space switch is an animation, and the retry-hide should land after it
-    /// rather than into it.
-    private func verify(
-        after action: BlockEscalation.Action, app: NSRunningApplication, name: String
-    ) {
-        let next = BlockEscalation.Step.after(action)
-        let delay = action == .spaceEscape ? Self.escapeVerifyDelay : Self.verifyDelay
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            guard let self, self.isActive() || self.isProbing(app) else { return }
-            self.run(step: next, app: app, name: name)
-        }
+    /// Merges what a further attempt did into what the diagnostic has seen.
+    private func merge(_ seen: BlockPlan, _ plan: BlockPlan) -> BlockPlan {
+        var merged = seen
+        merged.exitFullscreenViaAX = seen.exitFullscreenViaAX || plan.exitFullscreenViaAX
+        merged.hide = seen.hide || plan.hide
+        merged.minimize = seen.minimize || plan.minimize
+        merged.sendExitFullscreenKey = seen.sendExitFullscreenKey || plan.sendExitFullscreenKey
+        merged.sendSpaceLeftKey = seen.sendSpaceLeftKey || plan.sendSpaceLeftKey
+        return merged
     }
 
     // MARK: - Diagnostics
@@ -278,74 +172,52 @@ final class AppBlockEnforcer {
     /// Reports the run and clears the stage again.
     private func finishProbe(app: NSRunningApplication) {
         guard let report = probeReport else { return }
-        let outcome = Self.probeOutcome(actions: probeActions, visible: isVisible(app))
+        let outcome = Self.probeOutcome(fired: probeFired ?? BlockPlan(), visible: isVisible(app))
         probeReport = nil
         probeTarget = nil
-        probeActions = []
+        probeFired = nil
         report(outcome)
-        // Unless a real session owns the cover by now, it comes down after a
-        // moment on screen — long enough to be seen, short enough to not
-        // strand the user behind a black rectangle.
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.probeCoverLinger) { [weak self] in
-            guard let self, !self.isActive() else { return }
-        }
     }
 
-    /// The strongest thing that actually happened wins: an app the ladder
-    /// never had to touch reports nothing, an escape outranks the hides that
-    /// came before it, and a still-visible app means the cover is all there
-    /// was.
-    private static func probeOutcome(
-        actions: [BlockEscalation.Action], visible: Bool
-    ) -> ProbeOutcome {
-        if actions.first == .done { return .noAction }
-        if actions.contains(.spaceEscape) { return .spaceSwitched }
-        guard !visible else { return .covered }
-        return actions.contains(.unfullscreenThenHide) ? .unfullscreened : .hidden
+    /// The strongest thing that actually happened wins — and an app that is
+    /// still on screen after the whole loop says so plainly instead of
+    /// claiming a success.
+    private static func probeOutcome(fired: BlockPlan, visible: Bool) -> ProbeOutcome {
+        guard !visible else { return fired.isEmpty ? .noAction : .failed }
+        if fired.isEmpty { return .noAction }
+        if fired.sendSpaceLeftKey { return .spaceSwitched }
+        if fired.sendExitFullscreenKey || fired.exitFullscreenViaAX { return .unfullscreened }
+        return fired.minimize ? .minimized : .hidden
     }
 
-    /// The permission is only ever asked for where the ladder would need it —
-    /// at step 2, on a still-visible app. Every other rung's decision is
-    /// independent of it, so no check (and no prompt) happens there.
-    private func accessibilityGranted(
-        atStep step: BlockEscalation.Step, visible: Bool
-    ) -> Bool {
-        guard visible, step == .hideTried else { return false }
-        return AccessibilityAccess.requestIfNeeded()
+    // MARK: - State
+
+    /// The permission is asked for once, on the first attempt of a loop that
+    /// is actually doing something — every later attempt reads the answer.
+    private func accessibilityGranted(attempt: Int) -> Bool {
+        attempt == 0 ? AccessibilityAccess.requestIfNeeded() : AccessibilityAccess.isTrusted
     }
 
     private func isVisible(_ app: NSRunningApplication) -> Bool {
         !app.isTerminated && !app.isHidden
     }
 
-    /// The escape only makes sense while the app still owns the screen; once
-    /// the user left on his own, a Space switch would be the intrusion.
+    /// Keyboard shortcuts always land in the frontmost app, so only that one
+    /// may be sent any.
     private func isFrontmost(_ app: NSRunningApplication) -> Bool {
         NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
     }
 
-    /// The 3 s throttle. Between two escapes the ladder keeps trying to hide
-    /// the app silently and falls back to the cover, so a user who ⌘-Tabs
-    /// straight back is not thrown around the Spaces twice per second.
-    private func escapeAllowed(_ app: NSRunningApplication) -> Bool {
-        guard let last = lastEscape[Self.escapeKey(app)] else { return true }
-        return Date().timeIntervalSince(last) >= Self.escapeInterval
-    }
-
-    /// Bundle id where there is one; unbundled helpers fall back to their pid.
-    private static func escapeKey(_ app: NSRunningApplication) -> String {
-        app.bundleIdentifier ?? "pid:\(app.processIdentifier)"
+    private func keyEventAllowed(_ app: NSRunningApplication) -> Bool {
+        guard let last = lastKeyEvent[app.processIdentifier] else { return true }
+        return Date().timeIntervalSince(last) >= Self.keyEventInterval
     }
 
     /// Gentle intervention: hide and remember what *we* hid, so restore never
-    /// touches anything this app did not hide itself. A refused hide is not
-    /// an error here — the ladder escalates on the verification instead.
+    /// touches anything this app did not hide itself. A refused hide is not an
+    /// error here — the loop simply comes back.
     private func hideAndRecord(_ app: NSRunningApplication) {
         guard !app.isHidden, app.hide(), let id = app.bundleIdentifier else { return }
         hiddenApps.add(id)
-    }
-
-    private func announce(_ name: String) {
-        popup.show(target: name, remainingSeconds: remainingSeconds())
     }
 }
