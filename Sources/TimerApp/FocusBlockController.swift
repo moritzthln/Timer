@@ -23,6 +23,12 @@ import TimerCore
 /// staying. Arbitration with the app ladder is one rule — an app cover on
 /// cover windows were removed on user request) and
 /// in `BlockCoverController`, which owns the single window and its mode.
+///
+/// v24 adds the emergency branch on top: while an emergency session runs,
+/// both arms follow the emergency lists with allowlist semantics — regardless
+/// of the shield, the block mode, and whether a timer runs at all. Nothing
+/// below changes for it; only which list `blockTarget` and the browser poll
+/// consult.
 final class FocusBlockController {
     private let preferences: Preferences
     private let overlay: BlockOverlayController
@@ -31,7 +37,16 @@ final class FocusBlockController {
     private let enforcer: AppBlockEnforcer
     /// Live remaining session seconds, read at popup display moments.
     private let remainingSeconds: () -> Int
+    /// v24: whether an emergency session runs right now — read live per event
+    /// and per poll, exactly like the block mode, so starting or ending one
+    /// mid-session applies on the next event.
+    var emergencyActive: () -> Bool = { false }
     private var active = false
+    /// The last phase the engine reported; the emergency reconciles against
+    /// it without the engine having to say anything.
+    private var lastPhase: TimerEngine.Phase = .idle
+    /// Whether the running block currently follows the emergency lists.
+    private var emergencyEngaged = false
     private var pollTimer: Foundation.Timer?
     private var launchObserver: NSObjectProtocol?
     private var activateObserver: NSObjectProtocol?
@@ -58,22 +73,54 @@ final class FocusBlockController {
 
     /// Reevaluates against the engine phase; idempotent.
     func update(phase: TimerEngine.Phase) {
-        let shouldBeActive = FocusBlockRules.isActive(
-            phase: phase, enabled: preferences.focusBlockEnabled
+        lastPhase = phase
+        reconcile()
+    }
+
+    /// v24: an emergency session started or ended. Same reconcile — the
+    /// emergency is just a second reason for the block to run.
+    func updateEmergency() {
+        reconcile()
+    }
+
+    /// The one place that decides whether the block runs and under which
+    /// rules. The emergency outranks everything: it blocks regardless of
+    /// `focusBlockEnabled`, of the block mode, and of whether a timer runs.
+    private func reconcile() {
+        let emergency = emergencyActive()
+        let emergencyChanged = emergency != emergencyEngaged
+        emergencyEngaged = emergency
+        let shouldBeActive = emergency || FocusBlockRules.isActive(
+            phase: lastPhase, enabled: preferences.focusBlockEnabled
         )
-        guard shouldBeActive != active else { return }
-        active = shouldBeActive
-        if active {
-            tabSwitchUnsupported = []
-            // Build the cover's view tree while nothing is urgent, so the
-            // first real block does not pay for it.
-            sweepRunningApps()
-            startWatching()
-        } else {
-            stopWatching()
-            // Takes both covers with it — see `restoreBlockedApps()`.
+        if shouldBeActive != active {
+            active = shouldBeActive
+            if active {
+                beginBlocking()
+            } else {
+                endBlocking()
+            }
+        } else if active, emergencyChanged {
+            // The authoritative list changed underneath a running block (an
+            // emergency started or ended while a focus session runs): undo
+            // what the old rules hid, then sweep with the new ones.
             restoreBlockedApps()
+            sweepRunningApps()
         }
+    }
+
+    private func beginBlocking() {
+        tabSwitchUnsupported = []
+        // Build the cover's view tree while nothing is urgent, so the
+        // first real block does not pay for it.
+        sweepRunningApps()
+        startWatching()
+    }
+
+    private func endBlocking() {
+        stopWatching()
+        // Takes both covers with it — see `restoreBlockedApps()`.
+        restoreBlockedApps()
     }
 
     /// Undoes everything the block did: every app it hid is unhidden and any
@@ -119,6 +166,10 @@ final class FocusBlockController {
     /// The active mode's block predicate, folded together with the name to
     /// display: non-nil means "this app must go away right now".
     private func blockTarget(_ app: NSRunningApplication) -> String? {
+        // v24: the emergency session takes precedence over shield and mode.
+        if emergencyActive() {
+            return allowlistTarget(app, allowed: preferences.emergencyApps)
+        }
         switch preferences.blockMode {
         case .blocklist:
             guard let id = app.bundleIdentifier,
@@ -126,25 +177,27 @@ final class FocusBlockController {
             else { return nil }
             return entry.name.isEmpty ? (app.localizedName ?? "App") : entry.name
         case .allowlist:
-            guard shouldHideInAllowlist(app) else { return nil }
-            return app.localizedName ?? "App"
+            return allowlistTarget(app, allowed: preferences.allowedApps)
         }
     }
 
-    /// Allowlist app arm: regular user apps only — the pure rule covers the
-    /// allowed set, the essential set, and the empty-list guard. The running
-    /// Timer binary is additionally protected via its live bundle ID (covers
-    /// dev builds whose ID differs from the packaged one).
-    private func shouldHideInAllowlist(_ app: NSRunningApplication) -> Bool {
-        guard app.activationPolicy == .regular, let id = app.bundleIdentifier else { return false }
+    /// Allowlist app arm, shared by the v15 mode and the v24 emergency:
+    /// regular user apps only — the pure rule covers the allowed set, the
+    /// essential set (Timer, Finder, System Settings, so settings and files
+    /// stay reachable), and the empty-list guard. The running Timer binary is
+    /// additionally protected via its live bundle ID (covers dev builds whose
+    /// ID differs from the packaged one).
+    private func allowlistTarget(
+        _ app: NSRunningApplication, allowed: [BlockedApp]
+    ) -> String? {
+        guard app.activationPolicy == .regular, let id = app.bundleIdentifier else { return nil }
         let essential = AllowlistRules.essentialBundleIDs.union(
             [Bundle.main.bundleIdentifier].compactMap { $0 }
         )
-        return AllowlistRules.shouldHide(
-            bundleID: id,
-            allowed: Set(preferences.allowedApps.map(\.bundleID)),
-            essential: essential
-        )
+        guard AllowlistRules.shouldHide(
+            bundleID: id, allowed: Set(allowed.map(\.bundleID)), essential: essential
+        ) else { return nil }
+        return app.localizedName ?? "App"
     }
 
     /// Launch/activation handler; reads the mode per event. Activation
@@ -231,9 +284,17 @@ final class FocusBlockController {
            BrowserScripting.browser(forBundleID: frontmost?.bundleIdentifier) == nil {
             dropSiteCover()
         }
+        // v24: the emergency domains are an allowlist too, and they outrank
+        // whatever the shield would do.
+        if emergencyActive() {
+            pollBrowsersAllowlist(frontmost: frontmost, domains: preferences.emergencyDomains)
+            return
+        }
         switch preferences.blockMode {
-        case .blocklist: pollBrowsersBlocklist(frontmost: frontmost)
-        case .allowlist: pollBrowsersAllowlist(frontmost: frontmost)
+        case .blocklist:
+            pollBrowsersBlocklist(frontmost: frontmost)
+        case .allowlist:
+            pollBrowsersAllowlist(frontmost: frontmost, domains: preferences.allowedDomains)
         }
     }
 
@@ -257,10 +318,10 @@ final class FocusBlockController {
         }
     }
 
-    /// Allowlist tab arm. The empty-list guard keeps the AppleScript probes
-    /// (and their permission prompts) away entirely while nothing can match.
-    private func pollBrowsersAllowlist(frontmost: NSRunningApplication?) {
-        let domains = preferences.allowedDomains
+    /// Allowlist tab arm, shared by the v15 mode and the v24 emergency. The
+    /// empty-list guard keeps the AppleScript probes (and their permission
+    /// prompts) away entirely while nothing can match.
+    private func pollBrowsersAllowlist(frontmost: NSRunningApplication?, domains: [String]) {
         guard !domains.isEmpty else { dropSiteCover(); return }
         for browser in runningSupportedBrowsers() {
             guard let urlString = BrowserScripting.run(browser.readURL) else { continue }

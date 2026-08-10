@@ -15,18 +15,25 @@ final class StatusBarController {
     private let overlay = BlockOverlayController()
     private let focusBlock: FocusBlockController
     private let focusMode: FocusModeController
+    /// v24: the emergency session and its one-second ticker.
+    private let emergency: EmergencyController
     private let statsWindow: StatsWindowController
     private let hotkeys = HotkeyManager()
     private let activityStore = ActivityStore(directory: ActivityStore.defaultDirectory())
     private let focusLog = FocusLog(directory: FocusLog.defaultDirectory())
     private var activityTracker: ActivityTrackerController?
     private var cancellable: AnyCancellable?
+    private var emergencyCancellable: AnyCancellable?
+    /// The emergency state the focus block was last told about, so the block
+    /// only reconciles on real transitions instead of on every tick.
+    private var emergencyBlocking = false
 
     init(engine: TimerEngine, preferences: Preferences) {
         self.engine = engine
         self.preferences = preferences
         floatingController = FloatingPanelController(engine: engine, preferences: preferences)
         focusMode = FocusModeController(preferences: preferences)
+        emergency = EmergencyController(preferences: preferences)
         settingsController = SettingsWindowController(preferences: preferences, focusMode: focusMode)
         focusBlock = FocusBlockController(
             preferences: preferences, overlay: overlay,
@@ -43,6 +50,7 @@ final class StatusBarController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         wireEngineCallbacks()
+        wireEmergency()
         wireHotkeys()
         wireDiagnostics()
         configurePopover()
@@ -93,6 +101,32 @@ final class StatusBarController {
                 SoundPlayer.playMajorAlarm(volume: self.preferences.alarmVolume)
             }
         }
+    }
+
+    /// v24: the emergency drives the same three things the engine does — menu
+    /// bar, popover size, focus block — plus the chime when it runs out. The
+    /// block is only told on real transitions; the per-second ticks just
+    /// repaint. A session restored from disk (relaunch) engages here too.
+    private func wireEmergency() {
+        focusBlock.emergencyActive = { [weak emergency] in emergency?.isActive ?? false }
+        emergency.onTimeout = { [weak self] in
+            guard let self, self.preferences.soundEnabled else { return }
+            SoundPlayer.playMajorAlarm(volume: self.preferences.alarmVolume)
+        }
+        emergencyCancellable = emergency.objectWillChange.sink { [weak self] _ in
+            // objectWillChange fires before mutation; react after it lands.
+            DispatchQueue.main.async { self?.emergencyDidChange() }
+        }
+        emergencyDidChange()
+    }
+
+    private func emergencyDidChange() {
+        refresh()
+        // The banner and the start panel change the popover's height.
+        if popover.isShown { sizePopoverToContent() }
+        guard emergency.isActive != emergencyBlocking else { return }
+        emergencyBlocking = emergency.isActive
+        focusBlock.updateEmergency()
     }
 
     private func wireHotkeys() {
@@ -269,7 +303,8 @@ final class StatusBarController {
         guard let button = statusItem.button else { return }
         let presentation = MenuBarPresentation.make(
             phase: engine.phase, remainingSeconds: engine.remainingSeconds,
-            format: preferences.menuBarTimeFormat, showTime: preferences.menuBarShowTime
+            format: preferences.menuBarTimeFormat, showTime: preferences.menuBarShowTime,
+            emergencySeconds: emergency.isActive ? emergency.remainingSeconds : nil
         )
         button.image = presentation.symbol.flatMap {
             NSImage(systemSymbolName: $0, accessibilityDescription: "Timer")

@@ -107,4 +107,63 @@ func runMenuBarPresentationTests() {
         try expectEqual(idle.symbol, "timer", "idle unchanged")
         try expectEqual(idle.title, "", "idle never had a title")
     }
+
+    // MARK: - Emergency mode (v24)
+
+    test("an emergency without a running timer shows the lock and its own time") {
+        let p = MenuBarPresentation.make(
+            phase: .idle, remainingSeconds: 1500, emergencySeconds: 754
+        )
+        try expectEqual(p.symbol, "lock.fill", "the lock marks the emergency")
+        try expectEqual(p.title, "12:34", "the emergency countdown fills the empty title")
+    }
+
+    test("a running timer keeps the time text, the lock marks the emergency") {
+        let p = MenuBarPresentation.make(
+            phase: .running(endDate: Date(), total: 1500, kind: .single),
+            remainingSeconds: 1477, emergencySeconds: 754
+        )
+        try expectEqual(p.symbol, "lock.fill", "the lock replaces the phase symbol")
+        try expectEqual(p.title, "24:37", "the session's own time wins")
+    }
+
+    test("a break during an emergency loses its cup to the lock but keeps its time") {
+        let p = MenuBarPresentation.make(
+            phase: .running(endDate: Date(), total: 300, kind: .pomodoro(phase: .shortBreak, round: 1)),
+            remainingSeconds: 300, emergencySeconds: 60
+        )
+        try expectEqual(p.symbol, "lock.fill", "one symbol at a time")
+        try expectEqual(p.title, "5:00", "the break's time stays")
+    }
+
+    test("the emergency respects the compact format and the icon-only setting") {
+        let compact = MenuBarPresentation.make(
+            phase: .idle, remainingSeconds: 1500, format: .compact, emergencySeconds: 754
+        )
+        try expectEqual(compact.title, "13m", "rounded up like every compact title")
+        let iconOnly = MenuBarPresentation.make(
+            phase: .idle, remainingSeconds: 1500, showTime: false, emergencySeconds: 754
+        )
+        try expectEqual(iconOnly.symbol, "lock.fill", "the lock still marks it")
+        try expectEqual(iconOnly.title, "", "\"Nur Symbol\" stays symbol-only")
+    }
+
+    test("no emergency leaves every presentation exactly as before") {
+        try expectEqual(
+            MenuBarPresentation.make(phase: .idle, remainingSeconds: 1500, emergencySeconds: nil),
+            MenuBarPresentation.make(phase: .idle, remainingSeconds: 1500),
+            "idle"
+        )
+        try expectEqual(
+            MenuBarPresentation.make(
+                phase: .paused(remaining: 1400, total: 1500, kind: .single),
+                remainingSeconds: 1400, emergencySeconds: nil
+            ),
+            MenuBarPresentation.make(
+                phase: .paused(remaining: 1400, total: 1500, kind: .single),
+                remainingSeconds: 1400
+            ),
+            "paused"
+        )
+    }
 }

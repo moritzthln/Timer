@@ -11,10 +11,30 @@ public struct MenuBarPresentation: Equatable {
     public let symbol: String?
     public let title: String
 
-    /// Defaults preserve the pre-v8 behavior (standard format, time shown).
+    /// Defaults preserve the pre-v8 behavior (standard format, time shown)
+    /// and the pre-v24 one (no emergency session).
     public static func make(
         phase: TimerEngine.Phase, remainingSeconds: Int,
-        format: MenuBarTimeFormat = .standard, showTime: Bool = true
+        format: MenuBarTimeFormat = .standard, showTime: Bool = true,
+        emergencySeconds: Int? = nil
+    ) -> MenuBarPresentation {
+        let session = self.session(
+            phase: phase, remainingSeconds: remainingSeconds, format: format, showTime: showTime
+        )
+        guard let emergencySeconds else { return session }
+        // v24: one symbol at a time — the lock outranks every phase icon,
+        // because the emergency is the stronger state. The time text belongs
+        // to a live session; only an idle Timer lends its empty title to the
+        // emergency countdown, and "Nur Symbol" keeps it empty either way.
+        let title = session.title.isEmpty && showTime
+            ? formatted(emergencySeconds, as: format)
+            : session.title
+        return MenuBarPresentation(symbol: "lock.fill", title: title)
+    }
+
+    private static func session(
+        phase: TimerEngine.Phase, remainingSeconds: Int,
+        format: MenuBarTimeFormat, showTime: Bool
     ) -> MenuBarPresentation {
         guard showTime else {
             return MenuBarPresentation(symbol: iconOnlySymbol(phase: phase), title: "")
