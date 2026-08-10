@@ -37,6 +37,8 @@ final class AppBlockEnforcer {
     private static let keyEventInterval = 0.5
     /// How long the diagnostic watches before it reports.
     private static let probeDelay = 3.5
+    /// How long macOS gets to act on a hide before the fallback judges it.
+    private static let hideVerifyDelay = 0.3
 
     private var hiddenApps = HiddenAppsRecord()
     /// Apps with a hide loop in flight, so the poll never stacks loops.
@@ -223,18 +225,27 @@ final class AppBlockEnforcer {
     private func hidePending() {
         let apps = pendingHide
         pendingHide = []
-        for app in apps where !app.isTerminated {
-            hideAndRecord(app)
-            _ = AccessibilityAccess.minimizeWindows(pid: app.processIdentifier)
+        for app in apps where !app.isTerminated { hideAndRecord(app) }
+        handBackFocus(except: apps)
+        // Minimising is only for what refused the hide. Doing it up front put
+        // windows in the Dock that were already gone — the user saw an app
+        // that was "nur minimiert" instead of hidden. macOS needs a moment to
+        // flip the flag, so the check comes after one.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.hideVerifyDelay) { [weak self] in
+            guard let self, self.isActive() else { return }
+            for app in apps where !app.isTerminated && !app.isHidden {
+                _ = AccessibilityAccess.minimizeWindows(pid: app.processIdentifier)
+            }
         }
-        handBackFocus()
     }
 
     /// Give the screen back to whoever had it before the sweep — unless that
     /// app was hidden in the meantime, in which case macOS picks for itself.
-    private func handBackFocus() {
+    private func handBackFocus(except hidden: [NSRunningApplication]) {
         defer { focusReturn = nil }
-        guard let back = focusReturn, !back.isTerminated, !back.isHidden else { return }
+        guard let back = focusReturn, !back.isTerminated, !back.isHidden,
+              !hidden.contains(where: { $0.processIdentifier == back.processIdentifier })
+        else { return }
         back.activate()
     }
 
@@ -251,10 +262,18 @@ final class AppBlockEnforcer {
     /// answers for the active app; for every other one only the window server
     /// still sees the windows (an inactive fullscreen app reports none).
     private func occupiesScreen(_ app: NSRunningApplication) -> Bool {
-        if let known = AccessibilityAccess.fullscreenState(pid: app.processIdentifier) {
-            return known
-        }
-        return FullscreenWindows.hasFullscreenWindow(pid: app.processIdentifier)
+        let pid = app.processIdentifier
+        let ax = AccessibilityAccess.fullscreenState(pid: pid)
+        if ax == true { return true }
+        // Geometry is the second opinion, not the first: it is what still sees
+        // the fullscreen window of a *hidden* app (the repair case), but it
+        // cannot tell Chrome's own fullscreen from a maximised window.
+        if FullscreenWindows.hasFullscreenWindow(pid: pid) { return true }
+        // Accessibility going quiet on a visible app that demonstrably owns
+        // windows is the signature of an app sitting on its own Space. There
+        // is no way to find out from here — the sweep brings it forward and
+        // asks properly, and lets it go again in one step if it was nothing.
+        return ax == nil && !app.isHidden && FullscreenWindows.hasContentWindow(pid: pid)
     }
 
     /// The permission is asked for once, on the first attempt of a loop; every
