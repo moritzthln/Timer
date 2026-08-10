@@ -76,6 +76,9 @@ final class AppBlockEnforcer {
     private var sweepFruitlessBounces = 0
     /// Steps spent on the current app in total, progress or not.
     private var sweepSteps = 0
+    /// For scriptable browsers: which window index to raise next. Chrome keeps
+    /// one profile per window, so this is what walks the profiles.
+    private var sweepWindowIndex = 2
     /// Phase two: what to hide once no app holds a screen any more.
     private var pendingHide: [NSRunningApplication] = []
     /// Where the user was before the sweep started throwing Spaces around.
@@ -220,11 +223,12 @@ final class AppBlockEnforcer {
         sweepAttempt = 0
         sweepFruitlessBounces = 0
         sweepSteps = 0
+        sweepWindowIndex = 2
         scheduleSweepStep()
     }
 
-    private func scheduleSweepStep() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.sweepInterval) { [weak self] in
+    private func scheduleSweepStep(after delay: Double = sweepInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             self?.sweepStep()
         }
     }
@@ -236,7 +240,11 @@ final class AppBlockEnforcer {
     private func sweepStep() {
         guard let app = sweeping else { return }
         guard isActive() else { return abortSweep() }
-        guard !app.isTerminated, occupiesScreen(app) else { return finishSweepStep(app, done: true) }
+        // Deliberately no "still holds a screen?" guard here: on the active
+        // Space the answer is no as soon as the first window is dissolved, and
+        // the app's *other* fullscreen Spaces would never be visited. What
+        // ends the sweep is the state machine below.
+        guard !app.isTerminated else { return finishSweepStep(app, done: true) }
         guard sweepAttempt < Self.sweepAttempts, sweepSteps < Self.sweepStepCeiling
         else { return finishSweepStep(app, done: false) }
         sweepAttempt += 1
@@ -272,8 +280,11 @@ final class AppBlockEnforcer {
                   FullscreenWindows.hasWindowOnAnotherSpace(pid: app.processIdentifier)
             else { return finishSweepStep(app, done: true) }
             sweepFruitlessBounces += 1
-            bounce(app)
-            return scheduleSweepStep()
+            reachOtherSpace(app)
+            // Look again only once the trip is over. A step landing in the
+            // middle of it would re-activate the app while it is still on the
+            // old Space and undo the whole point of leaving.
+            return scheduleSweepStep(after: Self.bounceDelay + 0.5)
         }
 
         // Blind: the app is on its own Space and lists no windows at all
@@ -312,10 +323,25 @@ final class AppBlockEnforcer {
         startNextSweep()
     }
 
-    /// Leaves the app and comes straight back, which lands on its front
-    /// window — a fullscreen one, if any is left. Finder is the way out
-    /// because it always runs and owns the desktop; the Timer has no window
-    /// to switch to and would not move the Space at all.
+    /// Gets to the app's next window, wherever it lives. A scriptable browser
+    /// can be told directly which window to raise — that matters because
+    /// Chrome keeps a profile per window and leaving/re-entering the app comes
+    /// back to the *last used* one, which is the window just dissolved rather
+    /// than the fullscreen one still waiting.
+    private func reachOtherSpace(_ app: NSRunningApplication) {
+        if let browser = BrowserScripting.browser(forBundleID: app.bundleIdentifier),
+           let count = BrowserScripting.run(browser.windowCount).flatMap(Int.init), count > 1 {
+            let index = sweepWindowIndex > count ? 2 : sweepWindowIndex
+            sweepWindowIndex = index + 1
+            if BrowserScripting.runVoid(browser.raiseWindow(at: index)) { return }
+        }
+        bounce(app)
+    }
+
+    /// The general way: leave the app and come straight back, which lands on
+    /// its front window — a fullscreen one, if any is left. Finder is the way
+    /// out because it always runs and owns the desktop; the Timer has no
+    /// window to switch to and would not move the Space at all.
     private func bounce(_ app: NSRunningApplication) {
         let elsewhere = NSWorkspace.shared.runningApplications.first {
             $0.bundleIdentifier == "com.apple.finder"

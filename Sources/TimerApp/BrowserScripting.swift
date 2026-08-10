@@ -79,6 +79,22 @@ enum BrowserScripting {
         /// a new-tab page set to google.com (or any other real site) would be
         /// judged by the block rules right away and bounce the user again.
         /// about:blank has no host, so it can never be blocked.
+        /// How many windows the browser has — including the ones sitting on
+        /// their own fullscreen Space, which is what makes this useful: the
+        /// window server and Accessibility both go quiet about those, but the
+        /// browser itself still counts them.
+        var windowCount: String {
+            "tell application \"\(appName)\" to return (count of windows as text)"
+        }
+
+        /// Brings one specific window to the front, which switches to its
+        /// Space. Deterministic where leaving and re-entering the app is not:
+        /// macOS returns to the *last used* window, which after an exit is the
+        /// one just dissolved, never the fullscreen one still waiting.
+        func raiseWindow(at index: Int) -> String {
+            "tell application \"\(appName)\" to set index of window \(index) to 1"
+        }
+
         var newTab: String {
             switch style {
             case .safari:
