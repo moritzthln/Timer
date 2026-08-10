@@ -51,11 +51,24 @@ final class SettingsWindowController {
         guard let content = window.contentView else { return }
         window.layoutIfNeeded()
         let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
-        window.setContentSize(content.fittingSize)
+        window.setContentSize(contentSize(of: content, on: window.screen))
         window.setFrameTopLeftPoint(topLeft)
         guard retry else { return }
         DispatchQueue.main.async { [weak self] in
             self?.fitToContent(window, retry: false)
         }
+    }
+
+    /// v24: the Fokus tab grew a third subsection, and long lists grow it
+    /// further — on a small display the derived height can outgrow the
+    /// screen, which would push the title bar out of reach. The per-tab
+    /// ScrollView is the overflow safety; it only helps while the window
+    /// itself stays visible, so the height is capped here.
+    private func contentSize(of content: NSView, on screen: NSScreen?) -> NSSize {
+        var size = content.fittingSize
+        if let available = (screen ?? NSScreen.main)?.visibleFrame.height {
+            size.height = min(size.height, available - 60)
+        }
+        return size
     }
 }

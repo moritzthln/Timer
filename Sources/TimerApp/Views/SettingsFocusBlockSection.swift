@@ -7,6 +7,8 @@ import TimerCore
 /// under the size limit. Two subsections mirror the two block modes: the
 /// blocklist ("Blockieren", unchanged v4 UI) and the allowlist
 /// ("Nur Erlaubte", same UI pattern incl. NSMenu picker + live write-through).
+/// v24 adds a third one for the emergency mode, which runs on allowlist
+/// semantics but independently of the shield and of any timer.
 struct FocusBlockSettingsSection: View {
     let preferences: Preferences
 
@@ -16,6 +18,10 @@ struct FocusBlockSettingsSection: View {
     @State private var allowedApps: [BlockedApp] = []
     @State private var allowedDomains: [String] = []
     @State private var newAllowedDomain = ""
+    @State private var emergencyApps: [BlockedApp] = []
+    @State private var emergencyDomains: [String] = []
+    @State private var newEmergencyDomain = ""
+    @State private var emergencyMinutesText = ""
     @State private var shieldEnabled = false
 
     var body: some View {
@@ -33,6 +39,7 @@ struct FocusBlockSettingsSection: View {
                 allowedDomainList
                 caption("Leere Liste = dieser Teil blockt nichts.")
             }
+            emergencySubsection
             captions
         }
         .onAppear(perform: load)
@@ -169,6 +176,80 @@ struct FocusBlockSettingsSection: View {
         allowedDomains = preferences.allowedDomains
         shieldEnabled = preferences.focusBlockEnabled
         if stored != nil { newAllowedDomain = "" }
+    }
+
+    // MARK: - Emergency subsection (v24)
+
+    /// Same UI pattern as the two above; the only extra is the default
+    /// duration, which the popover's start panel offers.
+    private var emergencySubsection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            subsectionTitle("Notfall-Modus")
+                .padding(.top, 6)
+            appRows(emergencyApps) { bundleID in
+                emergencyApps.removeAll { $0.bundleID == bundleID }
+                preferences.emergencyApps = emergencyApps
+            }
+            Button("App hinzufügen") {
+                showAppPicker(
+                    excluded: Self.implicitlyAllowedBundleIDs(), listed: emergencyApps,
+                    add: addEmergencyApp
+                )
+            }
+            .controlSize(.small)
+            domainRows(emergencyDomains) { domain in
+                emergencyDomains.removeAll { $0 == domain }
+                preferences.emergencyDomains = emergencyDomains
+            }
+            domainAddField(
+                $newEmergencyDomain, placeholder: "wikipedia.org", commit: commitEmergencyDomain
+            )
+            emergencyDurationRow
+            caption("Läuft unabhängig vom Schild und von jedem Timer — Start im Popover unter „⋯“.")
+            caption("Leere Liste = dieser Teil blockt nichts. Timer, Finder und Systemeinstellungen bleiben immer erreichbar.")
+        }
+    }
+
+    private var emergencyDurationRow: some View {
+        HStack {
+            Text("Standard-Dauer (min)")
+                .font(.system(size: 12))
+            TextField("", text: Binding(
+                get: { emergencyMinutesText },
+                set: storeEmergencyMinutes
+            ))
+            .textFieldStyle(.roundedBorder)
+            .font(.system(size: 11, design: .monospaced))
+            .multilineTextAlignment(.center)
+            .frame(width: 46)
+            .onSubmit { emergencyMinutesText = String(preferences.emergencyMinutes) }
+            Text("max. \(EmergencyMode.maximumMinutes)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// v9 live-save with write-through: an in-range value is stored on every
+    /// keystroke and re-read, anything else stays pending until Enter snaps
+    /// the field back to what is actually stored.
+    private func storeEmergencyMinutes(_ raw: String) {
+        emergencyMinutesText = String(raw.filter(\.isNumber).prefix(2))
+        guard let value = Int(emergencyMinutesText),
+              (EmergencyMode.minimumMinutes...EmergencyMode.maximumMinutes).contains(value)
+        else { return }
+        preferences.emergencyMinutes = value
+        emergencyMinutesText = String(preferences.emergencyMinutes)
+    }
+
+    private func addEmergencyApp(_ app: BlockedApp) {
+        preferences.addEmergencyApp(app)
+        emergencyApps = preferences.emergencyApps
+    }
+
+    private func commitEmergencyDomain() {
+        let stored = preferences.addEmergencyDomain(newEmergencyDomain)
+        emergencyDomains = preferences.emergencyDomains
+        if stored != nil { newEmergencyDomain = "" }
     }
 
     // MARK: - Shared rows
@@ -331,6 +412,9 @@ struct FocusBlockSettingsSection: View {
         blockedDomains = preferences.blockedDomains
         allowedApps = preferences.allowedApps
         allowedDomains = preferences.allowedDomains
+        emergencyApps = preferences.emergencyApps
+        emergencyDomains = preferences.emergencyDomains
+        emergencyMinutesText = String(preferences.emergencyMinutes)
         shieldEnabled = preferences.focusBlockEnabled
     }
 }
