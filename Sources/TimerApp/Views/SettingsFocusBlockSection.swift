@@ -27,12 +27,12 @@ struct FocusBlockSettingsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             header
-            subsectionTitle("Blockieren")
+            subsectionTitle("Blockieren", info: Self.blocklistInfo)
             VStack(alignment: .leading, spacing: 4) {
                 blockedAppList
                 blockedDomainList
             }
-            subsectionTitle("Nur Erlaubte")
+            subsectionTitle("Nur Erlaubte", info: Self.allowlistInfo)
                 .padding(.top, 6)
             VStack(alignment: .leading, spacing: 4) {
                 allowedAppList
@@ -40,7 +40,6 @@ struct FocusBlockSettingsSection: View {
                 caption("Leere Liste = dieser Teil blockt nichts.")
             }
             emergencySubsection
-            captions
         }
         .onAppear(perform: load)
     }
@@ -55,6 +54,7 @@ struct FocusBlockSettingsSection: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
+            InfoDot(text: Self.sectionInfo)
             Spacer()
             Text(shieldEnabled ? "Schild: an" : "Schild: aus")
                 .font(.caption)
@@ -62,34 +62,53 @@ struct FocusBlockSettingsSection: View {
         }
     }
 
-    private func subsectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.caption)
-            .fontWeight(.medium)
-            .foregroundStyle(.secondary)
+    /// Each list explains itself where it stands. The text lives behind an
+    /// info dot rather than under the section, because three lists with three
+    /// sets of rules produced a wall of captions at the bottom that belonged
+    /// to none of them in particular.
+    private func subsectionTitle(_ title: String, info: String? = nil) -> some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+            if let info { InfoDot(text: info) }
+        }
     }
+
+    private static let sectionInfo = """
+        Der Block läuft, während eine Fokus-Session läuft und das Schild im         Popover an ist. Welche Regel dabei gilt — „Blockieren“ oder „Nur         Erlaubte“ —, stellst du im Popover neben dem Schild um.
+
+        Vollbild-Apps brauchen die Bedienungshilfen, der Website-Block die         Automation-Berechtigung. Beides mit Status im Tab „Rechte“.
+
+        Timer, Finder und Systemeinstellungen bleiben in jedem Modus erreichbar.
+        """
+
+    private static let blocklistInfo = """
+        Markierte Apps werden aus dem Vollbild geholt und ausgeblendet —         nichts wird beendet. Am Ende der Session sind sie wieder da,         allerdings im Fenster statt im Vollbild.
+
+        Markierte Websites bleiben offen: der Browser wechselt nur den Tab         weg. Unterstützt sind Safari, Chrome und Arc.
+        """
+
+    private static let allowlistInfo = """
+        Umgekehrte Richtung: alles außer den erlaubten Apps wird         ausgeblendet, und Tabs auf nicht erlaubten Seiten werden weggeschaltet.
+
+        Leere Liste = dieser Teil blockt nichts — damit eine halb         eingerichtete Liste den Mac nicht versehentlich zusperrt.
+        """
+
+    private static let emergencyInfo = """
+        Läuft unabhängig vom Schild und von jedem Timer — Start im Popover         unter „⋯“ oder per Hotkey, Dauer 1 bis 60 Minuten.
+
+        Leere App-Liste = alles außer Timer, Finder und Systemeinstellungen         wird ausgeblendet. Leere Website-Liste = keine Seite wird gesperrt.
+
+        Abbrechen geht nur, indem du den Knopf zehn Sekunden gedrückt hältst.
+        """
 
     private func caption(_ text: String) -> some View {
         Text(text)
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var captions: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            caption("Aktiv während Fokus-Sessions, wenn das Schild im Popover an ist.")
-            // The captions describe what the block *does*, not just what it
-            // needs: since v25 that is visible behaviour (apps are pulled out
-            // of fullscreen one after another before anything is hidden).
-            caption("Apps werden aus dem Vollbild geholt und ausgeblendet — nichts wird beendet. Am Ende der Session sind sie wieder da, allerdings im Fenster statt im Vollbild.")
-            caption("Websites bleiben offen: der Browser wechselt nur den Tab weg. Braucht die Automation-Berechtigung (macOS fragt beim ersten Mal).")
-            // v18: the permission status itself lives in the "Rechte" tab —
-            // one place for all of them, so this stays a pointer.
-            caption("Ohne Bedienungshilfen bleiben Vollbild-Apps stehen — Status im Tab „Rechte“.")
-            caption("Timer, Finder und Systemeinstellungen bleiben in jedem Modus erreichbar.")
-        }
-        .padding(.top, 2)
     }
 
     // MARK: - Blocklist subsection
@@ -196,7 +215,7 @@ struct FocusBlockSettingsSection: View {
 
     private var emergencySubsection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            subsectionTitle("Notfall-Modus")
+            subsectionTitle("Notfall-Modus", info: Self.emergencyInfo)
                 .padding(.top, 6)
             if emergencyRunning {
                 caption("Notfall-Modus läuft — Listen sind bis zum Ende gesperrt.")
@@ -221,8 +240,6 @@ struct FocusBlockSettingsSection: View {
                 $newEmergencyDomain, placeholder: "wikipedia.org", commit: commitEmergencyDomain
             )
             emergencyDurationRow
-            caption("Läuft unabhängig vom Schild und von jedem Timer — Start im Popover unter „⋯“ oder per Hotkey.")
-            caption("Leere App-Liste = alles außer Timer, Finder und Systemeinstellungen wird ausgeblendet. Leere Website-Liste = keine Seite wird gesperrt.")
         }
         .disabled(emergencyRunning)
     }
@@ -433,5 +450,30 @@ struct FocusBlockSettingsSection: View {
         emergencyDomains = preferences.emergencyDomains
         emergencyMinutesText = String(preferences.emergencyMinutes)
         shieldEnabled = preferences.focusBlockEnabled
+    }
+}
+
+/// The "i" next to a heading: hovering shows the text as a tooltip, clicking
+/// opens it as a popover — so the explanation is available without three
+/// paragraphs of captions sitting under the lists all the time.
+struct InfoDot: View {
+    let text: String
+    @State private var shown = false
+
+    var body: some View {
+        Button { shown.toggle() } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help(text)
+        .popover(isPresented: $shown, arrowEdge: .bottom) {
+            Text(text)
+                .font(.system(size: 11))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 260, alignment: .leading)
+                .padding(12)
+        }
     }
 }
