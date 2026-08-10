@@ -187,6 +187,27 @@ final class AppBlockEnforcer {
         guard sweepAttempt < Self.sweepAttempts else { return finishSweepStep(app, done: false) }
         sweepAttempt += 1
 
+        // The precise route first. `AXFullScreen = false` addresses the window
+        // itself, whichever Space it lives on and whichever window has focus.
+        // The keyboard shortcut cannot do that: it hits the *focused* window,
+        // and an app like Chrome commonly has a fullscreen window on its own
+        // Space **and** a normal one on the desktop (measured: #3
+        // fullscreen=true 1512x827, #4 fullscreen=false 1512x884). Activating
+        // brings the normal one forward, so ⌃⌘F pushed that one into
+        // fullscreen while AX pulled the other one out — Chrome never left.
+        let axState = AccessibilityAccess.fullscreenState(pid: app.processIdentifier)
+        if axState != nil {
+            _ = AccessibilityAccess.exitFullscreen(pid: app.processIdentifier)
+            // Accessibility can see the windows and reports none in fullscreen:
+            // whatever the window server made of their geometry, there is
+            // nothing here to dissolve — and a shortcut would only create one.
+            if axState == false { return finishSweepStep(app, done: true) }
+            return scheduleSweepStep()
+        }
+
+        // Blind: the app is on its own Space and lists no windows at all
+        // (Telegram, WhatsApp). Only the app itself can act on them, so it has
+        // to come forward and take the shortcut.
         guard isFrontmost(app) else {
             // The Space switch takes a moment; keep asking until it lands.
             app.activate()
@@ -197,7 +218,6 @@ final class AppBlockEnforcer {
             lastKeyEvent[app.processIdentifier] = Date()
         }
         if sweepAttempt >= Self.spaceLeftFrom { FullscreenExit.sendSpaceLeft() }
-        _ = AccessibilityAccess.exitFullscreen(pid: app.processIdentifier)
         scheduleSweepStep()
     }
 

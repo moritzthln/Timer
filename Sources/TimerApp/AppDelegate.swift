@@ -8,7 +8,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let preferences = Preferences()
         let engine = TimerEngine(preferences: preferences)
         statusBarController = StatusBarController(engine: engine, preferences: preferences)
-        if BlockDiagnostics.isRequested {
+        if BlockDiagnostics.isWatching {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                BlockDiagnostics.watch(bundleID: "com.google.Chrome")
+            }
+        } else if BlockDiagnostics.isRequested {
             // A moment for the workspace list to settle before it is dumped.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { BlockDiagnostics.run() }
         }

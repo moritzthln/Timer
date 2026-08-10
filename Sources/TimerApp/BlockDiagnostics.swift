@@ -14,9 +14,88 @@ enum BlockDiagnostics {
 
     static var isRequested: Bool { CommandLine.arguments.contains(flag) }
 
+    /// `--block-watch` samples one app for half a minute instead of dumping
+    /// everything once — the only way to catch a state the user has to create
+    /// by hand (put Chrome in fullscreen while it records).
+    static let watchFlag = "--block-watch"
+    static var isWatching: Bool { CommandLine.arguments.contains(watchFlag) }
+
     static func reportURL() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base.appendingPathComponent("Timer/block-diagnose.txt")
+    }
+
+    /// Samples one app once a second for 30 s: what Accessibility says about
+    /// its windows, what the window server sees, and — crucially — whether the
+    /// fullscreen attribute is even settable. Written after every sample, so
+    /// the file is readable while it runs.
+    static func watch(bundleID: String) {
+        var lines = ["watching \(bundleID), 30 samples", ""]
+        var sample = 0
+        func step() {
+            sample += 1
+            let app = NSWorkspace.shared.runningApplications.first {
+                $0.bundleIdentifier == bundleID
+            }
+            if let app {
+                lines.append("[\(sample)] hidden=\(app.isHidden) active=\(app.isActive)")
+                lines.append(contentsOf: axDetail(pid: app.processIdentifier))
+                lines.append(contentsOf: cgDetail(pid: app.processIdentifier))
+            } else {
+                lines.append("[\(sample)] not running")
+            }
+            write(lines)
+            if sample < 30 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { step() }
+            }
+        }
+        step()
+    }
+
+    /// Per window: is it fullscreen, and may we even write that attribute?
+    private static func axDetail(pid: pid_t) -> [String] {
+        let element = AXUIElementCreateApplication(pid)
+        var value: CFTypeRef?
+        let code = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &value)
+        guard code == .success, let windows = value as? [AXUIElement] else {
+            return ["    AX: windows → \(code.rawValue)"]
+        }
+        return ["    AX: \(windows.count) windows"] + windows.enumerated().map { index, window in
+            var state: CFTypeRef?
+            let read = AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &state)
+            var settable: DarwinBoolean = false
+            AXUIElementIsAttributeSettable(window, "AXFullScreen" as CFString, &settable)
+            var size: CFTypeRef?
+            AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &size)
+            var box = CGSize.zero
+            if let size { AXValueGetValue(size as! AXValue, .cgSize, &box) }
+            let full = (state as? Bool).map(String.init) ?? "read \(read.rawValue)"
+            return "      #\(index) fullscreen=\(full) settable=\(settable.boolValue)"
+                + " size=\(Int(box.width))x\(Int(box.height))"
+        }
+    }
+
+    private static func cgDetail(pid: pid_t) -> [String] {
+        let listed = CGWindowListCopyWindowInfo(
+            [.optionAll, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        let sizes = listed.compactMap { window -> String? in
+            guard (window[kCGWindowOwnerPID as String] as? pid_t) == pid,
+                  (window[kCGWindowLayer as String] as? Int) == 0,
+                  let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
+                  let width = bounds["Width"], let height = bounds["Height"],
+                  width >= 300, height >= 200 else { return nil }
+            return "\(Int(width))x\(Int(height))@\(Int(bounds["X"] ?? 0)),\(Int(bounds["Y"] ?? 0))"
+        }
+        return ["    CG: " + sizes.joined(separator: " ")]
+    }
+
+    private static func write(_ lines: [String]) {
+        let url = reportURL()
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
     }
 
     /// Walks every regular app, reads its windows twice — once with the
@@ -39,11 +118,7 @@ enum BlockDiagnostics {
             lines.append("")
         }
 
-        let url = reportURL()
-        try? FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
-        )
-        try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+        write(lines)
     }
 
     /// One pass over an app's windows at the given messaging timeout.
