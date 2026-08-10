@@ -182,10 +182,21 @@ struct FocusBlockSettingsSection: View {
 
     /// Same UI pattern as the two above; the only extra is the default
     /// duration, which the popover's start panel offers.
+    /// v24.1: while a session runs the lists are frozen. Otherwise emptying
+    /// the list mid-session would lift the block without ever holding the
+    /// cancel button — the ten-second hold is meant to be the only way out.
+    private var emergencyRunning: Bool {
+        preferences.emergencySession() != nil
+    }
+
     private var emergencySubsection: some View {
         VStack(alignment: .leading, spacing: 4) {
             subsectionTitle("Notfall-Modus")
                 .padding(.top, 6)
+            if emergencyRunning {
+                caption("Notfall-Modus läuft — Listen sind bis zum Ende gesperrt.")
+                    .foregroundStyle(Color.orange)
+            }
             appRows(emergencyApps) { bundleID in
                 emergencyApps.removeAll { $0.bundleID == bundleID }
                 preferences.emergencyApps = emergencyApps
@@ -205,9 +216,10 @@ struct FocusBlockSettingsSection: View {
                 $newEmergencyDomain, placeholder: "wikipedia.org", commit: commitEmergencyDomain
             )
             emergencyDurationRow
-            caption("Läuft unabhängig vom Schild und von jedem Timer — Start im Popover unter „⋯“.")
+            caption("Läuft unabhängig vom Schild und von jedem Timer — Start im Popover unter „⋯“ oder per Hotkey.")
             caption("Leere Liste = dieser Teil blockt nichts. Timer, Finder und Systemeinstellungen bleiben immer erreichbar.")
         }
+        .disabled(emergencyRunning)
     }
 
     private var emergencyDurationRow: some View {

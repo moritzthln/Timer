@@ -3,6 +3,7 @@
 runSmokeTests()
 runTimeFormattingTests()
 runPreferencesTests()
+runEmergencyHotkeyTests()
 runTimerEngineTests()
 runPomodoroConfigTests()
 runMenuBarPresentationTests()

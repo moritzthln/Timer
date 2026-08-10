@@ -72,6 +72,7 @@ public final class Preferences {
         static let hotkeyPopover = "hotkeyPopover"
         static let hotkeyQuickStart = "hotkeyQuickStart"
         static let hotkeyExtend = "hotkeyExtend"
+        static let hotkeyEmergency = "hotkeyEmergency"
         static let trackingPaused = "trackingPaused"
         static let idleThresholdMinutes = "idleThresholdMinutes"
         static let dndEnabled = "dndEnabled"
@@ -508,6 +509,17 @@ public final class Preferences {
             return try? JSONDecoder().decode(HotkeyCombo.self, from: data)
         }
         set { setHotkey(newValue, forKey: Key.hotkeyExtend) }
+    }
+
+    /// v24.1: starts the emergency mode with `emergencyMinutes`. Opt-in like
+    /// the extend hotkey — no default combo, so nothing can lock the Mac down
+    /// by accident.
+    public var hotkeyEmergency: HotkeyCombo? {
+        get {
+            guard let data = defaults.data(forKey: Key.hotkeyEmergency), !data.isEmpty else { return nil }
+            return try? JSONDecoder().decode(HotkeyCombo.self, from: data)
+        }
+        set { setHotkey(newValue, forKey: Key.hotkeyEmergency) }
     }
 
     // MARK: - Activity tracking

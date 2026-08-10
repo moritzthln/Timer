@@ -8,6 +8,8 @@ final class HotkeyManager {
         case openPopover = 1
         case quickStart = 2
         case extend = 3
+        /// v24.1: starts the emergency mode with the stored default duration.
+        case emergency = 4
     }
 
     var onAction: ((Action) -> Void)?
@@ -15,12 +17,16 @@ final class HotkeyManager {
     private var refs: [UInt32: EventHotKeyRef] = [:]
     private var handlerInstalled = false
 
-    func apply(popover: HotkeyCombo?, quickStart: HotkeyCombo?, extend: HotkeyCombo?) {
+    func apply(
+        popover: HotkeyCombo?, quickStart: HotkeyCombo?, extend: HotkeyCombo?,
+        emergency: HotkeyCombo?
+    ) {
         installHandlerIfNeeded()
         unregisterAll()
         if let popover { register(popover, as: .openPopover) }
         if let quickStart { register(quickStart, as: .quickStart) }
         if let extend { register(extend, as: .extend) }
+        if let emergency { register(emergency, as: .emergency) }
     }
 
     private func register(_ combo: HotkeyCombo, as action: Action) {

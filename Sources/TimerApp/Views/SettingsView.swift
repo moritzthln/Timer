@@ -55,6 +55,7 @@ struct SettingsView: View {
     @State private var hotkeyPopover: HotkeyCombo?
     @State private var hotkeyQuickStart: HotkeyCombo?
     @State private var hotkeyExtend: HotkeyCombo?
+    @State private var hotkeyEmergency: HotkeyCombo?
     @State private var hotkeyHint: String?
     @State private var trackingPaused = false
     @State private var idleText = "5"
@@ -316,13 +317,29 @@ struct SettingsView: View {
                 GridRow {
                     Text("Verlängern (+5 min)")
                     HotkeyRecorderField(combo: hotkeyExtend) { newCombo in
-                        assignHotkey(newCombo, conflicts: [hotkeyPopover, hotkeyQuickStart]) {
+                        assignHotkey(
+                            newCombo, conflicts: [hotkeyPopover, hotkeyQuickStart, hotkeyEmergency]
+                        ) {
                             hotkeyExtend = $0
                             preferences.hotkeyExtend = $0
                         }
                     }
                 }
+                GridRow {
+                    Text("Notfall-Modus starten")
+                    HotkeyRecorderField(combo: hotkeyEmergency) { newCombo in
+                        assignHotkey(
+                            newCombo, conflicts: [hotkeyPopover, hotkeyQuickStart, hotkeyExtend]
+                        ) {
+                            hotkeyEmergency = $0
+                            preferences.hotkeyEmergency = $0
+                        }
+                    }
+                }
             }
+            Text("Der Notfall-Hotkey startet sofort mit der eingestellten Dauer.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             if let hint = hotkeyHint {
                 Text(hint)
                     .font(.caption2)
@@ -594,6 +611,7 @@ struct SettingsView: View {
         hotkeyPopover = preferences.hotkeyPopover
         hotkeyQuickStart = preferences.hotkeyQuickStart
         hotkeyExtend = preferences.hotkeyExtend
+        hotkeyEmergency = preferences.hotkeyEmergency
         trackingPaused = preferences.trackingPaused
         promotedSitesList = preferences.promotedSites
         dndEnabled = preferences.dndEnabled

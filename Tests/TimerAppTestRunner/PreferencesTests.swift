@@ -345,3 +345,16 @@ func runPreferencesTests() {
         try expectEqual(prefs.dndShortcutOff, "DEEP FOKUS aus", "off roundtrip")
     }
 }
+
+func runEmergencyHotkeyTests() {
+    test("emergency hotkey is opt-in, roundtrips and clears") {
+        let prefs = freshPrefs()
+        try expectNil(prefs.hotkeyEmergency, "no default combo — must not lock down by accident")
+        prefs.hotkeyEmergency = HotkeyCombo(keyCode: 14, carbonModifiers: 6144)
+        try expectEqual(
+            prefs.hotkeyEmergency, HotkeyCombo(keyCode: 14, carbonModifiers: 6144), "roundtrip"
+        )
+        prefs.hotkeyEmergency = nil
+        try expectNil(prefs.hotkeyEmergency, "cleared")
+    }
+}

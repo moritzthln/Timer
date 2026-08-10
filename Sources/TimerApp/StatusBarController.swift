@@ -140,12 +140,19 @@ final class StatusBarController {
             case .extend:
                 // Only meaningful while running/paused; no-ops otherwise.
                 self.engine.extend(minutes: 5)
+            case .emergency:
+                // Starts with the stored default duration; a running session
+                // is never restarted (that would extend it silently).
+                guard !self.emergency.isActive else { return }
+                self.emergency.start(minutes: self.preferences.emergencyMinutes)
+                self.showPopover()
             }
         }
         hotkeys.apply(
             popover: preferences.hotkeyPopover,
             quickStart: preferences.hotkeyQuickStart,
-            extend: preferences.hotkeyExtend
+            extend: preferences.hotkeyExtend,
+            emergency: preferences.hotkeyEmergency
         )
     }
 
@@ -198,7 +205,8 @@ final class StatusBarController {
             self?.hotkeys.apply(
                 popover: self?.preferences.hotkeyPopover ?? nil,
                 quickStart: self?.preferences.hotkeyQuickStart ?? nil,
-                extend: self?.preferences.hotkeyExtend ?? nil
+                extend: self?.preferences.hotkeyExtend ?? nil,
+                emergency: self?.preferences.hotkeyEmergency ?? nil
             )
             self?.refresh()
         }
