@@ -55,7 +55,8 @@ Lives in the menu bar only — no Dock icon, no window.
   switches to the other mode, the tooltip explains both, the choice
   persists.
 - Right: a chart button opening the stats window, and an "⋯" menu with
-  "Ton", "Floating Display", "Einstellungen…", and "Timer beenden ⌘Q".
+  "Ton", "Floating Display", "Notfall-Modus …" (v24, hidden while one
+  runs), "Einstellungen…", and "Timer beenden ⌘Q".
 - The old "Heute … · Woche …" caption line is gone — stats live in the
   stats window.
 
@@ -173,6 +174,40 @@ Lives in the menu bar only — no Dock icon, no window.
   immediately, the cover overlay never locks the keyboard, and there is
   no system-wide network filter — that would need Apple entitlements an
   ad-hoc-signed app cannot get.
+
+### Notfall-Modus
+
+One switch for the moment when nothing else works: the Mac is reduced
+to a short, pre-chosen set of apps and websites for a bounded stretch
+of time — independent of timers, pomodoro, and the shield.
+
+- **Start:** popover "⋯" menu → "Notfall-Modus …". A small panel asks
+  for the minutes (default 25, **maximum 60** — the cap lives in the
+  model, not in the field) and starts on "Starten" or Enter.
+- **While it runs:** everything not on the emergency list is hidden and
+  tabs on unlisted sites are switched away, using exactly the gentle
+  machinery of the focus block (nothing is quit, nothing is closed).
+  Your emergency apps stay, and Timer, Finder and Systemeinstellungen
+  are always reachable on top of your list — the mode can never lock
+  you out of your own settings.
+- The menu bar shows a lock symbol; without a running timer it also
+  shows the emergency countdown, otherwise the timer keeps the time
+  text. The popover shows "Notfall-Modus · noch MM:SS" above the normal
+  controls — a focus session can run alongside, both coexist.
+- **End:** by itself when the time is up. Everything hidden is restored
+  and the usual bell plays (mute via "Ton").
+- **Cancel:** only by holding the "Abbrechen" button for ten seconds
+  while the ring fills; letting go early aborts. There is deliberately
+  no shortcut and no menu entry for it.
+- A running session survives a relaunch (only the end date is stored);
+  an end date that passed while the app was closed is discarded.
+- **Honest limit, also stated in the panel:** quitting the Timer lifts
+  the lock — an app cannot make itself unquittable, and everything it
+  hid is restored on quit by design. Start it again and the remaining
+  time continues.
+- The two lists and the default duration live in Settings → Fokus →
+  "Notfall-Modus". An empty list blocks nothing in that half (same rule
+  as "Nur Erlaubte").
 
 ### Statistics
 
@@ -376,6 +411,11 @@ Tab **Fokus**:
   arms the shield automatically — an allowlist entry also switches the
   mode —, the header shows "Schild: an/aus", and captions explain when
   blocking is active and the automation permission.
+- **Notfall-Modus** (v24): a third subsection with the same UI — the
+  apps and websites that stay reachable during an emergency session,
+  plus "Standard-Dauer (min)" (1–60) for the start panel. Nothing here
+  arms anything: the mode only runs while a session started from the
+  popover is running.
 - **Nicht stören:** the DND toggle, the two shortcut dropdowns with a
   refresh button, setup instructions, and the two test buttons.
 
