@@ -29,6 +29,9 @@ struct EmergencyStartPanel: View {
             minutesText = String(emergency.suggestedMinutes)
             DispatchQueue.main.async { inputFocused = true }
         }
+        // The popover is transient: closing it dismisses the panel like a
+        // sheet, instead of greeting the user with it on the next open.
+        .onDisappear { emergency.isConfiguring = false }
     }
 
     private var header: some View {
