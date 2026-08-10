@@ -53,17 +53,19 @@ func runBlockAttemptTests() {
         try expect(plan.hide && plan.exitFullscreenViaAX && plan.minimize, "everything idempotent keeps going")
     }
 
-    test("a stubborn frontmost app is treated as fullscreen eventually") {
-        let early = BlockAttempt.plan(
-            attempt: BlockAttempt.assumeFullscreenFrom - 1, visible: true, frontmost: true,
-            fullscreen: false, accessibilityGranted: true, keyEventAllowed: true
-        )
-        try expect(!early.sendExitFullscreenKey, "a windowed app must not be toggled into fullscreen")
-        let late = BlockAttempt.plan(
-            attempt: BlockAttempt.assumeFullscreenFrom, visible: true, frontmost: true,
-            fullscreen: false, accessibilityGranted: true, keyEventAllowed: true
-        )
-        try expect(late.sendExitFullscreenKey, "apps that report no fullscreen window still get the shortcut")
+    test("the toggle shortcuts never fire against a windowed app") {
+        // They are toggles: sending one to an app that is not in fullscreen
+        // puts it *into* fullscreen. An earlier version fired on suspicion
+        // after enough failed hides and did exactly that.
+        for attempt in [0, 4, 10, 29] {
+            let plan = BlockAttempt.plan(
+                attempt: attempt, visible: true, frontmost: true, fullscreen: false,
+                accessibilityGranted: true, keyEventAllowed: true
+            )
+            try expect(!plan.sendExitFullscreenKey, "attempt \(attempt) must not toggle fullscreen on")
+            try expect(!plan.sendSpaceLeftKey, "attempt \(attempt) has no Space to leave")
+            try expect(plan.hide, "the app is still dealt with, just not by keyboard")
+        }
     }
 
     test("the Space shortcut is the last technique to join") {

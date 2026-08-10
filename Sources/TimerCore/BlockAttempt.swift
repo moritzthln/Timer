@@ -47,12 +47,6 @@ public struct BlockPlan: Equatable {
 public enum BlockAttempt {
     /// From this attempt on, minimising joins the hide attempts.
     public static let minimizeFrom = 2
-    /// From this attempt on, a still-visible frontmost app is treated as
-    /// fullscreen even when Accessibility claims otherwise. Some apps
-    /// (Catalyst, Electron, games) report no fullscreen window while sitting
-    /// on their own Space — and a visible app that refuses `hide()` this
-    /// persistently has no other plausible explanation.
-    public static let assumeFullscreenFrom = 4
     /// From this attempt on, the Space-left shortcut joins in.
     public static let spaceLeftFrom = 6
 
@@ -75,8 +69,15 @@ public enum BlockAttempt {
         plan.hide = true
         plan.exitFullscreenViaAX = accessibilityGranted
         plan.minimize = accessibilityGranted && attempt >= minimizeFrom
-        guard frontmost, keyEventAllowed else { return plan }
-        plan.sendExitFullscreenKey = fullscreen || attempt >= assumeFullscreenFrom
+        // Both shortcuts are toggles, so they may only ever fire against an
+        // app that *is* fullscreen right now. An earlier version also sent
+        // them on suspicion (a frontmost app still refusing to hide), which
+        // put apps that had just left fullscreen straight back in — the user
+        // saw "kommt aus dem Vollbild raus, wird aber nicht ausgeblendet".
+        // Detection is reliable whenever the shortcuts can work at all: both
+        // need the Accessibility permission.
+        guard frontmost, keyEventAllowed, fullscreen else { return plan }
+        plan.sendExitFullscreenKey = true
         plan.sendSpaceLeftKey = attempt >= spaceLeftFrom
         return plan
     }
