@@ -79,10 +79,15 @@ struct FocusBlockSettingsSection: View {
     private var captions: some View {
         VStack(alignment: .leading, spacing: 2) {
             caption("Aktiv während Fokus-Sessions, wenn das Schild im Popover an ist.")
-            caption("Website-Block braucht die Automation-Berechtigung (macOS fragt beim ersten Mal).")
+            // The captions describe what the block *does*, not just what it
+            // needs: since v25 that is visible behaviour (apps are pulled out
+            // of fullscreen one after another before anything is hidden).
+            caption("Apps werden aus dem Vollbild geholt und ausgeblendet — nichts wird beendet. Am Ende der Session sind sie wieder da, allerdings im Fenster statt im Vollbild.")
+            caption("Websites bleiben offen: der Browser wechselt nur den Tab weg. Braucht die Automation-Berechtigung (macOS fragt beim ersten Mal).")
             // v18: the permission status itself lives in the "Rechte" tab —
             // one place for all of them, so this stays a pointer.
-            caption("Vollbild-Apps brauchen zusätzlich die Bedienungshilfen — Status im Tab „Rechte“.")
+            caption("Ohne Bedienungshilfen bleiben Vollbild-Apps stehen — Status im Tab „Rechte“.")
+            caption("Timer, Finder und Systemeinstellungen bleiben in jedem Modus erreichbar.")
         }
         .padding(.top, 2)
     }
