@@ -44,10 +44,14 @@ final class AppBlockEnforcer {
     private static let sweepFailureLimit = 3
     /// How long such an app is left in peace before the next try.
     private static let sweepBackoff = 60.0
-    /// How often one app may be sent around the Spaces looking for further
-    /// fullscreen windows. Two covers the realistic case (a browser with two
-    /// profiles); more would be a tour of the whole system.
-    private static let maxBounces = 2
+    /// How many trips in a row may come up empty before the app is considered
+    /// done. Counting *fruitless* trips instead of trips means three profiles
+    /// work as well as two: every window that is actually dissolved resets the
+    /// count, so the sweep follows as many Spaces as the app really holds.
+    private static let maxFruitlessBounces = 2
+    /// Hard ceiling per app and sweep, whatever the progress — a runaway loop
+    /// must not be able to walk the Spaces forever.
+    private static let sweepStepCeiling = 60
     /// Between leaving the app and coming back — long enough for macOS to
     /// have switched Space, short enough not to feel like a detour.
     private static let bounceDelay = 0.35
@@ -68,9 +72,10 @@ final class AppBlockEnforcer {
     private var sweepQueue: [NSRunningApplication] = []
     private var sweeping: NSRunningApplication?
     private var sweepAttempt = 0
-    /// How often the app in the sweep has been sent away and back to reach a
-    /// window on another Space.
-    private var sweepBounces = 0
+    /// Trips away and back that did not turn up another fullscreen window.
+    private var sweepFruitlessBounces = 0
+    /// Steps spent on the current app in total, progress or not.
+    private var sweepSteps = 0
     /// Phase two: what to hide once no app holds a screen any more.
     private var pendingHide: [NSRunningApplication] = []
     /// Where the user was before the sweep started throwing Spaces around.
@@ -213,7 +218,8 @@ final class AppBlockEnforcer {
         guard !sweepQueue.isEmpty else { return hidePending() }
         sweeping = sweepQueue.removeFirst()
         sweepAttempt = 0
-        sweepBounces = 0
+        sweepFruitlessBounces = 0
+        sweepSteps = 0
         scheduleSweepStep()
     }
 
@@ -231,8 +237,10 @@ final class AppBlockEnforcer {
         guard let app = sweeping else { return }
         guard isActive() else { return abortSweep() }
         guard !app.isTerminated, occupiesScreen(app) else { return finishSweepStep(app, done: true) }
-        guard sweepAttempt < Self.sweepAttempts else { return finishSweepStep(app, done: false) }
+        guard sweepAttempt < Self.sweepAttempts, sweepSteps < Self.sweepStepCeiling
+        else { return finishSweepStep(app, done: false) }
         sweepAttempt += 1
+        sweepSteps += 1
 
         // The precise route first. `AXFullScreen = false` addresses the window
         // itself, whichever Space it lives on and whichever window has focus.
@@ -244,7 +252,14 @@ final class AppBlockEnforcer {
         // fullscreen while AX pulled the other one out — Chrome never left.
         let axState = AccessibilityAccess.fullscreenState(pid: app.processIdentifier)
         if axState == true {
+            // One write covers every fullscreen window Accessibility can see,
+            // which is what makes two windows sharing one Space (Split View)
+            // fall out together.
             _ = AccessibilityAccess.exitFullscreen(pid: app.processIdentifier)
+            // Progress buys a fresh budget: an app with several fullscreen
+            // Spaces should not run out of steps halfway through them.
+            sweepAttempt = 0
+            sweepFruitlessBounces = 0
             return scheduleSweepStep()
         }
         if axState == false {
@@ -253,10 +268,10 @@ final class AppBlockEnforcer {
             // owns another window elsewhere, that is where the next fullscreen
             // sits, and the only way in is to leave the app and come back:
             // macOS then switches to whatever its front window is.
-            guard sweepBounces < Self.maxBounces,
+            guard sweepFruitlessBounces < Self.maxFruitlessBounces,
                   FullscreenWindows.hasWindowOnAnotherSpace(pid: app.processIdentifier)
             else { return finishSweepStep(app, done: true) }
-            sweepBounces += 1
+            sweepFruitlessBounces += 1
             bounce(app)
             return scheduleSweepStep()
         }
