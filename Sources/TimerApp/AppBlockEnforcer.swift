@@ -44,6 +44,13 @@ final class AppBlockEnforcer {
     private static let sweepFailureLimit = 3
     /// How long such an app is left in peace before the next try.
     private static let sweepBackoff = 60.0
+    /// How often one app may be sent around the Spaces looking for further
+    /// fullscreen windows. Two covers the realistic case (a browser with two
+    /// profiles); more would be a tour of the whole system.
+    private static let maxBounces = 2
+    /// Between leaving the app and coming back — long enough for macOS to
+    /// have switched Space, short enough not to feel like a detour.
+    private static let bounceDelay = 0.35
 
     private let preferences: Preferences
     private var hiddenApps = HiddenAppsRecord()
@@ -61,6 +68,9 @@ final class AppBlockEnforcer {
     private var sweepQueue: [NSRunningApplication] = []
     private var sweeping: NSRunningApplication?
     private var sweepAttempt = 0
+    /// How often the app in the sweep has been sent away and back to reach a
+    /// window on another Space.
+    private var sweepBounces = 0
     /// Phase two: what to hide once no app holds a screen any more.
     private var pendingHide: [NSRunningApplication] = []
     /// Where the user was before the sweep started throwing Spaces around.
@@ -203,6 +213,7 @@ final class AppBlockEnforcer {
         guard !sweepQueue.isEmpty else { return hidePending() }
         sweeping = sweepQueue.removeFirst()
         sweepAttempt = 0
+        sweepBounces = 0
         scheduleSweepStep()
     }
 
@@ -232,12 +243,21 @@ final class AppBlockEnforcer {
         // brings the normal one forward, so ⌃⌘F pushed that one into
         // fullscreen while AX pulled the other one out — Chrome never left.
         let axState = AccessibilityAccess.fullscreenState(pid: app.processIdentifier)
-        if axState != nil {
+        if axState == true {
             _ = AccessibilityAccess.exitFullscreen(pid: app.processIdentifier)
-            // Accessibility can see the windows and reports none in fullscreen:
-            // whatever the window server made of their geometry, there is
-            // nothing here to dissolve — and a shortcut would only create one.
-            if axState == false { return finishSweepStep(app, done: true) }
+            return scheduleSweepStep()
+        }
+        if axState == false {
+            // Accessibility sees the windows and none of them is fullscreen —
+            // but it only ever sees the ones on the active Space. If the app
+            // owns another window elsewhere, that is where the next fullscreen
+            // sits, and the only way in is to leave the app and come back:
+            // macOS then switches to whatever its front window is.
+            guard sweepBounces < Self.maxBounces,
+                  FullscreenWindows.hasWindowOnAnotherSpace(pid: app.processIdentifier)
+            else { return finishSweepStep(app, done: true) }
+            sweepBounces += 1
+            bounce(app)
             return scheduleSweepStep()
         }
 
@@ -275,6 +295,21 @@ final class AppBlockEnforcer {
             }
         }
         startNextSweep()
+    }
+
+    /// Leaves the app and comes straight back, which lands on its front
+    /// window — a fullscreen one, if any is left. Finder is the way out
+    /// because it always runs and owns the desktop; the Timer has no window
+    /// to switch to and would not move the Space at all.
+    private func bounce(_ app: NSRunningApplication) {
+        let elsewhere = NSWorkspace.shared.runningApplications.first {
+            $0.bundleIdentifier == "com.apple.finder"
+        }
+        elsewhere?.activate()
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.bounceDelay) { [weak self] in
+            guard let self, self.sweeping?.processIdentifier == app.processIdentifier else { return }
+            app.activate()
+        }
     }
 
     private func isSweepPaused(_ app: NSRunningApplication) -> Bool {

@@ -34,15 +34,20 @@ enum BlockDiagnostics {
         var sample = 0
         func step() {
             sample += 1
-            let app = NSWorkspace.shared.runningApplications.first {
+            let apps = NSWorkspace.shared.runningApplications.filter {
                 $0.bundleIdentifier == bundleID
             }
-            if let app {
-                lines.append("[\(sample)] hidden=\(app.isHidden) active=\(app.isActive)")
-                lines.append(contentsOf: axDetail(pid: app.processIdentifier))
+            // From here on the sample also *tries* the exit, so the log shows
+            // whether the write works per window — not just what it reads.
+            let acting = sample > 15
+            if apps.isEmpty { lines.append("[\(sample)] not running") }
+            for app in apps {
+                lines.append(
+                    "[\(sample)] pid \(app.processIdentifier) hidden=\(app.isHidden)"
+                    + " active=\(app.isActive)\(acting ? " ACTING" : "")"
+                )
+                lines.append(contentsOf: axDetail(pid: app.processIdentifier, acting: acting))
                 lines.append(contentsOf: cgDetail(pid: app.processIdentifier))
-            } else {
-                lines.append("[\(sample)] not running")
             }
             write(lines)
             if sample < 30 {
@@ -53,7 +58,7 @@ enum BlockDiagnostics {
     }
 
     /// Per window: is it fullscreen, and may we even write that attribute?
-    private static func axDetail(pid: pid_t) -> [String] {
+    private static func axDetail(pid: pid_t, acting: Bool = false) -> [String] {
         let element = AXUIElementCreateApplication(pid)
         var value: CFTypeRef?
         let code = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &value)
@@ -69,9 +74,17 @@ enum BlockDiagnostics {
             AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &size)
             var box = CGSize.zero
             if let size { AXValueGetValue(size as! AXValue, .cgSize, &box) }
+            let isFull = (state as? Bool) ?? false
             let full = (state as? Bool).map(String.init) ?? "read \(read.rawValue)"
-            return "      #\(index) fullscreen=\(full) settable=\(settable.boolValue)"
+            var line = "      #\(index) fullscreen=\(full) settable=\(settable.boolValue)"
                 + " size=\(Int(box.width))x\(Int(box.height))"
+            if acting, isFull {
+                let result = AXUIElementSetAttributeValue(
+                    window, "AXFullScreen" as CFString, kCFBooleanFalse
+                )
+                line += " → set false: \(result.rawValue)"
+            }
+            return line
         }
     }
 

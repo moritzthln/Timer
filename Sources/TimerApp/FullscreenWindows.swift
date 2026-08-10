@@ -33,6 +33,36 @@ enum FullscreenWindows {
     /// 1512×982 screen). A normal large window (Chrome: 1512×884) stays out.
     private static let fullHeightSlack: CGFloat = 40
 
+    /// Window numbers of everything currently on the active Space. A window
+    /// the app owns that is *not* in here lives on another Space — which is
+    /// where a second fullscreen window hides.
+    private static func onScreenNumbers() -> Set<Int> {
+        let listed = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        return Set(listed.compactMap { $0[kCGWindowNumber as String] as? Int })
+    }
+
+    /// Whether the app owns a real window that is not on the active Space.
+    /// This is the evidence that one visit is not enough: an app can hold
+    /// several fullscreen Spaces, and only the current one is ever reachable —
+    /// Accessibility lists it, keyboard shortcuts hit it, the rest may as well
+    /// not exist (user: "mehrere Chrome-Profile in zwei Vollbildern, nur eins
+    /// wurde rausgeholt").
+    static func hasWindowOnAnotherSpace(pid: pid_t) -> Bool {
+        let onScreen = onScreenNumbers()
+        return windowList().contains { window in
+            guard (window[kCGWindowOwnerPID as String] as? pid_t) == pid,
+                  (window[kCGWindowLayer as String] as? Int) == 0,
+                  let number = window[kCGWindowNumber as String] as? Int,
+                  let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
+                  let width = bounds["Width"], let height = bounds["Height"],
+                  width >= minContentWidth, height >= minContentHeight
+            else { return false }
+            return !onScreen.contains(number)
+        }
+    }
+
     private static func windowList() -> [[String: Any]] {
         if let cachedAt, Date().timeIntervalSince(cachedAt) < cacheLifetime { return cached }
         cached = CGWindowListCopyWindowInfo(
