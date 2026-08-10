@@ -32,6 +32,9 @@ final class AppBlockEnforcer {
     private var running: Set<pid_t> = []
     /// When each app last received a keyboard shortcut (the throttle memory).
     private var lastKeyEvent: [pid_t: Date] = [:]
+    /// The app currently being pulled forward, and who had the screen before.
+    private var escorted: pid_t?
+    private var escortReturn: NSRunningApplication?
 
     /// Non-nil while a diagnostic run is in flight: who is being probed, what
     /// fired, and where to report. Keyed by pid because a real session may
@@ -61,7 +64,7 @@ final class AppBlockEnforcer {
     func enforce(app: NSRunningApplication, name: String) {
         let pid = app.processIdentifier
         guard !running.contains(pid) else { return }
-        guard isVisible(app) else { return }
+        guard !app.isTerminated else { return }
         running.insert(pid)
         insist(app: app, attempt: 0)
     }
@@ -89,6 +92,8 @@ final class AppBlockEnforcer {
     /// on block deactivation and on app quit.
     func restore() {
         lastKeyEvent = [:]
+        escorted = nil
+        escortReturn = nil
         restoreHiddenApps()
     }
 
@@ -116,11 +121,12 @@ final class AppBlockEnforcer {
 
         let plan = BlockAttempt.plan(
             attempt: attempt,
-            visible: isVisible(app),
+            hidden: app.isHidden || app.isTerminated,
+            fullscreen: isFullscreen(app),
             frontmost: isFrontmost(app),
-            fullscreen: AccessibilityAccess.isAppFullscreen(pid: app.processIdentifier),
             accessibilityGranted: accessibilityGranted(attempt: attempt),
-            keyEventAllowed: keyEventAllowed(app)
+            keyEventAllowed: keyEventAllowed(app),
+            escortAllowed: escortAllowed(app)
         )
         guard !plan.stop, attempt < budget else { return finish(app) }
         perform(plan, on: app)
@@ -133,6 +139,19 @@ final class AppBlockEnforcer {
 
     private func perform(_ plan: BlockPlan, on app: NSRunningApplication) {
         let pid = app.processIdentifier
+        // A hidden app with a surviving fullscreen window: bring it back, so
+        // its windows exist for AX again. Nothing else this attempt — the
+        // unhide needs a moment to take effect.
+        if plan.unhide {
+            _ = app.unhide()
+            return
+        }
+        // Bringing the app forward is what makes the keyboard shortcuts reach
+        // it at all. Remember where to send the user back to.
+        if plan.activate {
+            beginEscort(app)
+            app.activate()
+        }
         // Keyboard first: it is the slowest to take effect, and while the app
         // still owns a fullscreen Space every other technique is refused.
         if plan.sendExitFullscreenKey {
@@ -148,12 +167,15 @@ final class AppBlockEnforcer {
     /// Clears the in-flight marker and reports a diagnostic if this was one.
     private func finish(_ app: NSRunningApplication) {
         running.remove(app.processIdentifier)
+        endEscort(app)
         if isProbing(app) { finishProbe(app: app) }
     }
 
     /// Merges what a further attempt did into what the diagnostic has seen.
     private func merge(_ seen: BlockPlan, _ plan: BlockPlan) -> BlockPlan {
         var merged = seen
+        merged.unhide = seen.unhide || plan.unhide
+        merged.activate = seen.activate || plan.activate
         merged.exitFullscreenViaAX = seen.exitFullscreenViaAX || plan.exitFullscreenViaAX
         merged.hide = seen.hide || plan.hide
         merged.minimize = seen.minimize || plan.minimize
@@ -185,7 +207,7 @@ final class AppBlockEnforcer {
     private static func probeOutcome(fired: BlockPlan, visible: Bool) -> ProbeOutcome {
         guard !visible else { return fired.isEmpty ? .noAction : .failed }
         if fired.isEmpty { return .noAction }
-        if fired.sendSpaceLeftKey { return .spaceSwitched }
+        if fired.sendSpaceLeftKey || fired.activate { return .spaceSwitched }
         if fired.sendExitFullscreenKey || fired.exitFullscreenViaAX { return .unfullscreened }
         return fired.minimize ? .minimized : .hidden
     }
@@ -200,6 +222,40 @@ final class AppBlockEnforcer {
 
     private func isVisible(_ app: NSRunningApplication) -> Bool {
         !app.isTerminated && !app.isHidden
+    }
+
+    /// Accessibility answers this for a visible app; for a hidden one it has
+    /// no windows to report, and then only the window server still sees the
+    /// fullscreen window that survived the hide.
+    private func isFullscreen(_ app: NSRunningApplication) -> Bool {
+        if let known = AccessibilityAccess.fullscreenState(pid: app.processIdentifier) {
+            return known
+        }
+        return FullscreenWindows.hasFullscreenWindow(pid: app.processIdentifier)
+    }
+
+    /// Only one app is ever pulled forward at a time — several at once would
+    /// throw the user across the Spaces.
+    private func escortAllowed(_ app: NSRunningApplication) -> Bool {
+        escorted == nil || escorted == app.processIdentifier
+    }
+
+    /// Remembers who had the screen, so it can be handed back afterwards.
+    private func beginEscort(_ app: NSRunningApplication) {
+        guard escorted == nil else { return }
+        escorted = app.processIdentifier
+        let front = NSWorkspace.shared.frontmostApplication
+        if front?.processIdentifier != app.processIdentifier { escortReturn = front }
+    }
+
+    /// The escorted app is done with — give the screen back to whoever had it,
+    /// unless that app is meanwhile gone or hidden itself.
+    private func endEscort(_ app: NSRunningApplication) {
+        guard escorted == app.processIdentifier else { return }
+        escorted = nil
+        defer { escortReturn = nil }
+        guard let back = escortReturn, !back.isTerminated, !back.isHidden else { return }
+        back.activate()
     }
 
     /// Keyboard shortcuts always land in the frontmost app, so only that one

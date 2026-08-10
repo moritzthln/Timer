@@ -132,16 +132,18 @@ enum AccessibilityAccess {
         NSWorkspace.shared.open(url)
     }
 
-    /// True when any of the app's windows is in native fullscreen. A cheap
-    /// read (no write, no prompt) that tells the loop whether the keyboard
-    /// shortcut is warranted — sending it to a windowed app would toggle it
-    /// *into* fullscreen.
-    static func isAppFullscreen(pid: pid_t) -> Bool {
+    /// Whether any of the app's windows is in native fullscreen — `nil` when
+    /// that cannot be answered at all, which is the normal case for a hidden
+    /// app (it exposes no AX windows) and for a denied permission. The caller
+    /// then falls back to the window server's geometry, the only source that
+    /// still sees a fullscreen window behind a hide.
+    static func fullscreenState(pid: pid_t) -> Bool? {
         let application = element(pid: pid)
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
             application, kAXWindowsAttribute as CFString, &value
-        ) == .success, let windows = value as? [AXUIElement] else { return false }
+        ) == .success, let windows = value as? [AXUIElement], !windows.isEmpty
+        else { return nil }
         return windows.contains(where: isFullscreen)
     }
 
