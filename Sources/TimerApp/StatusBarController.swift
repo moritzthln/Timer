@@ -65,6 +65,9 @@ final class StatusBarController {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.refresh()
+                // Keep an open popover in step with its content height, so a
+                // phase change cannot drift it away from the status item.
+                if self.popover.isShown { self.sizePopoverToContent() }
                 self.focusBlock.update(phase: self.engine.phase)
                 self.focusMode.update(phase: self.engine.phase)
             }
@@ -237,9 +240,27 @@ final class StatusBarController {
 
     private func showPopover() {
         guard let button = statusItem.button, !popover.isShown else { return }
+        // The popover has to know its final size BEFORE it is placed: NSPopover
+        // anchors the window and then keeps its bottom-left origin, so a height
+        // that only settles after the SwiftUI layout pass drags the top edge
+        // away from the status item. That was the "opens centimetres too low"
+        // report; a nudge afterwards fixed the position but was visible as a
+        // jump, so the size is pinned up front instead.
+        sizePopoverToContent()
         // Accessory apps must activate, otherwise the text field gets no focus.
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    }
+
+    /// Lays the SwiftUI content out and hands the popover that exact size.
+    /// Also called while the popover is open, because the idle, running and
+    /// finished views differ in height.
+    private func sizePopoverToContent() {
+        guard let hosting = popover.contentViewController else { return }
+        hosting.view.layoutSubtreeIfNeeded()
+        let size = hosting.view.fittingSize
+        guard size.width > 0, size.height > 0, size != popover.contentSize else { return }
+        popover.contentSize = size
     }
 
     // MARK: - Menu bar rendering

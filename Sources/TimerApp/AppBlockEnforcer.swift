@@ -33,6 +33,10 @@ final class AppBlockEnforcer {
     /// really went away. macOS swallows a hide() that lands inside the
     /// fullscreen-exit animation, and a single check left the app sitting
     /// there until the next poll — or forever, if it was no longer frontmost.
+    /// Leaving fullscreen is retried as well, not just hiding: a single
+    /// shortcut can land mid-animation and be swallowed.
+    private static let fullscreenInterval = 0.4
+    private static let fullscreenAttempts = 8       // ~3.2 s of insisting
     private static let ensureInterval = 0.3
     private static let ensureAttempts = 12          // ~3.6 s of insistence
     /// From this attempt on, minimising joins the hide attempts.
@@ -201,16 +205,33 @@ final class AppBlockEnforcer {
         // handling and works where AXFullScreen writes are rejected; ⌃← then
         // moves off the Space for the rare app that ignores ⌃⌘F.
         announce(name)
-        if app.isActive {
-            FullscreenExit.sendExitFullscreen()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                guard let self, app.isActive, !app.isHidden else { return }
-                FullscreenExit.sendSpaceLeft()
-            }
-        }
+        ensureOutOfFullscreen(app: app, attempt: 0)
         let now = Date()
         lastEscape[Self.escapeKey(app)] = now
         lastEscapeAt = now
+    }
+
+    /// Keeps sending the exit-fullscreen shortcut until the app has actually
+    /// left fullscreen, then hands over to `ensureGone`. One shot was not
+    /// enough (user report: the block sometimes did nothing) — a key event that
+    /// lands while the app is animating or busy is simply swallowed. From the
+    /// second attempt the Space-left shortcut joins in, for apps that ignore
+    /// control-command-F entirely.
+    private func ensureOutOfFullscreen(app: NSRunningApplication, attempt: Int) {
+        guard isActive() || isProbing(app) else { return }
+        // No longer in front, already out of fullscreen, or out of attempts:
+        // hiding takes over from here.
+        guard app.isActive,
+              AccessibilityAccess.isAppFullscreen(pid: app.processIdentifier),
+              attempt < Self.fullscreenAttempts else {
+            ensureGone(app: app, attempt: 0)
+            return
+        }
+        FullscreenExit.sendExitFullscreen()
+        if attempt >= 1 { FullscreenExit.sendSpaceLeft() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.fullscreenInterval) { [weak self] in
+            self?.ensureOutOfFullscreen(app: app, attempt: attempt + 1)
+        }
     }
 
 
