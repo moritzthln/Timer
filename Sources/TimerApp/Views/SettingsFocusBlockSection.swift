@@ -54,7 +54,7 @@ struct FocusBlockSettingsSection: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
-            InfoDot(text: Self.sectionInfo)
+            InfoDot(info: Self.sectionInfo)
             Spacer()
             Text(shieldEnabled ? "Schild: an" : "Schild: aus")
                 .font(.caption)
@@ -66,43 +66,55 @@ struct FocusBlockSettingsSection: View {
     /// info dot rather than under the section, because three lists with three
     /// sets of rules produced a wall of captions at the bottom that belonged
     /// to none of them in particular.
-    private func subsectionTitle(_ title: String, info: String? = nil) -> some View {
+    private func subsectionTitle(_ title: String, info: InfoText? = nil) -> some View {
         HStack(spacing: 4) {
             Text(title)
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
-            if let info { InfoDot(text: info) }
+            if let info { InfoDot(info: info) }
         }
     }
 
-    private static let sectionInfo = """
-        Der Block läuft, während eine Fokus-Session läuft und das Schild im         Popover an ist. Welche Regel dabei gilt — „Blockieren“ oder „Nur         Erlaubte“ —, stellst du im Popover neben dem Schild um.
+    static let sectionInfo = InfoText(
+        title: "Fokus-Block",
+        lines: [
+            "Läuft, solange eine Fokus-Session läuft und das Schild im Popover an ist.",
+            "Ob „Blockieren“ oder „Nur Erlaubte“ gilt, stellst du im Popover neben dem Schild um.",
+            "Vollbild-Apps brauchen die Bedienungshilfen, Websites die Automation-Berechtigung — Status im Tab „Rechte“.",
+            "Timer, Finder und Systemeinstellungen bleiben in jedem Modus erreichbar.",
+        ]
+    )
 
-        Vollbild-Apps brauchen die Bedienungshilfen, der Website-Block die         Automation-Berechtigung. Beides mit Status im Tab „Rechte“.
+    static let blocklistInfo = InfoText(
+        title: "Blockieren",
+        lines: [
+            "Markierte Apps werden aus dem Vollbild geholt und ausgeblendet. Nichts wird beendet.",
+            "Nach der Session sind sie wieder da — im Fenster, nicht im Vollbild.",
+            "Markierte Websites bleiben offen, der Browser wechselt nur den Tab weg.",
+            "Unterstützte Browser: Safari, Chrome, Arc.",
+        ]
+    )
 
-        Timer, Finder und Systemeinstellungen bleiben in jedem Modus erreichbar.
-        """
+    static let allowlistInfo = InfoText(
+        title: "Nur Erlaubte",
+        lines: [
+            "Umgekehrte Richtung: alles außer den erlaubten Apps wird ausgeblendet.",
+            "Tabs auf nicht erlaubten Seiten werden weggeschaltet.",
+            "Leere Liste blockt nichts — damit eine halb eingerichtete Liste den Mac nicht zusperrt.",
+        ]
+    )
 
-    private static let blocklistInfo = """
-        Markierte Apps werden aus dem Vollbild geholt und ausgeblendet —         nichts wird beendet. Am Ende der Session sind sie wieder da,         allerdings im Fenster statt im Vollbild.
-
-        Markierte Websites bleiben offen: der Browser wechselt nur den Tab         weg. Unterstützt sind Safari, Chrome und Arc.
-        """
-
-    private static let allowlistInfo = """
-        Umgekehrte Richtung: alles außer den erlaubten Apps wird         ausgeblendet, und Tabs auf nicht erlaubten Seiten werden weggeschaltet.
-
-        Leere Liste = dieser Teil blockt nichts — damit eine halb         eingerichtete Liste den Mac nicht versehentlich zusperrt.
-        """
-
-    private static let emergencyInfo = """
-        Läuft unabhängig vom Schild und von jedem Timer — Start im Popover         unter „⋯“ oder per Hotkey, Dauer 1 bis 60 Minuten.
-
-        Leere App-Liste = alles außer Timer, Finder und Systemeinstellungen         wird ausgeblendet. Leere Website-Liste = keine Seite wird gesperrt.
-
-        Abbrechen geht nur, indem du den Knopf zehn Sekunden gedrückt hältst.
-        """
+    static let emergencyInfo = InfoText(
+        title: "Notfall-Modus",
+        lines: [
+            "Läuft unabhängig vom Schild und von jedem Timer, 1 bis 60 Minuten.",
+            "Start im Popover unter „⋯“ oder per Hotkey.",
+            "Leere App-Liste: alles außer Timer, Finder und Systemeinstellungen wird ausgeblendet.",
+            "Leere Website-Liste: keine Seite wird gesperrt.",
+            "Abbrechen nur, indem du den Knopf zehn Sekunden gedrückt hältst.",
+        ]
+    )
 
     private func caption(_ text: String) -> some View {
         Text(text)
@@ -215,8 +227,16 @@ struct FocusBlockSettingsSection: View {
 
     private var emergencySubsection: some View {
         VStack(alignment: .leading, spacing: 4) {
+            // Outside the disabled block below: a frozen list is exactly when
+            // the user wants to read why it is frozen.
             subsectionTitle("Notfall-Modus", info: Self.emergencyInfo)
                 .padding(.top, 6)
+            emergencyBody
+        }
+    }
+
+    private var emergencyBody: some View {
+        VStack(alignment: .leading, spacing: 4) {
             if emergencyRunning {
                 caption("Notfall-Modus läuft — Listen sind bis zum Ende gesperrt.")
                     .foregroundStyle(Color.orange)
@@ -453,11 +473,24 @@ struct FocusBlockSettingsSection: View {
     }
 }
 
+/// Short, structured explanation of one list — a heading and a handful of
+/// one-line rules. Prose paragraphs read badly in a 280 pt popover, and worse
+/// in a tooltip.
+struct InfoText {
+    let title: String
+    let lines: [String]
+
+    /// Tooltips take plain text; the bullets keep the lines apart there too.
+    var tooltip: String {
+        ([title] + lines.map { "• " + $0 }).joined(separator: "\n")
+    }
+}
+
 /// The "i" next to a heading: hovering shows the text as a tooltip, clicking
 /// opens it as a popover — so the explanation is available without three
 /// paragraphs of captions sitting under the lists all the time.
 struct InfoDot: View {
-    let text: String
+    let info: InfoText
     @State private var shown = false
 
     var body: some View {
@@ -467,13 +500,24 @@ struct InfoDot: View {
                 .foregroundStyle(.secondary)
         }
         .buttonStyle(.plain)
-        .help(text)
+        .help(info.tooltip)
         .popover(isPresented: $shown, arrowEdge: .bottom) {
-            Text(text)
-                .font(.system(size: 11))
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(width: 260, alignment: .leading)
-                .padding(12)
+            VStack(alignment: .leading, spacing: 7) {
+                Text(info.title)
+                    .font(.system(size: 11, weight: .semibold))
+                ForEach(info.lines, id: \.self) { line in
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text("•")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Text(line)
+                            .font(.system(size: 11))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .frame(width: 280, alignment: .leading)
+            .padding(14)
         }
     }
 }
