@@ -155,7 +155,8 @@ final class FocusBlockController {
         // Its empty list means "only the essentials" — see shouldHide.
         if emergencyActive() {
             return allowlistTarget(
-                app, allowed: preferences.emergencyApps, emptyListBlocksAll: true
+                app, allowed: preferences.emergencyApps,
+                allowedDomains: preferences.emergencyDomains, emptyListBlocksAll: true
             )
         }
         switch preferences.blockMode {
@@ -165,7 +166,10 @@ final class FocusBlockController {
             else { return nil }
             return entry.name.isEmpty ? (app.localizedName ?? "App") : entry.name
         case .allowlist:
-            return allowlistTarget(app, allowed: preferences.allowedApps)
+            return allowlistTarget(
+                app, allowed: preferences.allowedApps,
+                allowedDomains: preferences.allowedDomains
+            )
         }
     }
 
@@ -185,12 +189,17 @@ final class FocusBlockController {
     /// additionally protected via its live bundle ID (covers dev builds whose
     /// ID differs from the packaged one).
     private func allowlistTarget(
-        _ app: NSRunningApplication, allowed: [BlockedApp], emptyListBlocksAll: Bool = false
+        _ app: NSRunningApplication, allowed: [BlockedApp], allowedDomains: [String],
+        emptyListBlocksAll: Bool = false
     ) -> String? {
         guard app.activationPolicy == .regular, let id = app.bundleIdentifier else { return nil }
-        let essential = AllowlistRules.essentialBundleIDs.union(
-            [Bundle.main.bundleIdentifier].compactMap { $0 }
-        )
+        // An allowed website needs a browser to be openable in, so allowing
+        // one keeps the supported browsers reachable — restricted to exactly
+        // those sites by the tab arm.
+        let essential = AllowlistRules.essentials(
+            withBrowsers: Set(BrowserScripting.supported.map(\.bundleID)),
+            allowedDomains: allowedDomains
+        ).union([Bundle.main.bundleIdentifier].compactMap { $0 })
         guard AllowlistRules.shouldHide(
             bundleID: id, allowed: Set(allowed.map(\.bundleID)), essential: essential,
             emptyListBlocksAll: emptyListBlocksAll

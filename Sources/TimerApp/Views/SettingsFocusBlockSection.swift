@@ -101,6 +101,7 @@ struct FocusBlockSettingsSection: View {
         lines: [
             "Umgekehrte Richtung: alles außer den erlaubten Apps wird ausgeblendet.",
             "Tabs auf nicht erlaubten Seiten werden weggeschaltet.",
+            "Erlaubst du eine Website, bleiben Safari, Chrome und Arc erreichbar — sonst könntest du sie nicht öffnen.",
             "Leere Liste blockt nichts — damit eine halb eingerichtete Liste den Mac nicht zusperrt.",
         ]
     )
@@ -111,7 +112,7 @@ struct FocusBlockSettingsSection: View {
             "Läuft unabhängig vom Schild und von jedem Timer, 1 bis 60 Minuten.",
             "Start im Popover unter „⋯“ oder per Hotkey.",
             "Leere App-Liste: alles außer Timer, Finder und Systemeinstellungen wird ausgeblendet.",
-            "Leere Website-Liste: keine Seite wird gesperrt.",
+            "Leere Website-Liste: keine Seite wird gesperrt — dann bleiben auch die Browser zu.",
             "Abbrechen nur, indem du den Knopf zehn Sekunden gedrückt hältst.",
         ]
     )

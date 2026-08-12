@@ -118,3 +118,31 @@ func runEmergencyAllowlistTests() {
         ), "a listed app stays reachable")
     }
 }
+
+func runAllowlistBrowserTests() {
+    let browsers: Set<String> = ["com.apple.Safari", "com.google.Chrome", "company.thebrowser.Browser"]
+
+    test("an allowed website keeps the browsers reachable") {
+        // Otherwise the browser is hidden as an unlisted app and the website
+        // list can never do anything at all.
+        let essentials = AllowlistRules.essentials(
+            withBrowsers: browsers, allowedDomains: ["wikipedia.org"]
+        )
+        try expect(!AllowlistRules.shouldHide(
+            bundleID: "com.google.Chrome", allowed: ["notion.id"], essential: essentials
+        ), "Chrome survives while a website is allowed")
+        try expect(AllowlistRules.shouldHide(
+            bundleID: "com.hnc.Discord", allowed: ["notion.id"], essential: essentials
+        ), "everything else still goes")
+    }
+
+    test("without an allowed website the browsers are blocked like any app") {
+        let essentials = AllowlistRules.essentials(withBrowsers: browsers, allowedDomains: [])
+        try expect(AllowlistRules.shouldHide(
+            bundleID: "com.google.Chrome", allowed: ["notion.id"], essential: essentials
+        ), "no website allowed, no browser needed")
+        try expect(!AllowlistRules.shouldHide(
+            bundleID: "com.apple.finder", allowed: ["notion.id"], essential: essentials
+        ), "the essentials are untouched by all this")
+    }
+}

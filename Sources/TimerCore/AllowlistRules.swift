@@ -14,6 +14,24 @@ public enum AllowlistRules {
         "com.apple.systempreferences",
     ]
 
+    /// The set that survives an allowlist, given what the user allowed.
+    ///
+    /// Allowing a *website* has to imply allowing something to open it in:
+    /// otherwise the browser is hidden as an unlisted app and the website
+    /// list can never do anything (user: "ich gebe eine Webseite ein, aber
+    /// Chrome ist nicht erlaubt — dann sollte Chrome doch offen bleiben"). It
+    /// is no hole either: the tab arm restricts every supported browser to
+    /// the allowed hosts, so a browser that stays reachable is still only
+    /// good for the sites on the list. With no allowed website at all, the
+    /// browsers stay blocked like any other app.
+    public static func essentials(
+        withBrowsers browsers: Set<String>,
+        allowedDomains: [String],
+        base: Set<String> = essentialBundleIDs
+    ) -> Set<String> {
+        allowedDomains.isEmpty ? base : base.union(browsers)
+    }
+
     /// True iff the app should be hidden: not allowed and not essential.
     /// Callers pre-filter to regular user apps — the activation policy is an
     /// AppKit concept the pure rule cannot see. With zero allowed apps the
