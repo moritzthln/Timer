@@ -5,12 +5,20 @@ public struct PersistedRun: Equatable {
     public var total: TimeInterval
     public var kind: SessionKind
     public var config: PomodoroConfig?
+    /// What the user dedicated this session to. Part of the run rather than
+    /// of the statistics: a session survives a relaunch, and its label should
+    /// come back with it instead of quietly disappearing.
+    public var label: String
 
-    public init(endDate: Date, total: TimeInterval, kind: SessionKind, config: PomodoroConfig?) {
+    public init(
+        endDate: Date, total: TimeInterval, kind: SessionKind, config: PomodoroConfig?,
+        label: String = ""
+    ) {
         self.endDate = endDate
         self.total = total
         self.kind = kind
         self.config = config
+        self.label = label
     }
 }
 
@@ -64,6 +72,7 @@ public final class Preferences {
         static let floatingEnabled = "floatingEnabled"
         static let lastMode = "lastMode"
         static let blockedApps = "blockedApps"
+        static let runLabel = "runLabel"
         static let hiddenByBlock = "hiddenByBlock"
         static let blockedDomains = "blockedDomains"
         static let allowedApps = "allowedApps"
@@ -109,6 +118,11 @@ public final class Preferences {
 
     public func persistRun(_ run: PersistedRun) {
         defaults.set(run.endDate.timeIntervalSince1970, forKey: Key.endDate)
+        if run.label.isEmpty {
+            defaults.removeObject(forKey: Key.runLabel)
+        } else {
+            defaults.set(run.label, forKey: Key.runLabel)
+        }
         defaults.set(run.total, forKey: Key.total)
         switch run.kind {
         case .single:
@@ -134,7 +148,8 @@ public final class Preferences {
 
     public func clearRunning() {
         for key in [Key.endDate, Key.total, Key.kindPhase, Key.kindRound,
-                    Key.cfgFocus, Key.cfgBreak, Key.cfgLongBreak, Key.cfgRounds] {
+                    Key.cfgFocus, Key.cfgBreak, Key.cfgLongBreak, Key.cfgRounds,
+                    Key.runLabel] {
             defaults.removeObject(forKey: key)
         }
     }
@@ -167,7 +182,8 @@ public final class Preferences {
         }
         return PersistedRun(
             endDate: Date(timeIntervalSince1970: timestamp),
-            total: total, kind: kind, config: config
+            total: total, kind: kind, config: config,
+            label: defaults.string(forKey: Key.runLabel) ?? ""
         )
     }
 

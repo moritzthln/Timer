@@ -98,25 +98,33 @@ public final class TimerEngine: ObservableObject {
 
     // MARK: - Actions
 
-    public func start(minutes: Int) {
+    /// What this session is dedicated to — free text, empty when the user
+    /// did not bother. Display only: it is never written to the statistics,
+    /// it just travels with the session (including across a relaunch) and is
+    /// dropped when the session ends.
+    @Published public private(set) var label = ""
+
+    public func start(minutes: Int, label: String = "") {
+        self.label = label
         let clamped = min(720, max(1, minutes))
         preferences.lastMinutes = clamped
         activeConfig = nil
         let total = TimeInterval(clamped * 60)
         let end = now().addingTimeInterval(total)
         phase = .running(endDate: end, total: total, kind: .single)
-        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: .single, config: nil))
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: .single, config: nil, label: label))
         startTicker()
         openFocusSegmentIfNeeded(kind: .single, at: now())
     }
 
-    public func startPomodoro(config: PomodoroConfig) {
+    public func startPomodoro(config: PomodoroConfig, label: String = "") {
+        self.label = label
         activeConfig = config
         let total = config.duration(of: .focus)
         let kind = SessionKind.pomodoro(phase: .focus, round: 1)
         let end = now().addingTimeInterval(total)
         phase = .running(endDate: end, total: total, kind: kind)
-        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: config))
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: config, label: label))
         startTicker()
         openFocusSegmentIfNeeded(kind: kind, at: now())
     }
@@ -142,7 +150,7 @@ public final class TimerEngine: ObservableObject {
         guard case .paused(let remaining, let total, let kind) = phase else { return }
         let end = now().addingTimeInterval(remaining)
         phase = .running(endDate: end, total: total, kind: kind)
-        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: activeConfig))
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: activeConfig, label: label))
         startTicker()
         openFocusSegmentIfNeeded(kind: kind, at: now())
     }
@@ -153,6 +161,7 @@ public final class TimerEngine: ObservableObject {
         }
         phase = .idle
         activeConfig = nil
+        label = ""
         preferences.clearRunning()
         stopTicker()
     }
@@ -176,7 +185,7 @@ public final class TimerEngine: ObservableObject {
             let end = endDate.addingTimeInterval(added)
             phase = .running(endDate: end, total: total + added, kind: kind)
             preferences.persistRun(
-                PersistedRun(endDate: end, total: total + added, kind: kind, config: activeConfig)
+                PersistedRun(endDate: end, total: total + added, kind: kind, config: activeConfig, label: label)
             )
         case .paused(let remaining, let total, let kind):
             guard let added = Self.clampedExtension(total: total, minutes: minutes) else { return }
@@ -249,7 +258,7 @@ public final class TimerEngine: ObservableObject {
         let total = config.duration(of: phase)
         let end = start.addingTimeInterval(total)
         self.phase = .running(endDate: end, total: total, kind: kind)
-        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: config))
+        preferences.persistRun(PersistedRun(endDate: end, total: total, kind: kind, config: config, label: label))
         startTicker()
         openFocusSegmentIfNeeded(kind: kind, at: start)
     }
@@ -278,6 +287,7 @@ public final class TimerEngine: ObservableObject {
     private func restore() {
         guard let run = preferences.persistedRun else { return }
         activeConfig = run.config
+        label = run.label
         if run.endDate > now() {
             phase = .running(endDate: run.endDate, total: run.total, kind: run.kind)
             startTicker()

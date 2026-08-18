@@ -33,6 +33,32 @@ closeItem.target = delegate
 appMenu.addItem(closeItem)
 appMenuItem.submenu = appMenu
 mainMenu.addItem(appMenuItem)
+
+// An app without a Dock icon still needs an Edit menu: the standard shortcuts
+// are *menu* commands, so without one ⌘C, ⌘V, ⌘X and ⌘A do nothing in every
+// text field the app has — the minute input, the domain fields, everywhere
+// (user: "Copy und paste von Links erlauben"). Nil targets send each command
+// down the responder chain, which is where the focused field picks it up.
+let editMenuItem = NSMenuItem()
+let editMenu = NSMenu(title: "Bearbeiten")
+for (title, selector, key) in [
+    ("Widerrufen", Selector(("undo:")), "z"),
+    ("Wiederholen", Selector(("redo:")), "Z"),
+] {
+    editMenu.addItem(NSMenuItem(title: title, action: selector, keyEquivalent: key))
+}
+editMenu.addItem(.separator())
+for (title, selector, key) in [
+    ("Ausschneiden", #selector(NSText.cut(_:)), "x"),
+    ("Kopieren", #selector(NSText.copy(_:)), "c"),
+    ("Einsetzen", #selector(NSText.paste(_:)), "v"),
+    ("Alles auswählen", #selector(NSText.selectAll(_:)), "a"),
+] {
+    editMenu.addItem(NSMenuItem(title: title, action: selector, keyEquivalent: key))
+}
+editMenuItem.submenu = editMenu
+mainMenu.addItem(editMenuItem)
+
 app.mainMenu = mainMenu
 
 app.run()

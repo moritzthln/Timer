@@ -20,6 +20,16 @@ struct RunningView: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            // The dedication sits above everything, in full weight: it is the
+            // answer to "what am I doing", which the time alone never gives.
+            // One line, cut off rather than wrapped — the popover is 240 pt.
+            if !engine.label.isEmpty {
+                Text(engine.label)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(engine.label)
+            }
             if let label = pomodoroLabel {
                 Text(label)
                     .font(.system(size: 10))

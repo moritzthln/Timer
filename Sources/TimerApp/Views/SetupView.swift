@@ -13,12 +13,16 @@ struct SetupView: View {
     var onOpenStats: () -> Void
 
     @State private var minutesText = ""
+    /// Optional dedication for the session. Display only — it travels with
+    /// the run and is dropped when the session ends, never recorded.
+    @State private var labelText = ""
     @State private var soundEnabled = true
     @State private var floatingOn = true
     @State private var focusBlockOn = false
     @State private var blockMode = BlockMode.blocklist
     @State private var presets: [Int] = [5, 15, 25, 45]
     @FocusState private var inputFocused: Bool
+    @FocusState private var labelFocused: Bool
 
     /// What the field shows and what Start uses. `minutesText` is only filled
     /// by `onAppear`, and SwiftUI does not reliably re-run that when the idle
@@ -37,6 +41,11 @@ struct SetupView: View {
         Binding(get: { displayedMinutes }, set: { minutesText = $0 })
     }
 
+    /// Empty stays empty: a label of spaces would only take up a line.
+    private var trimmedLabel: String {
+        labelText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var enteredMinutes: Int? {
         guard let value = Int(displayedMinutes), value >= 1 else { return nil }
         return value
@@ -45,6 +54,7 @@ struct SetupView: View {
     var body: some View {
         VStack(spacing: 12) {
             heroInput
+            labelField
             presetRow
             pomodoroChip
             startButton
@@ -56,6 +66,7 @@ struct SetupView: View {
             // field from the stored value and take focus again.
             guard case .idle = phase else { return }
             minutesText = String(preferences.lastMinutes)
+            labelText = ""
             DispatchQueue.main.async { inputFocused = true }
         }
         .onAppear {
@@ -91,6 +102,24 @@ struct SetupView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// Sits right under the minutes, where the eye already is: one line,
+    /// optional, and Enter starts from here too, so a dedication never costs
+    /// an extra click.
+    private var labelField: some View {
+        TextField("Wofür? (optional)", text: $labelText)
+            .textFieldStyle(.plain)
+            .font(.system(size: 11))
+            .multilineTextAlignment(.center)
+            .focused($labelFocused)
+            .onSubmit(startFromField)
+            .padding(.vertical, 3)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(labelFocused ? 0.08 : 0.05))
+            )
+    }
+
     // MARK: - Preset chips
 
     private var presetRow: some View {
@@ -104,7 +133,7 @@ struct SetupView: View {
     private func presetChip(_ minutes: Int) -> some View {
         let isActive = enteredMinutes == minutes
         return Button {
-            engine.start(minutes: minutes)
+            engine.start(minutes: minutes, label: trimmedLabel)
         } label: {
             Text(String(minutes))
                 .font(.system(size: 12, design: .monospaced))
@@ -133,7 +162,7 @@ struct SetupView: View {
     private var pomodoroChip: some View {
         let config = preferences.pomodoroConfig
         return Button {
-            engine.startPomodoro(config: preferences.pomodoroConfig)
+            engine.startPomodoro(config: preferences.pomodoroConfig, label: trimmedLabel)
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: pomodoroSymbol)
@@ -282,6 +311,6 @@ struct SetupView: View {
 
     private func startFromField() {
         guard let minutes = enteredMinutes else { return }
-        engine.start(minutes: minutes)
+        engine.start(minutes: minutes, label: trimmedLabel)
     }
 }

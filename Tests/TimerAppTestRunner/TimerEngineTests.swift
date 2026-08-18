@@ -453,3 +453,42 @@ func runTimerEngineTests() {
         try expectNil(engine.activeFocusStart, "break phase has no open focus segment")
     }
 }
+
+func runSessionLabelTests() {
+    test("a session carries its dedication and drops it when it ends") {
+        let prefs = freshEnginePrefs()
+        let start = Date(timeIntervalSince1970: 2_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { start })
+        try expect(engine.label.isEmpty, "no dedication by default")
+
+        engine.start(minutes: 25, label: "Steuererklärung")
+        try expectEqual(engine.label, "Steuererklärung", "label while running")
+        try expectEqual(prefs.persistedRun?.label, "Steuererklärung", "label travels with the run")
+
+        engine.stop()
+        try expect(engine.label.isEmpty, "the dedication ends with the session")
+        try expect(prefs.persistedRun == nil, "and nothing is left behind")
+    }
+
+    test("a relaunch brings the dedication back with the session") {
+        let prefs = freshEnginePrefs()
+        let start = Date(timeIntervalSince1970: 2_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { start })
+        engine.start(minutes: 25, label: "Deep Work")
+
+        // Same defaults, fresh engine — that is what a relaunch looks like.
+        let resumed = TimerEngine(preferences: prefs, now: { start.addingTimeInterval(60) })
+        try expectEqual(resumed.label, "Deep Work", "restored alongside the run")
+    }
+
+    test("a pomodoro keeps its dedication across every phase") {
+        let prefs = freshEnginePrefs()
+        var clock = Date(timeIntervalSince1970: 3_000_000)
+        let engine = TimerEngine(preferences: prefs, now: { clock })
+        let config = PomodoroConfig(focusMinutes: 1, breakMinutes: 1, longBreakMinutes: 2, rounds: 2)
+        engine.startPomodoro(config: config, label: "Kapitel 3")
+        clock = clock.addingTimeInterval(61)
+        engine.skip()
+        try expectEqual(engine.label, "Kapitel 3", "the break belongs to the same work")
+    }
+}
