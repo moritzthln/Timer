@@ -58,7 +58,7 @@ struct PermissionsSettingsSection: View {
             }
             shortcutsRow
             loginRow
-            caption("Nach einer Neuinstallation setzt macOS manche Rechte zurück — hier prüfen und neu erteilen.")
+            caption(tr("Nach einer Neuinstallation setzt macOS manche Rechte zurück — hier prüfen und neu erteilen.", "After a reinstall macOS resets some permissions — check them here and grant them again."))
                 .padding(.top, 2)
         }
         .onAppear(perform: refreshQuietChecks)
@@ -66,12 +66,12 @@ struct PermissionsSettingsSection: View {
 
     private var header: some View {
         HStack {
-            Text("Rechte")
+            Text(tr("Rechte", "Permissions"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
             Spacer()
-            Button("Alle prüfen", action: checkAll)
+            Button(tr("Alle prüfen", "Check all"), action: checkAll)
                 .controlSize(.small)
         }
     }
@@ -79,8 +79,8 @@ struct PermissionsSettingsSection: View {
     // MARK: - Rows
 
     private var accessibilityRow: some View {
-        row(title: "Bedienungshilfen (Vollbild-Block)", status: accessibilityStatus) {
-            Button("Öffnen") { AccessibilityAccess.openSettings() }
+        row(title: tr("Bedienungshilfen (Vollbild-Block)", "Accessibility (fullscreen block)"), status: accessibilityStatus) {
+            Button(tr("Öffnen", "Open")) { AccessibilityAccess.openSettings() }
                 .controlSize(.small)
         }
     }
@@ -93,11 +93,11 @@ struct PermissionsSettingsSection: View {
     private var fullscreenTestRow: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 8) {
-                Text("Vollbild-Block testen")
+                Text(tr("Vollbild-Block testen", "Test the fullscreen block"))
                     .font(.system(size: 12))
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
-                Button(testCountdown > 0 ? "\(testCountdown) …" : "Testen", action: startTest)
+                Button(testCountdown > 0 ? tr("\(testCountdown) …", "\(testCountdown) …") : tr("Testen", "Test"), action: startTest)
                     .controlSize(.small)
                     .disabled(testCountdown > 0 || onTestFullscreenBlock == nil)
             }
@@ -107,36 +107,36 @@ struct PermissionsSettingsSection: View {
 
     private var testHint: String {
         if testCountdown > 0 {
-            return "Jetzt in die App wechseln, die geprüft werden soll — gern im Vollbild."
+            return tr("Jetzt in die App wechseln, die geprüft werden soll — gern im Vollbild.", "Switch to the app you want to test now — fullscreen is fine.")
         }
         if let testResult {
-            return "Ergebnis: \(testResult). Eine versteckte App holt ein Klick im Dock zurück."
+            return tr("Ergebnis: \(testResult). Eine versteckte App holt ein Klick im Dock zurück.", "Result: \(testResult). A hidden app comes back with a click in the Dock.")
         }
-        return "Läuft einmal komplett gegen die App, die nach dem Klick vorne ist — ohne laufende Session."
+        return tr("Läuft einmal komplett gegen die App, die nach dem Klick vorne ist — ohne laufende Session.", "Runs once against whatever app is in front after the click — no session needed.")
     }
 
     private func automationRow(_ browser: BrowserScripting.Browser) -> some View {
-        row(title: "Automation: \(browser.appName)", status: automationStatus(browser)) {
-            Button("Prüfen") { probe(browser) }
+        row(title: tr("Automation: \(browser.appName)", "Automation: \(browser.appName)"), status: automationStatus(browser)) {
+            Button(tr("Prüfen", "Check")) { probe(browser) }
                 .controlSize(.small)
-            Button("Öffnen", action: openAutomationSettings)
+            Button(tr("Öffnen", "Open"), action: openAutomationSettings)
                 .controlSize(.small)
         }
     }
 
     private var shortcutsRow: some View {
         VStack(alignment: .leading, spacing: 3) {
-            row(title: "Kurzbefehle (Nicht stören)", status: shortcutsStatus) {
-                Button("Prüfen") { focusMode.refreshShortcutList() }
+            row(title: tr("Kurzbefehle (Nicht stören)", "Shortcuts (Do Not Disturb)"), status: shortcutsStatus) {
+                Button(tr("Prüfen", "Check")) { focusMode.refreshShortcutList() }
                     .controlSize(.small)
             }
-            caption("Anlegen und auswählen im Tab „Fokus“ → Nicht stören.")
+            caption(tr("Anlegen und auswählen im Tab „Fokus“ → Nicht stören.", "Create and select them in the “Focus” tab → Do Not Disturb."))
         }
     }
 
     private var loginRow: some View {
-        row(title: "Beim Anmelden starten", status: loginStatus) {
-            Button("Öffnen") { LaunchAtLogin.openLoginItemsSettings() }
+        row(title: tr("Beim Anmelden starten", "Start at login"), status: loginStatus) {
+            Button(tr("Öffnen", "Open")) { LaunchAtLogin.openLoginItemsSettings() }
                 .controlSize(.small)
         }
     }
@@ -184,12 +184,12 @@ struct PermissionsSettingsSection: View {
     private var accessibilityStatus: Status {
         accessibilityTrusted
             ? Status(
-                level: .granted, label: "Erteilt",
-                help: "Der Fokus-Block darf blockierte Apps aus dem Vollbild holen."
+                level: .granted, label: tr("Erteilt", "Granted"),
+                help: tr("Der Fokus-Block darf blockierte Apps aus dem Vollbild holen.", "The focus block may take blocked apps out of fullscreen.")
             )
             : Status(
-                level: .missing, label: "Fehlt",
-                help: "Ohne dieses Recht bleibt eine Vollbild-App sichtbar — der Block legt dann nur ein Hinweis-Overlay darüber."
+                level: .missing, label: tr("Fehlt", "Missing"),
+                help: tr("Ohne dieses Recht bleibt eine Vollbild-App sichtbar — der Block legt dann nur ein Hinweis-Overlay darüber.", "Without it a fullscreen app stays where it is — hiding alone is ignored there.")
             )
     }
 
@@ -197,28 +197,28 @@ struct PermissionsSettingsSection: View {
         switch automation[browser.bundleID] {
         case .none:
             return Status(
-                level: .unknown, label: "Nicht geprüft",
-                help: "Prüfen startet eine harmlose Abfrage — beim ersten Mal fragt macOS nach der Erlaubnis."
+                level: .unknown, label: tr("Nicht geprüft", "Not checked"),
+                help: tr("Prüfen startet eine harmlose Abfrage — beim ersten Mal fragt macOS nach der Erlaubnis.", "Check runs a harmless query — the first time, macOS asks for permission.")
             )
         case .granted:
             return Status(
-                level: .granted, label: "Erteilt",
-                help: "Der Website-Block kann in \(browser.appName) den Tab wechseln."
+                level: .granted, label: tr("Erteilt", "Granted"),
+                help: tr("Der Website-Block kann in \(browser.appName) den Tab wechseln.", "The website block can switch tabs in \(browser.appName).")
             )
         case .denied:
             return Status(
-                level: .missing, label: "Fehlt",
-                help: "macOS hat den Zugriff abgelehnt — unter Automation wieder erlauben."
+                level: .missing, label: tr("Fehlt", "Missing"),
+                help: tr("macOS hat den Zugriff abgelehnt — unter Automation wieder erlauben.", "macOS denied access — allow it again under Automation.")
             )
         case .notRunning:
             return Status(
-                level: .unknown, label: "Browser nicht geöffnet",
-                help: "Nur ein laufender Browser lässt sich prüfen — \(browser.appName) starten und erneut prüfen."
+                level: .unknown, label: tr("Browser nicht geöffnet", "Browser not running"),
+                help: tr("Nur ein laufender Browser lässt sich prüfen — \(browser.appName) starten und erneut prüfen.", "Only a running browser can be checked — start \(browser.appName) and check again.")
             )
         case .unknown(let code):
             return Status(
-                level: .unknown, label: "Unklar (Fehler \(code))",
-                help: "Die Abfrage ist fehlgeschlagen, aber nicht wegen der Berechtigung."
+                level: .unknown, label: tr("Unklar (Fehler \(code))", "Unclear (error \(code))"),
+                help: tr("Die Abfrage ist fehlgeschlagen, aber nicht wegen der Berechtigung.", "The query failed, but not because of the permission.")
             )
         }
     }
@@ -226,46 +226,47 @@ struct PermissionsSettingsSection: View {
     /// Both configured shortcut names have to exist in `shortcuts list`.
     private var shortcutsStatus: Status {
         let wanted = [preferences.dndShortcutOn, preferences.dndShortcutOff]
-        let help = "Gesucht: „\(wanted[0])“ und „\(wanted[1])“."
+        let help = tr("Gesucht: „\(wanted[0])“ und „\(wanted[1])“.", "Looking for “\(wanted[0])” and “\(wanted[1])”.")
         guard focusMode.shortcutsAvailable else {
             return Status(
-                level: .unknown, label: "Kurzbefehle nicht verfügbar",
-                help: "Diesem macOS fehlt die Kurzbefehle-App."
+                level: .unknown, label: tr("Kurzbefehle nicht verfügbar", "Shortcuts not available"),
+                help: tr("Diesem macOS fehlt die Kurzbefehle-App.", "This macOS has no Shortcuts app.")
             )
         }
         let available = Set(focusMode.availableShortcuts)
         guard !available.isEmpty else {
-            return Status(level: .unknown, label: "Nicht geprüft", help: help)
+            return Status(level: .unknown, label: tr("Nicht geprüft", "Not checked"), help: help)
         }
         let missing = wanted.filter { !available.contains($0) }
         guard missing.isEmpty else {
             return Status(
-                level: .missing, label: "Fehlt: \(missing.joined(separator: ", "))", help: help
+                level: .missing,
+                label: tr("Fehlt: ", "Missing: ") + missing.joined(separator: ", "), help: help
             )
         }
-        return Status(level: .granted, label: "Beide vorhanden", help: help)
+        return Status(level: .granted, label: tr("Beide vorhanden", "Both present"), help: help)
     }
 
     private var loginStatus: Status {
         switch loginState {
         case .active:
             return Status(
-                level: .granted, label: "Aktiv", help: "Timer startet beim Anmelden."
+                level: .granted, label: tr("Aktiv", "Active"), help: tr("Timer startet beim Anmelden.", "Timer starts at login.")
             )
         case .activeLaunchAgent:
             return Status(
-                level: .granted, label: "Aktiv (LaunchAgent)",
-                help: "Timer startet über einen eigenen LaunchAgent beim Anmelden."
+                level: .granted, label: tr("Aktiv (LaunchAgent)", "Active (LaunchAgent)"),
+                help: tr("Timer startet über einen eigenen LaunchAgent beim Anmelden.", "Timer starts at login through its own LaunchAgent.")
             )
         case .requiresApproval:
             return Status(
-                level: .unknown, label: "Wartet auf Freigabe",
-                help: "In den Systemeinstellungen unter Anmeldeobjekte freigeben."
+                level: .unknown, label: tr("Wartet auf Freigabe", "Waiting for approval"),
+                help: tr("In den Systemeinstellungen unter Anmeldeobjekte freigeben.", "Approve it in System Settings under Login Items.")
             )
         case .inactive:
             return Status(
-                level: .missing, label: "Aus",
-                help: "Timer startet nicht automatisch — im Tab „Allgemein“ einschalten."
+                level: .missing, label: tr("Aus", "Off"),
+                help: tr("Timer startet nicht automatisch — im Tab „Allgemein“ einschalten.", "Timer does not start automatically — turn it on in the “General” tab.")
             )
         }
     }

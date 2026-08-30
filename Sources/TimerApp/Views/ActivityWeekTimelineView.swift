@@ -49,7 +49,8 @@ struct ActivityWeekTimelineView: View {
 
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "ccc d."
+        formatter.locale = L10n.locale
+        formatter.dateFormat = tr("ccc d.", "ccc d")
         return formatter
     }()
 

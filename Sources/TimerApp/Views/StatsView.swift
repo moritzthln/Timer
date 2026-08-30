@@ -13,6 +13,7 @@ struct StatsView: View {
 
     private static let weekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = L10n.locale
         formatter.dateFormat = "EEE"
         return formatter
     }()
@@ -74,26 +75,26 @@ struct StatsView: View {
     }
 
     private var todayTile: some View {
-        metricTile(title: "Heute", text: TimeFormatting.wording(seconds: today))
+        metricTile(title: tr("Heute", "Today"), text: TimeFormatting.wording(seconds: today))
     }
 
     private var weekTile: some View {
-        metricTile(title: "Diese Woche", text: TimeFormatting.wording(seconds: week))
+        metricTile(title: tr("Diese Woche", "This week"), text: TimeFormatting.wording(seconds: week))
     }
 
     private var allTimeTile: some View {
-        metricTile(title: "Gesamt", text: TimeFormatting.wording(seconds: allTime))
+        metricTile(title: tr("Gesamt", "Total"), text: TimeFormatting.wording(seconds: allTime))
     }
 
     /// All-time seconds over days with focus time; "–" before the first one.
     private var averageTile: some View {
         metricTile(
-            title: "Ø pro Tag",
+            title: tr("Ø pro Tag", "Ø per day"),
             text: activeDays > 0
                 ? TimeFormatting.wording(seconds: allTime / Double(activeDays))
                 : "–"
         )
-        .help("Durchschnitt über Tage mit Fokus-Zeit")
+        .help(tr("Durchschnitt über Tage mit Fokus-Zeit", "Average over days with focus time"))
     }
 
     private func metricTile(title: String, text: String) -> some View {

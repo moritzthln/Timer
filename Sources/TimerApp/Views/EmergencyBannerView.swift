@@ -12,7 +12,7 @@ struct EmergencyBannerView: View {
             HStack(spacing: 5) {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 10))
-                Text("Notfall-Modus · noch \(TimeFormatting.format(seconds: emergency.remainingSeconds))")
+                Text(tr("Notfall-Modus · noch \(TimeFormatting.format(seconds: emergency.remainingSeconds))", "Emergency mode · \(TimeFormatting.format(seconds: emergency.remainingSeconds)) left"))
                     .font(.system(size: 12, weight: .medium))
                 Spacer(minLength: 0)
             }
@@ -66,13 +66,13 @@ struct HoldToCancelButton: View {
                 .onEnded { _ in reset() }
         )
         .onDisappear(perform: reset)
-        .help("Notfall-Modus beenden — Knopf \(Int(holdSeconds)) Sekunden gedrückt halten.")
+        .help(tr("Notfall-Modus beenden — Knopf \(Int(holdSeconds)) Sekunden gedrückt halten.", "End the emergency mode — hold the button for \(Int(holdSeconds)) seconds."))
     }
 
     private var label: String {
-        guard progress > 0 else { return "Abbrechen · \(Int(holdSeconds)) s halten" }
+        guard progress > 0 else { return tr("Abbrechen · \(Int(holdSeconds)) s halten", "Cancel · hold \(Int(holdSeconds)) s") }
         let left = Int(((1 - progress) * holdSeconds).rounded(.up))
-        return "Halten … \(left) s"
+        return tr("Halten … \(left) s", "Holding … \(left) s")
     }
 
     private var ring: some View {

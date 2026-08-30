@@ -39,8 +39,8 @@ struct ActivityView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 Picker("", selection: $mode) {
-                    Text("Tag").tag(Mode.day)
-                    Text("Woche").tag(Mode.week)
+                    Text(tr("Tag", "Day")).tag(Mode.day)
+                    Text(tr("Woche", "Week")).tag(Mode.week)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -59,7 +59,7 @@ struct ActivityView: View {
                     focusOnly: focusOnly, onOpenDay: openDay
                 )
             }
-            Text("Alle Daten bleiben lokal auf diesem Mac")
+            Text(tr("Alle Daten bleiben lokal auf diesem Mac", "All data stays local on this Mac"))
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -71,13 +71,13 @@ struct ActivityView: View {
     /// shows only what overlapped focus sessions.
     private var focusOnlyToggle: some View {
         Toggle(isOn: $focusOnly) {
-            Text("Nur Fokus-Zeit").font(.system(size: 11))
+            Text(tr("Nur Fokus-Zeit", "Focus time only")).font(.system(size: 11))
         }
         .toggleStyle(.checkbox)
         .tint(Color.accentColor)
         .foregroundStyle(focusOnly ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
         .fixedSize()
-        .help("Nur Zeiten innerhalb von Fokus- und Pomodoro-Sessions zeigen")
+        .help(tr("Nur Zeiten innerhalb von Fokus- und Pomodoro-Sessions zeigen", "Show only time inside focus and pomodoro sessions"))
     }
 
     /// Week-row click: jump to that day's day view (fresh zoom via `.id(day)`).

@@ -25,7 +25,7 @@ final class SettingsWindowController {
                 backing: .buffered,
                 defer: false
             )
-            created.title = "Einstellungen"
+            created.title = tr("Einstellungen", "Settings")
             created.isReleasedWhenClosed = false
             window = created
         }

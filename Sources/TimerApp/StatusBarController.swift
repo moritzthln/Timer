@@ -51,6 +51,7 @@ final class StatusBarController {
         configurePopover()
         configureStatusItem()
         observeSettingsChanges()
+        observeLanguageChanges()
         refresh()
     }
 
@@ -160,6 +161,34 @@ final class StatusBarController {
         }
     }
 
+    /// The popover's view tree is built once and holds resolved strings, so a
+    /// language change has to rebuild it. The settings window re-renders
+    /// itself (its picker is a @State change) and the stats window is created
+    /// fresh on every open, so neither needs anything here.
+    private func observeLanguageChanges() {
+        NotificationCenter.default.addObserver(
+            forName: .timerLanguageChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.configurePopover()
+            if self.popover.isShown { self.sizePopoverToContent() }
+            self.buildRightClickMenu()
+            self.refresh()
+        }
+    }
+
+    /// Rebuilt on a language change, so its one item speaks the new language.
+    private func buildRightClickMenu() {
+        rightClickMenu.removeAllItems()
+        rightClickMenu.addItem(
+            NSMenuItem(
+                title: tr("Timer beenden", "Quit Timer"),
+                action: #selector(NSApplication.terminate(_:)),
+                keyEquivalent: ""
+            )
+        )
+    }
+
     private func configurePopover() {
         popover.contentViewController = NSHostingController(
             rootView: TimerView(
@@ -176,13 +205,7 @@ final class StatusBarController {
     }
 
     private func configureStatusItem() {
-        rightClickMenu.addItem(
-            NSMenuItem(
-                title: "Timer beenden",
-                action: #selector(NSApplication.terminate(_:)),
-                keyEquivalent: ""
-            )
-        )
+        buildRightClickMenu()
 
         if let button = statusItem.button {
             button.target = self

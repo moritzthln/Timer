@@ -6,6 +6,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let preferences = Preferences()
+        // Before anything is rendered: every view resolves its strings once,
+        // at build time.
+        L10n.refresh(preferences: preferences)
         let engine = TimerEngine(preferences: preferences)
         statusBarController = StatusBarController(engine: engine, preferences: preferences)
         if BlockDiagnostics.isWatching {

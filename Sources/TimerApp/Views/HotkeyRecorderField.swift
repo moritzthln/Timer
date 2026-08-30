@@ -14,7 +14,7 @@ struct HotkeyRecorderField: View {
     var body: some View {
         HStack(spacing: 4) {
             Button(action: toggleRecording) {
-                Text(recording ? "Taste drücken…" : label)
+                Text(recording ? tr("Taste drücken…", "Press a key…") : label)
                     .font(.system(size: 11, design: .monospaced))
                     .frame(minWidth: 70)
             }

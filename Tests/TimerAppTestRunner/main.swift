@@ -3,6 +3,7 @@
 runSmokeTests()
 runTimeFormattingTests()
 runPreferencesTests()
+runLanguageTests()
 runEmergencyHotkeyTests()
 runTimerEngineTests()
 runSessionLabelTests()

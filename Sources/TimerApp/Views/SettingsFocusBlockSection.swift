@@ -27,17 +27,17 @@ struct FocusBlockSettingsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             header
-            subsectionTitle("Blockieren", info: Self.blocklistInfo)
+            subsectionTitle(tr("Blockieren", "Block"), info: Self.blocklistInfo)
             VStack(alignment: .leading, spacing: 4) {
                 blockedAppList
                 blockedDomainList
             }
-            subsectionTitle("Nur Erlaubte", info: Self.allowlistInfo)
+            subsectionTitle(tr("Nur Erlaubte", "Allowed only"), info: Self.allowlistInfo)
                 .padding(.top, 6)
             VStack(alignment: .leading, spacing: 4) {
                 allowedAppList
                 allowedDomainList
-                caption("Leere Liste = dieser Teil blockt nichts.")
+                caption(tr("Leere Liste = dieser Teil blockt nichts.", "Empty list = this part blocks nothing."))
             }
             emergencySubsection
         }
@@ -50,13 +50,13 @@ struct FocusBlockSettingsSection: View {
     /// itself reveals whether the shield would block right now.
     private var header: some View {
         HStack {
-            Text("Fokus-Block")
+            Text(tr("Fokus-Block", "Focus block"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
             InfoDot(info: Self.sectionInfo)
             Spacer()
-            Text(shieldEnabled ? "Schild: an" : "Schild: aus")
+            Text(shieldEnabled ? tr("Schild: an", "Shield: on") : tr("Schild: aus", "Shield: off"))
                 .font(.caption)
                 .foregroundStyle(shieldEnabled ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
         }
@@ -77,43 +77,43 @@ struct FocusBlockSettingsSection: View {
     }
 
     static let sectionInfo = InfoText(
-        title: "Fokus-Block",
+        title: tr("Fokus-Block", "Focus block"),
         lines: [
-            "Läuft, solange eine Fokus-Session läuft und das Schild im Popover an ist.",
-            "Ob „Blockieren“ oder „Nur Erlaubte“ gilt, stellst du im Popover neben dem Schild um.",
-            "Vollbild-Apps brauchen die Bedienungshilfen, Websites die Automation-Berechtigung — Status im Tab „Rechte“.",
-            "Timer, Finder und Systemeinstellungen bleiben in jedem Modus erreichbar.",
+            tr("Läuft, solange eine Fokus-Session läuft und das Schild im Popover an ist.", "Runs while a focus session runs and the shield in the popover is on."),
+            tr("Ob „Blockieren“ oder „Nur Erlaubte“ gilt, stellst du im Popover neben dem Schild um.", "Whether “Block” or “Allowed only” applies is switched in the popover, next to the shield."),
+            tr("Vollbild-Apps brauchen die Bedienungshilfen, Websites die Automation-Berechtigung — Status im Tab „Rechte“.", "Fullscreen apps need Accessibility, websites need Automation — see the “Permissions” tab."),
+            tr("Timer, Finder und Systemeinstellungen bleiben in jedem Modus erreichbar.", "Timer, Finder and System Settings stay reachable in every mode."),
         ]
     )
 
     static let blocklistInfo = InfoText(
-        title: "Blockieren",
+        title: tr("Blockieren", "Block"),
         lines: [
-            "Markierte Apps werden aus dem Vollbild geholt und ausgeblendet. Nichts wird beendet.",
-            "Nach der Session sind sie wieder da — im Fenster, nicht im Vollbild.",
-            "Markierte Websites bleiben offen, der Browser wechselt nur den Tab weg.",
-            "Unterstützte Browser: Safari, Chrome, Arc.",
+            tr("Markierte Apps werden aus dem Vollbild geholt und ausgeblendet. Nichts wird beendet.", "Marked apps are taken out of fullscreen and hidden. Nothing is quit."),
+            tr("Nach der Session sind sie wieder da — im Fenster, nicht im Vollbild.", "After the session they are back — as windows, not fullscreen."),
+            tr("Markierte Websites bleiben offen, der Browser wechselt nur den Tab weg.", "Marked websites stay open; the browser just switches away from the tab."),
+            tr("Unterstützte Browser: Safari, Chrome, Arc.", "Supported browsers: Safari, Chrome, Arc."),
         ]
     )
 
     static let allowlistInfo = InfoText(
-        title: "Nur Erlaubte",
+        title: tr("Nur Erlaubte", "Allowed only"),
         lines: [
-            "Umgekehrte Richtung: alles außer den erlaubten Apps wird ausgeblendet.",
-            "Tabs auf nicht erlaubten Seiten werden weggeschaltet.",
-            "Erlaubst du eine Website, bleiben Safari, Chrome und Arc erreichbar — sonst könntest du sie nicht öffnen.",
-            "Leere Liste blockt nichts — damit eine halb eingerichtete Liste den Mac nicht zusperrt.",
+            tr("Umgekehrte Richtung: alles außer den erlaubten Apps wird ausgeblendet.", "The other way round: everything but the allowed apps is hidden."),
+            tr("Tabs auf nicht erlaubten Seiten werden weggeschaltet.", "Tabs on sites that are not allowed are switched away from."),
+            tr("Erlaubst du eine Website, bleiben Safari, Chrome und Arc erreichbar — sonst könntest du sie nicht öffnen.", "Allowing a website keeps Safari, Chrome and Arc reachable — otherwise you could not open it."),
+            tr("Leere Liste blockt nichts — damit eine halb eingerichtete Liste den Mac nicht zusperrt.", "An empty list blocks nothing, so a half-configured list cannot lock the Mac down."),
         ]
     )
 
     static let emergencyInfo = InfoText(
-        title: "Notfall-Modus",
+        title: tr("Notfall-Modus", "Emergency mode"),
         lines: [
-            "Läuft unabhängig vom Schild und von jedem Timer, 1 bis 60 Minuten.",
-            "Start im Popover unter „⋯“ oder per Hotkey.",
-            "Leere App-Liste: alles außer Timer, Finder und Systemeinstellungen wird ausgeblendet.",
-            "Leere Website-Liste: keine Seite wird gesperrt — dann bleiben auch die Browser zu.",
-            "Abbrechen nur, indem du den Knopf zehn Sekunden gedrückt hältst.",
+            tr("Läuft unabhängig vom Schild und von jedem Timer, 1 bis 60 Minuten.", "Runs independently of the shield and of any timer, 1 to 60 minutes."),
+            tr("Start im Popover unter „⋯“ oder per Hotkey.", "Started in the popover under “⋯” or by hotkey."),
+            tr("Leere App-Liste: alles außer Timer, Finder und Systemeinstellungen wird ausgeblendet.", "Empty app list: everything but Timer, Finder and System Settings is hidden."),
+            tr("Leere Website-Liste: keine Seite wird gesperrt — dann bleiben auch die Browser zu.", "Empty website list: no site is blocked — and the browsers stay closed too."),
+            tr("Abbrechen nur, indem du den Knopf zehn Sekunden gedrückt hältst.", "Cancelling works only by holding the button for ten seconds."),
         ]
     )
 
@@ -134,7 +134,7 @@ struct FocusBlockSettingsSection: View {
             }
             // v7: plain bordered button + programmatic NSMenu; the previous
             // SwiftUI Menu with .menuStyle(.borderlessButton) never opened.
-            Button("App hinzufügen") {
+            Button(tr("App hinzufügen", "Add app")) {
                 showAppPicker(
                     excluded: Self.unblockableBundleIDs(), listed: blockedApps,
                     add: addBlockedApp
@@ -180,7 +180,7 @@ struct FocusBlockSettingsSection: View {
                 allowedApps.removeAll { $0.bundleID == bundleID }
                 preferences.allowedApps = allowedApps
             }
-            Button("App hinzufügen") {
+            Button(tr("App hinzufügen", "Add app")) {
                 showAppPicker(
                     excluded: Self.implicitlyAllowedBundleIDs(), listed: allowedApps,
                     add: addAllowedApp
@@ -230,7 +230,7 @@ struct FocusBlockSettingsSection: View {
         VStack(alignment: .leading, spacing: 4) {
             // Outside the disabled block below: a frozen list is exactly when
             // the user wants to read why it is frozen.
-            subsectionTitle("Notfall-Modus", info: Self.emergencyInfo)
+            subsectionTitle(tr("Notfall-Modus", "Emergency mode"), info: Self.emergencyInfo)
                 .padding(.top, 6)
             emergencyBody
         }
@@ -239,14 +239,14 @@ struct FocusBlockSettingsSection: View {
     private var emergencyBody: some View {
         VStack(alignment: .leading, spacing: 4) {
             if emergencyRunning {
-                caption("Notfall-Modus läuft — Listen sind bis zum Ende gesperrt.")
+                caption(tr("Notfall-Modus läuft — Listen sind bis zum Ende gesperrt.", "Emergency mode is running — the lists are locked until it ends."))
                     .foregroundStyle(Color.orange)
             }
             appRows(emergencyApps) { bundleID in
                 emergencyApps.removeAll { $0.bundleID == bundleID }
                 preferences.emergencyApps = emergencyApps
             }
-            Button("App hinzufügen") {
+            Button(tr("App hinzufügen", "Add app")) {
                 showAppPicker(
                     excluded: Self.implicitlyAllowedBundleIDs(), listed: emergencyApps,
                     add: addEmergencyApp
@@ -267,7 +267,7 @@ struct FocusBlockSettingsSection: View {
 
     private var emergencyDurationRow: some View {
         HStack {
-            Text("Standard-Dauer (min)")
+            Text(tr("Standard-Dauer (min)", "Default duration (min)"))
                 .font(.system(size: 12))
             TextField("", text: Binding(
                 get: { emergencyMinutesText },
@@ -278,7 +278,7 @@ struct FocusBlockSettingsSection: View {
             .multilineTextAlignment(.center)
             .frame(width: 46)
             .onSubmit { emergencyMinutesText = String(preferences.emergencyMinutes) }
-            Text("max. \(EmergencyMode.maximumMinutes)")
+            Text(tr("max. \(EmergencyMode.maximumMinutes)", "max \(EmergencyMode.maximumMinutes)"))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -353,7 +353,7 @@ struct FocusBlockSettingsSection: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 11, design: .monospaced))
                 .onSubmit(commit)
-            Button("Hinzufügen", action: commit)
+            Button(tr("Hinzufügen", "Add"), action: commit)
                 .controlSize(.small)
         }
     }
@@ -400,7 +400,7 @@ struct FocusBlockSettingsSection: View {
         }
         menu.addItem(.separator())
         let other = NSMenuItem(
-            title: "Andere…", action: #selector(AppPickerTarget.other), keyEquivalent: ""
+            title: tr("Andere…", "Other…"), action: #selector(AppPickerTarget.other), keyEquivalent: ""
         )
         other.target = target
         menu.addItem(other)

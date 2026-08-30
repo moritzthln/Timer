@@ -8,9 +8,9 @@ struct FloatingView: View {
     private var pomodoroLabel: String? {
         guard case .pomodoro(let phase, let round)? = engine.currentKind else { return nil }
         switch phase {
-        case .focus: return "Fokus \(round)"
-        case .shortBreak: return "Pause \(round)"
-        case .longBreak: return "Lange Pause"
+        case .focus: return tr("Fokus \(round)", "Focus \(round)")
+        case .shortBreak: return tr("Pause \(round)", "Break \(round)")
+        case .longBreak: return tr("Lange Pause", "Long break")
         }
     }
 
@@ -49,15 +49,15 @@ struct FloatingView: View {
                     } label: {
                         Image(systemName: engine.isPaused ? "play.fill" : "pause.fill")
                     }
-                    .help(engine.isPaused ? "Weiter" : "Pause")
+                    .help(engine.isPaused ? tr("Weiter", "Resume") : "Pause")
                     Button("+5") { engine.extend(minutes: 5) }
-                        .help("+5 Minuten")
+                        .help(tr("+5 Minuten", "+5 minutes"))
                     Button {
                         engine.stop()
                     } label: {
                         Image(systemName: "stop.fill")
                     }
-                    .help("Stopp")
+                    .help(tr("Stopp", "Stop"))
                 }
                 .controlSize(.small)
             }

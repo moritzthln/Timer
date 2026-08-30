@@ -106,11 +106,22 @@ final class AppBlockEnforcer {
 
     /// What a diagnostic run found. The wording is what the "Rechte" tab
     /// prints, so it stays next to the code that produces it.
-    enum ProbeOutcome: String {
-        case noAction = "kein Eingriff nötig"
-        case hidden = "versteckt"
-        case unfullscreened = "aus Vollbild geholt, noch sichtbar"
-        case failed = "blieb im Vollbild"
+    enum ProbeOutcome {
+        case noAction
+        case hidden
+        case unfullscreened
+        case failed
+
+        /// Raw values would have to be literals, so the wording lives here.
+        var text: String {
+            switch self {
+            case .noAction: return tr(tr("kein Eingriff nötig", "nothing to do"), "nothing to do")
+            case .hidden: return tr(tr("versteckt", "hidden"), "hidden")
+            case .unfullscreened:
+                return tr(tr("aus Vollbild geholt, noch sichtbar", "taken out of fullscreen, still visible"), "out of fullscreen, still visible")
+            case .failed: return tr(tr("blieb im Vollbild", "stayed fullscreen"), "stayed fullscreen")
+            }
+        }
     }
 
     // MARK: - Entry points

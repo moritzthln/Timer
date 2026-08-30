@@ -128,12 +128,12 @@ final class FocusBlockController {
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier != NSRunningApplication.current.processIdentifier
         else {
-            report("keine andere App im Vordergrund")
+            report(tr("keine andere App im Vordergrund", "no other app in front"))
             return
         }
         let name = app.localizedName ?? "App"
         enforcer.probe(app: app, name: name) { outcome in
-            report("\(name) — \(outcome.rawValue)")
+            report("\(name) — \(outcome.text)")
         }
     }
 

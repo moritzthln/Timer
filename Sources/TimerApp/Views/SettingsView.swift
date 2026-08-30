@@ -3,6 +3,9 @@ import TimerCore
 
 extension Notification.Name {
     static let timerSettingsChanged = Notification.Name("timerSettingsChanged")
+    /// The interface language changed: views that are built once (the popover)
+    /// have to be rebuilt, since they hold already-resolved strings.
+    static let timerLanguageChanged = Notification.Name("timerLanguageChanged")
 }
 
 struct SettingsView: View {
@@ -32,10 +35,10 @@ struct SettingsView: View {
         var label: String {
             switch self {
             case .timer: return "Timer"
-            case .fokus: return "Fokus"
-            case .aktivitaet: return "Aktivität"
-            case .allgemein: return "Allgemein"
-            case .rechte: return "Rechte"
+            case .fokus: return tr("Fokus", "Focus")
+            case .aktivitaet: return tr("Aktivität", "Activity")
+            case .allgemein: return tr("Allgemein", "General")
+            case .rechte: return tr("Rechte", "Permissions")
             }
         }
     }
@@ -66,6 +69,7 @@ struct SettingsView: View {
     @State private var dndOffName = ""
     @State private var menuBarFormat = MenuBarTimeFormat.standard
     @State private var menuBarIconOnly = false
+    @State private var language = AppLanguage.system
 
     var body: some View {
         VStack(spacing: 12) {
@@ -90,6 +94,7 @@ struct SettingsView: View {
                     activitySection
                 }
                 tabPane(.allgemein) {
+                    languageSection
                     generalSection
                     menuBarSection
                     hotkeysSection
@@ -136,7 +141,7 @@ struct SettingsView: View {
     }
 
     private var presetsSection: some View {
-        section("Presets (Minuten)") {
+        section(tr("Presets (Minuten)", "Presets (minutes)")) {
             HStack(spacing: 6) {
                 ForEach(0..<4, id: \.self) { index in
                     TextField("", text: liveSaving(
@@ -158,7 +163,7 @@ struct SettingsView: View {
         section("Pomodoro") {
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
                 GridRow {
-                    Text("Fokus (min)")
+                    Text(tr("Fokus (min)", "Focus (min)"))
                     numberField(
                         $focusText, field: .pomodoroFocus, range: Self.minuteRange,
                         store: { storePomodoro(\.focusMinutes, value: $0) },
@@ -166,7 +171,7 @@ struct SettingsView: View {
                     )
                 }
                 GridRow {
-                    Text("Pause (min)")
+                    Text(tr("Pause (min)", "Break (min)"))
                     numberField(
                         $breakText, field: .pomodoroBreak, range: Self.minuteRange,
                         store: { storePomodoro(\.breakMinutes, value: $0) },
@@ -174,7 +179,7 @@ struct SettingsView: View {
                     )
                 }
                 GridRow {
-                    Text("Lange Pause (min)")
+                    Text(tr("Lange Pause (min)", "Long break (min)"))
                     numberField(
                         $longBreakText, field: .pomodoroLongBreak, range: Self.minuteRange,
                         store: { storePomodoro(\.longBreakMinutes, value: $0) },
@@ -182,7 +187,7 @@ struct SettingsView: View {
                     )
                 }
                 GridRow {
-                    Text("Runden bis lange Pause")
+                    Text(tr("Runden bis lange Pause", "Rounds until long break"))
                     numberField(
                         $roundsText, field: .pomodoroRounds, range: Self.roundsRange,
                         store: { storePomodoro(\.rounds, value: $0) },
@@ -194,7 +199,7 @@ struct SettingsView: View {
     }
 
     private var alarmSection: some View {
-        section("Alarm") {
+        section(tr("Alarm", "Alarm")) {
             HStack(spacing: 10) {
                 Image(systemName: "speaker.wave.2")
                     .foregroundStyle(.secondary)
@@ -210,15 +215,15 @@ struct SettingsView: View {
     }
 
     private var generalSection: some View {
-        section("Allgemein") {
-            Toggle("Beim Anmelden starten", isOn: $launchAtLogin)
+        section(tr("Allgemein", "General")) {
+            Toggle(tr("Beim Anmelden starten", "Start at login"), isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { newValue in
                     guard newValue != LaunchAtLogin.isEnabled else { return }
                     do {
                         try LaunchAtLogin.setEnabled(newValue)
                         loginHint = nil
                     } catch {
-                        loginHint = "macOS hat das abgelehnt. Manuell: Systemeinstellungen → Allgemein → Anmeldeobjekte → \"+\" → Timer.app."
+                        loginHint = tr("macOS hat das abgelehnt. Manuell: Systemeinstellungen → Allgemein → Anmeldeobjekte → \"+\" → Timer.app.", "macOS refused. Manually: System Settings → General → Login Items → \"+\" → Timer.app.")
                     }
                     launchAtLogin = LaunchAtLogin.isEnabled
                     loginStatus = LaunchAtLogin.status
@@ -230,7 +235,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Toggle("Floating Display", isOn: $floating)
+            Toggle(tr("Floating Display", "Floating display"), isOn: $floating)
                 .onChange(of: floating) { newValue in
                     preferences.floatingEnabled = newValue
                     NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
@@ -243,12 +248,12 @@ struct SettingsView: View {
     @ViewBuilder private var loginStatusLine: some View {
         switch loginStatus {
         case .active:
-            loginStatusText("Status: Aktiv")
+            loginStatusText(tr("Status: Aktiv", "Status: active"))
         case .activeLaunchAgent:
-            loginStatusText("Status: Aktiv (LaunchAgent)")
+            loginStatusText(tr("Status: Aktiv (LaunchAgent)", "Status: active (LaunchAgent)"))
         case .requiresApproval:
-            loginStatusText("Status: Wartet auf Freigabe")
-            Button("Systemeinstellungen öffnen") {
+            loginStatusText(tr("Status: Wartet auf Freigabe", "Status: waiting for approval"))
+            Button(tr("Systemeinstellungen öffnen", "Open System Settings")) {
                 LaunchAtLogin.openLoginItemsSettings()
             }
             .controlSize(.small)
@@ -263,13 +268,37 @@ struct SettingsView: View {
             .foregroundStyle(.secondary)
     }
 
+    /// The interface language. "System" is the default and follows macOS, so
+    /// nobody has to find this — the explicit choice exists for a German user
+    /// on an English system, and for handing the app to someone who is not.
+    private var languageSection: some View {
+        section(tr("Sprache", "Language")) {
+            Picker("", selection: $language) {
+                Text(tr("System", "System")).tag(AppLanguage.system)
+                Text("Deutsch").tag(AppLanguage.german)
+                Text("English").tag(AppLanguage.english)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .onChange(of: language) { newValue in
+                preferences.language = newValue
+                L10n.refresh(preferences: preferences)
+                // The settings window re-renders itself through this very
+                // state change; everything else is rebuilt by the observer in
+                // StatusBarController.
+                NotificationCenter.default.post(name: .timerLanguageChanged, object: nil)
+                NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
+            }
+        }
+    }
+
     private var menuBarSection: some View {
-        section("Menüleiste") {
+        section(tr("Menüleiste", "Menu bar")) {
             HStack {
-                Text("Zeitformat")
+                Text(tr("Zeitformat", "Time format"))
                 Picker("", selection: $menuBarFormat) {
-                    Text("Standard").tag(MenuBarTimeFormat.standard)
-                    Text("Kompakt").tag(MenuBarTimeFormat.compact)
+                    Text(tr("Standard", "Standard")).tag(MenuBarTimeFormat.standard)
+                    Text(tr("Kompakt", "Compact")).tag(MenuBarTimeFormat.compact)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -279,13 +308,13 @@ struct SettingsView: View {
                     NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
                 }
             }
-            Toggle("Nur Symbol", isOn: $menuBarIconOnly)
+            Toggle(tr("Nur Symbol", "Icon only"), isOn: $menuBarIconOnly)
                 .onChange(of: menuBarIconOnly) { newValue in
                     preferences.menuBarShowTime = !newValue
                     NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
                 }
             if menuBarIconOnly {
-                Text("Ohne Zeit in der Menüleiste empfiehlt sich das Floating Display.")
+                Text(tr("Ohne Zeit in der Menüleiste empfiehlt sich das Floating Display.", "Without the time in the menu bar, the floating display is worth turning on."))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -294,10 +323,10 @@ struct SettingsView: View {
     }
 
     private var hotkeysSection: some View {
-        section("Hotkeys") {
+        section(tr("Hotkeys", "Hotkeys")) {
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
                 GridRow {
-                    Text("Popover öffnen")
+                    Text(tr("Popover öffnen", "Open popover"))
                     HotkeyRecorderField(combo: hotkeyPopover) { newCombo in
                         assignHotkey(newCombo, conflicts: [hotkeyQuickStart, hotkeyExtend]) {
                             hotkeyPopover = $0
@@ -306,7 +335,7 @@ struct SettingsView: View {
                     }
                 }
                 GridRow {
-                    Text("Sofort-Start")
+                    Text(tr("Sofort-Start", "Quick start"))
                     HotkeyRecorderField(combo: hotkeyQuickStart) { newCombo in
                         assignHotkey(newCombo, conflicts: [hotkeyPopover, hotkeyExtend]) {
                             hotkeyQuickStart = $0
@@ -315,7 +344,7 @@ struct SettingsView: View {
                     }
                 }
                 GridRow {
-                    Text("Verlängern (+5 min)")
+                    Text(tr("Verlängern (+5 min)", "Extend (+5 min)"))
                     HotkeyRecorderField(combo: hotkeyExtend) { newCombo in
                         assignHotkey(
                             newCombo, conflicts: [hotkeyPopover, hotkeyQuickStart, hotkeyEmergency]
@@ -326,7 +355,7 @@ struct SettingsView: View {
                     }
                 }
                 GridRow {
-                    Text("Notfall-Modus starten")
+                    Text(tr("Notfall-Modus starten", "Start emergency mode"))
                     HotkeyRecorderField(combo: hotkeyEmergency) { newCombo in
                         assignHotkey(
                             newCombo, conflicts: [hotkeyPopover, hotkeyQuickStart, hotkeyExtend]
@@ -337,7 +366,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            Text("Der Notfall-Hotkey startet sofort mit der eingestellten Dauer.")
+            Text(tr("Der Notfall-Hotkey startet sofort mit der eingestellten Dauer.", "The emergency hotkey starts immediately, with the duration set below."))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             if let hint = hotkeyHint {
@@ -354,7 +383,7 @@ struct SettingsView: View {
         _ combo: HotkeyCombo?, conflicts: [HotkeyCombo?], commit: (HotkeyCombo?) -> Void
     ) {
         if let combo, conflicts.contains(combo) {
-            hotkeyHint = "Kombination ist schon vergeben."
+            hotkeyHint = tr("Kombination ist schon vergeben.", "That combination is already taken.")
             return
         }
         hotkeyHint = nil
@@ -363,15 +392,15 @@ struct SettingsView: View {
     }
 
     private var activitySection: some View {
-        section("Aktivität") {
-            Toggle("Tracking pausieren", isOn: $trackingPaused)
+        section(tr("Aktivität", "Activity")) {
+            Toggle(tr("Tracking pausieren", "Pause tracking"), isOn: $trackingPaused)
                 .onChange(of: trackingPaused) { newValue in
                     preferences.trackingPaused = newValue
                     // v8: lets the activity tracker stop/start its timers.
                     NotificationCenter.default.post(name: .timerSettingsChanged, object: nil)
                 }
             HStack {
-                Text("Inaktiv nach (min)")
+                Text(tr("Inaktiv nach (min)", "Idle after (min)"))
                 numberField(
                     $idleText, field: .idleThreshold, range: Self.idleRange,
                     store: { value in
@@ -384,12 +413,12 @@ struct SettingsView: View {
                     }
                 )
             }
-            Text("Eigene Einträge (Websites)")
+            Text(tr("Eigene Einträge (Websites)", "Own entries (websites)"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
             promotedSiteList
-            Text("Diese Websites erscheinen in der Aktivität als eigene Einträge.")
+            Text(tr("Diese Websites erscheinen in der Aktivität als eigene Einträge.", "These websites appear as their own rows in the activity view."))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -418,7 +447,7 @@ struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 11, design: .monospaced))
                     .onSubmit(commitPromotedSite)
-                Button("Hinzufügen", action: commitPromotedSite)
+                Button(tr("Hinzufügen", "Add"), action: commitPromotedSite)
                     .controlSize(.small)
             }
         }
@@ -443,22 +472,22 @@ struct SettingsView: View {
     }
 
     private var dndSection: some View {
-        section("Nicht stören") {
-            Toggle("Fokus-Modus koppeln", isOn: $dndEnabled)
+        section(tr("Nicht stören", "Do Not Disturb")) {
+            Toggle(tr("Fokus-Modus koppeln", "Couple the Focus mode"), isOn: $dndEnabled)
                 .disabled(!focusMode.shortcutsAvailable)
                 .onChange(of: dndEnabled) { newValue in
                     preferences.dndEnabled = newValue
                 }
             if focusMode.shortcutsAvailable {
                 dndShortcutPickers
-                Text("Lege in der Kurzbefehle-App zwei Kurzbefehle an: 'Timer Fokus an' → Fokus 'Nicht stören' aktivieren, 'Timer Fokus aus' → deaktivieren.")
+                Text(tr("Lege in der Kurzbefehle-App zwei Kurzbefehle an: 'Timer Fokus an' → Fokus 'Nicht stören' aktivieren, 'Timer Fokus aus' → deaktivieren.", "Create two shortcuts in the Shortcuts app: 'Timer Fokus an' → turn the 'Do Not Disturb' focus on, 'Timer Fokus aus' → turn it off."))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack {
-                    Button("Testen: an") { focusMode.test(on: true) }
+                    Button(tr("Testen: an", "Test: on")) { focusMode.test(on: true) }
                         .controlSize(.small)
-                    Button("Testen: aus") { focusMode.test(on: false) }
+                    Button(tr("Testen: aus", "Test: off")) { focusMode.test(on: false) }
                         .controlSize(.small)
                 }
                 if let status = focusMode.statusMessage {
@@ -468,7 +497,7 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
-                Text("Benötigt macOS 12+ (Kurzbefehle).")
+                Text(tr("Benötigt macOS 12+ (Kurzbefehle).", "Requires macOS 12+ (Shortcuts)."))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -480,16 +509,16 @@ struct SettingsView: View {
     private var dndShortcutPickers: some View {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
             GridRow {
-                Text("Kurzbefehl an")
+                Text(tr("Kurzbefehl an", "Shortcut on"))
                 dndPicker(selection: $dndOnName) { preferences.dndShortcutOn = $0 }
             }
             GridRow {
-                Text("Kurzbefehl aus")
+                Text(tr("Kurzbefehl aus", "Shortcut off"))
                 dndPicker(selection: $dndOffName) { preferences.dndShortcutOff = $0 }
             }
             GridRow {
                 Text("")
-                Button("Liste aktualisieren") { focusMode.refreshShortcutList() }
+                Button(tr("Liste aktualisieren", "Refresh list")) { focusMode.refreshShortcutList() }
                     .controlSize(.small)
             }
         }
@@ -603,6 +632,7 @@ struct SettingsView: View {
     }
 
     private func load() {
+        language = preferences.language
         reloadNumberTexts()
         volume = preferences.alarmVolume
         launchAtLogin = LaunchAtLogin.isEnabled

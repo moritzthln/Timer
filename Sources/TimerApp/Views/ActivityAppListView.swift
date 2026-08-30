@@ -38,7 +38,7 @@ struct ActivityAppListView: View {
                 }
                 if restSeconds >= foldThreshold {
                     HStack {
-                        Text("Sonstige").font(.system(size: 13)).foregroundStyle(.secondary)
+                        Text(tr("Sonstige", "Other")).font(.system(size: 13)).foregroundStyle(.secondary)
                         Spacer()
                         Text(rowValue(seconds: restSeconds, basis: basis))
                             .font(.system(size: 13, design: .monospaced))

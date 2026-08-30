@@ -106,7 +106,7 @@ struct SetupView: View {
     /// optional, and Enter starts from here too, so a dedication never costs
     /// an extra click.
     private var labelField: some View {
-        TextField("Wofür? (optional)", text: $labelText)
+        TextField(tr("Wofür? (optional)", "What for? (optional)"), text: $labelText)
             .textFieldStyle(.plain)
             .font(.system(size: 11))
             .multilineTextAlignment(.center)
@@ -167,7 +167,7 @@ struct SetupView: View {
             HStack(spacing: 5) {
                 Image(systemName: pomodoroSymbol)
                     .font(.system(size: 10))
-                Text("Pomodoro · \(config.focusMinutes) / \(config.breakMinutes) · \(config.rounds) Runden")
+                Text(tr("Pomodoro · \(config.focusMinutes) / \(config.breakMinutes) · \(config.rounds) Runden", "Pomodoro · \(config.focusMinutes) / \(config.breakMinutes) · \(config.rounds) rounds"))
                     .font(.system(size: 11))
             }
             .frame(maxWidth: .infinity)
@@ -211,7 +211,7 @@ struct SetupView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Statistik")
+            .help(tr("Statistik", "Statistics"))
 
             moreMenu
         }
@@ -229,14 +229,14 @@ struct SetupView: View {
                 Image(systemName: focusBlockOn ? "shield.fill" : "shield")
                     .font(.system(size: 11))
                 if !focusBlockOn {
-                    Text("Fokus-Block")
+                    Text(tr("Fokus-Block", "Focus block"))
                         .font(.system(size: 11))
                 }
             }
             .foregroundStyle(focusBlockOn ? Color.green : Color.secondary)
         }
         .buttonStyle(.plain)
-        .help(focusBlockOn ? "Fokus-Block aus" : "Fokus-Block an")
+        .help(focusBlockOn ? tr("Fokus-Block aus", "Focus block off") : tr("Fokus-Block an", "Focus block on"))
     }
 
     /// v15.1: a single toggle chip showing the active mode fully readable —
@@ -251,7 +251,7 @@ struct SetupView: View {
             HStack(spacing: 3) {
                 Image(systemName: blockMode == .blocklist ? "nosign" : "checkmark.circle")
                     .font(.system(size: 8, weight: .semibold))
-                Text(blockMode == .blocklist ? "Blockieren" : "Nur Erlaubte")
+                Text(blockMode == .blocklist ? tr("Blockieren", "Block") : tr("Nur Erlaubte", "Allowed only"))
                     .font(.system(size: 9, weight: .medium))
                     .fixedSize()
             }
@@ -267,21 +267,21 @@ struct SetupView: View {
         .buttonStyle(.plain)
         .help(
             blockMode == .blocklist
-                ? "Modus: Blockieren — blendet markierte Apps aus, Tabs markierter Websites warten im Hintergrund. Klicken wechselt zu \"Nur Erlaubte\"."
-                : "Modus: Nur Erlaubte — blendet alle Apps außer den erlaubten aus, nur Tabs erlaubter Websites bleiben vorn (leere Liste blockt nichts). Klicken wechselt zu \"Blockieren\"."
+                ? tr("Modus: Blockieren — blendet markierte Apps aus, Tabs markierter Websites warten im Hintergrund. Klicken wechselt zu \"Nur Erlaubte\".", "Mode: Block — hides the marked apps; tabs on marked websites wait in the background. Click to switch to \"Allowed only\".")
+                : tr("Modus: Nur Erlaubte — blendet alle Apps außer den erlaubten aus, nur Tabs erlaubter Websites bleiben vorn (leere Liste blockt nichts). Klicken wechselt zu \"Blockieren\".", "Mode: Allowed only — hides every app except the allowed ones; only tabs on allowed websites stay in front (an empty list blocks nothing). Click to switch to \"Block\".")
         )
     }
 
     private var moreMenu: some View {
         Menu {
-            Toggle("Ton", isOn: Binding(
+            Toggle(tr("Ton", "Sound"), isOn: Binding(
                 get: { soundEnabled },
                 set: { newValue in
                     soundEnabled = newValue
                     preferences.soundEnabled = newValue
                 }
             ))
-            Toggle("Floating Display", isOn: Binding(
+            Toggle(tr("Floating Display", "Floating display"), isOn: Binding(
                 get: { floatingOn },
                 set: { newValue in
                     floatingOn = newValue
@@ -292,11 +292,11 @@ struct SetupView: View {
             // v24: hidden while a session runs — the banner above owns it
             // then, and starting a second one would only reset the clock.
             if !emergency.isActive {
-                Button("Notfall-Modus …") { emergency.isConfiguring = true }
+                Button(tr("Notfall-Modus …", "Emergency mode …")) { emergency.isConfiguring = true }
             }
-            Button("Einstellungen…", action: onOpenSettings)
+            Button(tr("Einstellungen…", "Settings…"), action: onOpenSettings)
             Divider()
-            Button("Timer beenden…") { NSApp.terminate(nil) }
+            Button(tr("Timer beenden…", "Quit Timer…")) { NSApp.terminate(nil) }
                 .keyboardShortcut("q")
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -306,7 +306,7 @@ struct SetupView: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .foregroundStyle(.secondary)
-        .help("Mehr")
+        .help(tr("Mehr", "More"))
     }
 
     private func startFromField() {

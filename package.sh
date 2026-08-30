@@ -40,31 +40,49 @@ cat > share/INSTALLATION.txt <<'TXT'
 Timer — Installation
 ====================
 
-1. Timer.app in den Ordner "Programme" ziehen.
+The app speaks English or German. It follows your system language, and you
+can change it any time under Settings -> General -> Language.
 
-2. WICHTIG beim ersten Start: NICHT doppelklicken, sondern
-   Rechtsklick auf Timer.app -> "Öffnen" -> im Dialog nochmal "Öffnen".
-   (Die App ist nicht über den App Store signiert, deshalb fragt macOS
-   einmalig nach. Danach startet sie normal per Doppelklick.)
+1. Drag Timer.app into your "Applications" folder.
 
-   Falls macOS meldet, die App sei "beschädigt": einmal dieses Kommando
-   im Programm "Terminal" ausführen (kopieren, Enter):
+2. IMPORTANT on first launch: do NOT double-click. Right-click Timer.app ->
+   "Open" -> in the dialog, click "Open" again. (The app is not signed
+   through the App Store, so macOS asks once. After that a double-click
+   works normally.)
+
+   If macOS claims the app is "damaged", run this once in Terminal:
 
        xattr -dr com.apple.quarantine /Applications/Timer.app
 
-3. Die App erscheint oben rechts in der Menüleiste (kein Dock-Symbol).
-   Klick auf das Timer-Symbol öffnet die Bedienung.
+3. The app lives in the menu bar at the top right — there is no Dock icon.
+   Click the timer symbol to open it.
 
-4. Berechtigungen: Einstellungen (⋯ -> Einstellungen…) -> Tab "Rechte".
-   Dort steht, was wofür gebraucht wird:
-   - Automation (Safari/Chrome/Arc): Website-Statistik + Website-Block
-   - Bedienungshilfen: Blocken von Apps im Vollbild
-   - Kurzbefehle: optionale "Nicht stören"-Kopplung
-   Nichts davon ist Pflicht — ohne die Rechte funktionieren Timer,
-   Pomodoro und Statistik trotzdem.
+4. Permissions: Settings (the "..." menu -> Settings...) -> "Permissions" tab
+   lists what is needed for what:
+   - Automation (Safari/Chrome/Arc): website statistics + website blocking
+   - Accessibility: taking blocked apps out of fullscreen
+   - Shortcuts: the optional "Do Not Disturb" coupling
+   None of it is required — the timer, pomodoro and statistics work without.
 
-Voraussetzung: macOS 13 oder neuer (Apple Silicon und Intel).
-Alle Daten bleiben lokal auf dem Mac, die App sendet nichts ins Netz.
+   Note: macOS ties these permissions to the exact app binary, so after
+   installing a newer version you may have to grant Accessibility again
+   (System Settings -> Privacy & Security -> Accessibility: remove the old
+   "Timer" entry with "-", add the new one with "+").
+
+Requires macOS 13 or newer (Apple Silicon and Intel).
+All data stays local on your Mac; the app never sends anything anywhere.
+
+
+Deutsch
+=======
+
+1. Timer.app in den Ordner "Programme" ziehen.
+2. Beim ersten Start NICHT doppelklicken: Rechtsklick -> "Öffnen" -> im
+   Dialog nochmal "Öffnen". Bei der Meldung "beschädigt" hilft im Terminal:
+   xattr -dr com.apple.quarantine /Applications/Timer.app
+3. Die App sitzt oben rechts in der Menüleiste, ohne Dock-Symbol.
+4. Rechte im Tab "Rechte"; nichts davon ist Pflicht. Sprache umstellen unter
+   Einstellungen -> Allgemein -> Sprache.
 TXT
 
 echo "▸ Zipping…"

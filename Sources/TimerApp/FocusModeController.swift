@@ -92,7 +92,7 @@ final class FocusModeController: ObservableObject {
     /// never blocked.
     private func run(shortcut: String) {
         guard shortcutsAvailable else {
-            statusMessage = "Benötigt macOS 12+ (Kurzbefehle)."
+            statusMessage = tr("Benötigt macOS 12+ (Kurzbefehle).", "Requires macOS 12+ (Shortcuts).")
             return
         }
         let process = Self.makeProcess(arguments: ["run", shortcut])
@@ -101,14 +101,14 @@ final class FocusModeController: ObservableObject {
                 if finished.terminationStatus == 0 {
                     self?.statusMessage = nil
                 } else {
-                    self?.statusMessage = "Kurzbefehl '\(shortcut)' nicht gefunden — Anleitung oben."
+                    self?.statusMessage = tr("Kurzbefehl '\(shortcut)' nicht gefunden — Anleitung oben.", "Shortcut '\(shortcut)' not found — see the instructions above.")
                 }
             }
         }
         do {
             try process.run()
         } catch {
-            statusMessage = "Kurzbefehl '\(shortcut)' konnte nicht gestartet werden."
+            statusMessage = tr("Kurzbefehl '\(shortcut)' konnte nicht gestartet werden.", "Shortcut '\(shortcut)' could not be run.")
         }
     }
 }

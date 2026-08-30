@@ -38,7 +38,7 @@ struct EmergencyStartPanel: View {
         HStack(spacing: 5) {
             Image(systemName: "lock.fill")
                 .font(.system(size: 11))
-            Text("Notfall-Modus")
+            Text(tr("Notfall-Modus", "Emergency mode"))
                 .font(.system(size: 13, weight: .semibold))
             Spacer()
             Button {
@@ -49,7 +49,7 @@ struct EmergencyStartPanel: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Zurück")
+            .help(tr("Zurück", "Back"))
         }
     }
 
@@ -66,7 +66,7 @@ struct EmergencyStartPanel: View {
                     let filtered = String(newValue.filter(\.isNumber).prefix(2))
                     if filtered != newValue { minutesText = filtered }
                 }
-            Text("min · max. \(EmergencyMode.maximumMinutes)")
+            Text(tr("min · max. \(EmergencyMode.maximumMinutes)", "min · max \(EmergencyMode.maximumMinutes)"))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
@@ -74,7 +74,7 @@ struct EmergencyStartPanel: View {
 
     private var startButton: some View {
         Button(action: start) {
-            Text("Starten")
+            Text(tr("Starten", "Start"))
                 .font(.system(size: 13, weight: .semibold))
                 .frame(maxWidth: .infinity)
         }
@@ -87,11 +87,11 @@ struct EmergencyStartPanel: View {
 
     private var captions: some View {
         VStack(alignment: .leading, spacing: 3) {
-            caption("Nur deine Notfall-Apps sind erreichbar. Abbrechen erst nach 10 s Halten.")
+            caption(tr("Nur deine Notfall-Apps sind erreichbar. Abbrechen erst nach 10 s Halten.", "Only your emergency apps stay reachable. Cancelling takes a 10 s hold."))
             if preferences.emergencyApps.isEmpty {
-                caption("Noch keine Notfall-Apps gewählt — dann wird alles außer Timer, Finder und Systemeinstellungen ausgeblendet.")
+                caption(tr("Noch keine Notfall-Apps gewählt — dann wird alles außer Timer, Finder und Systemeinstellungen ausgeblendet.", "No emergency apps chosen yet — everything but Timer, Finder and System Settings will be hidden."))
             }
-            caption("Timer beenden hebt die Sperre auf; beim nächsten Start läuft sie weiter.")
+            caption(tr("Timer beenden hebt die Sperre auf; beim nächsten Start läuft sie weiter.", "Quitting Timer lifts the lock; it resumes on the next launch."))
         }
     }
 

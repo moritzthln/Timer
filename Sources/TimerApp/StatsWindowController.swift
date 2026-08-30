@@ -25,8 +25,8 @@ struct StatsRootView: View {
     var body: some View {
         VStack(spacing: 12) {
             Picker("", selection: $tab) {
-                Text("Fokus").tag("fokus")
-                Text("Aktivität").tag("aktivitaet")
+                Text(tr("Fokus", "Focus")).tag("fokus")
+                Text(tr("Aktivität", "Activity")).tag("aktivitaet")
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -75,7 +75,7 @@ final class StatsWindowController {
                 styleMask: [.titled, .closable, .resizable],
                 backing: .buffered, defer: false
             )
-            created.title = "Statistik"
+            created.title = tr("Statistik", "Statistics")
             created.isReleasedWhenClosed = false
             created.center()
             // Restores a previously saved frame over the centered default.

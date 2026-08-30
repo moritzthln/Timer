@@ -140,6 +140,7 @@ extension TimelineSpan {
 enum TimelineClock {
     static let hour: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = L10n.locale
         formatter.dateFormat = "H:mm"
         return formatter
     }()

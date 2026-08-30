@@ -1,4 +1,5 @@
 import AppKit
+import TimerCore
 
 // Duplicate-instance guard: the LaunchAgent fallback and SMAppService could
 // both fire at login; the younger instance yields immediately. Bare binaries
@@ -21,11 +22,15 @@ app.setActivationPolicy(.accessory)
 // ⌘Q in the popover used to kill the running session, the activity tracking
 // and the block at once. Quitting lives in the ⋯ menu and the status item's
 // right-click menu, both without a shortcut.
+// The menu is built before the delegate's launch callback runs, so the
+// language has to be resolved here or every menu title would stay English.
+L10n.refresh(preferences: Preferences())
+
 let mainMenu = NSMenu()
 let appMenuItem = NSMenuItem()
 let appMenu = NSMenu()
 let closeItem = NSMenuItem(
-    title: "Popover schließen",
+    title: tr("Popover schließen", "Close popover"),
     action: #selector(AppDelegate.closePopover(_:)),
     keyEquivalent: "q"
 )
@@ -40,19 +45,19 @@ mainMenu.addItem(appMenuItem)
 // (user: "Copy und paste von Links erlauben"). Nil targets send each command
 // down the responder chain, which is where the focused field picks it up.
 let editMenuItem = NSMenuItem()
-let editMenu = NSMenu(title: "Bearbeiten")
+let editMenu = NSMenu(title: tr("Bearbeiten", "Edit"))
 for (title, selector, key) in [
-    ("Widerrufen", Selector(("undo:")), "z"),
-    ("Wiederholen", Selector(("redo:")), "Z"),
+    (tr("Widerrufen", "Undo"), Selector(("undo:")), "z"),
+    (tr("Wiederholen", "Redo"), Selector(("redo:")), "Z"),
 ] {
     editMenu.addItem(NSMenuItem(title: title, action: selector, keyEquivalent: key))
 }
 editMenu.addItem(.separator())
 for (title, selector, key) in [
-    ("Ausschneiden", #selector(NSText.cut(_:)), "x"),
-    ("Kopieren", #selector(NSText.copy(_:)), "c"),
-    ("Einsetzen", #selector(NSText.paste(_:)), "v"),
-    ("Alles auswählen", #selector(NSText.selectAll(_:)), "a"),
+    (tr("Ausschneiden", "Cut"), #selector(NSText.cut(_:)), "x"),
+    (tr("Kopieren", "Copy"), #selector(NSText.copy(_:)), "c"),
+    (tr("Einsetzen", "Paste"), #selector(NSText.paste(_:)), "v"),
+    (tr("Alles auswählen", "Select All"), #selector(NSText.selectAll(_:)), "a"),
 ] {
     editMenu.addItem(NSMenuItem(title: title, action: selector, keyEquivalent: key))
 }

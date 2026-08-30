@@ -108,18 +108,23 @@ enum AccessibilityAccess {
         guard !isTrusted, !didWarn else { return }
         didWarn = true
         let alert = NSAlert()
-        alert.messageText = "Timer fehlen die Bedienungshilfen"
-        alert.informativeText = """
-        Ohne dieses Recht kann der Block Apps im Vollbild weder beenden noch \
-        ausblenden — er wirkt dann wirkungslos.
-
-        Öffne Datenschutz & Sicherheit → Bedienungshilfen. Steht „Timer“ dort \
-        schon: mit „−“ entfernen und mit „+“ neu hinzufügen \
-        (/Applications/Timer.app). Nach jeder Neuinstallation ist das nötig, \
-        solange die App nur ad-hoc signiert ist.
-        """
-        alert.addButton(withTitle: "Einstellungen öffnen")
-        alert.addButton(withTitle: "Später")
+        alert.messageText = tr("Timer fehlen die Bedienungshilfen", "Timer is missing Accessibility permission")
+        alert.informativeText = tr(
+            "Ohne dieses Recht kann der Block Apps im Vollbild weder beenden noch"
+            + " ausblenden — er wirkt dann wirkungslos.\n\n"
+            + "Öffne Datenschutz & Sicherheit → Bedienungshilfen. Steht „Timer“ dort"
+            + " schon: mit „−“ entfernen und mit „+“ neu hinzufügen"
+            + " (/Applications/Timer.app). Nach jeder Neuinstallation ist das nötig,"
+            + " solange die App nur ad-hoc signiert ist.",
+            "Without this permission the block can neither leave fullscreen nor hide"
+            + " those apps — it then appears to do nothing.\n\n"
+            + "Open Privacy & Security → Accessibility. If “Timer” is already listed,"
+            + " remove it with “−” and add it again with “+”"
+            + " (/Applications/Timer.app). This is needed after every reinstall,"
+            + " as long as the app is only ad-hoc signed."
+        )
+        alert.addButton(withTitle: tr("Einstellungen öffnen", "Open Settings"))
+        alert.addButton(withTitle: tr("Später", "Later"))
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn { openSettings() }
     }

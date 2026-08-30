@@ -35,12 +35,14 @@ struct ActivityDayView: View {
 
     private static let titleFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "EE, d. MMMM"
+        formatter.locale = L10n.locale
+        formatter.dateFormat = tr("EE, d. MMMM", "EEE, MMMM d")
         return formatter
     }()
 
     private static let hourFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = L10n.locale
         formatter.dateFormat = "H:mm"
         return formatter
     }()
@@ -71,7 +73,7 @@ struct ActivityDayView: View {
                     appList(summary, colorFor: colorFor)
                 }
             } else {
-                Text("Keine Daten für diesen Tag")
+                Text(tr("Keine Daten für diesen Tag", "No data for this day"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -99,7 +101,7 @@ struct ActivityDayView: View {
             sitesByBrowser: lists.sitesByBrowser,
             colorFor: colorFor,
             sparkSeries: sparkSeries,
-            sparkHelp: "Letzte 7 Tage",
+            sparkHelp: tr("Letzte 7 Tage", "Last 7 days"),
             selectedBundleID: selectedBundleID,
             onSelect: toggleSelection,
             foldThreshold: focusOnly ? 10 : 60
@@ -143,7 +145,7 @@ struct ActivityDayView: View {
     /// stays (dimmed entirely) and this message replaces the app list.
     private var emptyFocusMessage: some View {
         Group {
-            Text("Keine Fokus-Sessions in diesem Zeitraum")
+            Text(tr("Keine Fokus-Sessions in diesem Zeitraum", "No focus sessions in this period"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -192,12 +194,12 @@ struct ActivityDayView: View {
 
     private func presenceLine(_ summary: DaySummary) -> some View {
         HStack {
-            Text("Am PC")
+            Text(tr("Am PC", "At the Mac"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
             if let first = summary.firstActivity, let last = summary.lastActivity {
-                Text("\(Self.hourFormatter.string(from: first)) – \(Self.hourFormatter.string(from: last)) · aktiv \(TimeFormatting.wording(seconds: summary.presenceSeconds))")
+                Text(tr("\(Self.hourFormatter.string(from: first)) – \(Self.hourFormatter.string(from: last)) · aktiv \(TimeFormatting.wording(seconds: summary.presenceSeconds))", "\(Self.hourFormatter.string(from: first)) – \(Self.hourFormatter.string(from: last)) · active \(TimeFormatting.wording(seconds: summary.presenceSeconds))"))
                     .font(.system(size: 13, design: .monospaced))
             }
         }
@@ -209,7 +211,7 @@ struct ActivityDayView: View {
     /// the day's focus intervals.
     private var focusLine: some View {
         HStack {
-            Text("Fokus-Zeit")
+            Text(tr("Fokus-Zeit", "Focus time"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()

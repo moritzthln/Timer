@@ -7,9 +7,9 @@ struct RunningView: View {
     private var pomodoroLabel: String? {
         guard case .pomodoro(let phase, let round)? = engine.currentKind else { return nil }
         switch phase {
-        case .focus: return "Fokus · Runde \(round)"
-        case .shortBreak: return "Pause · Runde \(round)"
-        case .longBreak: return "Lange Pause"
+        case .focus: return tr("Fokus · Runde \(round)", "Focus · round \(round)")
+        case .shortBreak: return tr("Pause · Runde \(round)", "Break · round \(round)")
+        case .longBreak: return tr("Lange Pause", "Long break")
         }
     }
 
@@ -51,23 +51,23 @@ struct RunningView: View {
                 } label: {
                     Image(systemName: engine.isPaused ? "play.fill" : "pause.fill")
                 }
-                .help(engine.isPaused ? "Weiter" : "Pause")
+                .help(engine.isPaused ? tr("Weiter", "Resume") : "Pause")
                 Button("+5") { engine.extend(minutes: 5) }
-                    .help("+5 Minuten")
+                    .help(tr("+5 Minuten", "+5 minutes"))
                 if isPomodoro {
                     Button {
                         engine.skip()
                     } label: {
                         Image(systemName: "forward.end.fill")
                     }
-                    .help("Phase überspringen")
+                    .help(tr("Phase überspringen", "Skip phase"))
                 }
                 Button {
                     engine.stop()
                 } label: {
                     Image(systemName: "stop.fill")
                 }
-                .help("Stopp")
+                .help(tr("Stopp", "Stop"))
             }
             .buttonStyle(PillButtonStyle())
         }
@@ -76,7 +76,7 @@ struct RunningView: View {
     private var statusLine: some View {
         Group {
             if let end = engine.endDate {
-                Text("endet \(end, format: .dateTime.hour().minute())")
+                Text(tr("endet ", "ends ")) + Text(end, format: .dateTime.hour().minute())
             } else {
                 Text("pausiert")
             }

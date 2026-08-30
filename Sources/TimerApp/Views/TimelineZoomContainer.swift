@@ -83,17 +83,17 @@ struct TimelineZoomContainer<Leading: View, Content: View>: View {
                 setZoom(zoom / 2, focusContentX: nil, viewportWidth: viewportWidth, proxy: proxy)
             }
             .disabled(zoom <= minZoom)
-            .help("Rauszoomen")
+            .help(tr("Rauszoomen", "Zoom out"))
             Button("＋") {
                 setZoom(zoom * 2, focusContentX: nil, viewportWidth: viewportWidth, proxy: proxy)
             }
             .disabled(zoom >= maxZoom)
-            .help("Reinzoomen")
+            .help(tr("Reinzoomen", "Zoom in"))
             Button("1×") {
                 setZoom(1, focusContentX: nil, viewportWidth: viewportWidth, proxy: proxy)
             }
             .disabled(zoom <= minZoom)
-            .help("Zoom zurücksetzen")
+            .help(tr("Zoom zurücksetzen", "Reset zoom"))
         }
         .buttonStyle(.plain)
         .font(.system(size: 11, weight: .medium))

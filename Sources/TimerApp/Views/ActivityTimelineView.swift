@@ -161,7 +161,7 @@ struct ActivityTimelineView: View {
     /// "Fokus · 14:02–14:31" (the interval's real times, even when the
     /// drawn mark is clamped to the axis).
     static func focusTooltip(_ interval: FocusInterval) -> String {
-        "Fokus · \(hourFormatter.string(from: interval.start))–\(hourFormatter.string(from: interval.end))"
+        tr("Fokus · \(hourFormatter.string(from: interval.start))–\(hourFormatter.string(from: interval.end))", "Focus · \(hourFormatter.string(from: interval.start))–\(hourFormatter.string(from: interval.end))")
     }
 
     // MARK: - Tick labels

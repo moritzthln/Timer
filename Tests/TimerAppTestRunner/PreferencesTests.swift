@@ -372,3 +372,24 @@ func runHiddenByBlockTests() {
         try expect(prefs.hiddenByBlock.isEmpty, "cleared once acted on")
     }
 }
+
+func runLanguageTests() {
+    test("system follows macOS, an explicit choice overrides it") {
+        try expectEqual(AppLanguage.resolve(preferred: .system, systemCode: "de-DE"), .german, "German Mac")
+        try expectEqual(AppLanguage.resolve(preferred: .system, systemCode: "en-US"), .english, "English Mac")
+        // Anything nobody translated reads better in English than in German.
+        try expectEqual(AppLanguage.resolve(preferred: .system, systemCode: "fr-FR"), .english, "French Mac")
+        try expectEqual(AppLanguage.resolve(preferred: .system, systemCode: nil), .english, "no report")
+        try expectEqual(AppLanguage.resolve(preferred: .german, systemCode: "en-US"), .german, "forced German")
+        try expectEqual(AppLanguage.resolve(preferred: .english, systemCode: "de-DE"), .english, "forced English")
+    }
+
+    test("the language setting round-trips and defaults to system") {
+        let prefs = freshPrefs()
+        try expectEqual(prefs.language, .system, "never set means system")
+        prefs.language = .english
+        try expectEqual(prefs.language, .english, "stored")
+        prefs.language = .system
+        try expectEqual(prefs.language, .system, "cleared again")
+    }
+}

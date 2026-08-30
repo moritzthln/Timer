@@ -29,13 +29,15 @@ struct ActivityWeekView: View {
 
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "d."
+        formatter.locale = L10n.locale
+        formatter.dateFormat = tr("d.", "d")
         return formatter
     }()
 
     private static let dayMonthFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "d. MMMM"
+        formatter.locale = L10n.locale
+        formatter.dateFormat = tr("d. MMMM", "MMMM d")
         return formatter
     }()
 
@@ -77,7 +79,7 @@ struct ActivityWeekView: View {
                         appList(data, colorFor: colorFor)
                     }
                 } else {
-                    Text("Keine Daten für diese Woche")
+                    Text(tr("Keine Daten für diese Woche", "No data for this week"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -108,7 +110,7 @@ struct ActivityWeekView: View {
     /// "KW 32 · 4.–10. August".
     private var title: String {
         let week = WeekData.calendar.component(.weekOfYear, from: weekStart)
-        return "KW \(week) · \(rangeString)"
+        return tr("KW \(week) · \(rangeString)", "W\(week) · \(rangeString)")
     }
 
     private var weekStart: Date {
@@ -207,7 +209,7 @@ struct ActivityWeekView: View {
     /// above stay (dimmed entirely) and this message replaces the app list.
     private var emptyFocusMessage: some View {
         Group {
-            Text("Keine Fokus-Sessions in diesem Zeitraum")
+            Text(tr("Keine Fokus-Sessions in diesem Zeitraum", "No focus sessions in this period"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -220,11 +222,11 @@ struct ActivityWeekView: View {
 
     private func presenceLine(_ data: WeekData) -> some View {
         HStack {
-            Text("Am PC")
+            Text(tr("Am PC", "At the Mac"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
-            Text("\(scopeLabel) · aktiv \(TimeFormatting.wording(seconds: data.presenceSeconds))")
+            Text(tr("\(scopeLabel) · aktiv \(TimeFormatting.wording(seconds: data.presenceSeconds))", "\(scopeLabel) · active \(TimeFormatting.wording(seconds: data.presenceSeconds))"))
                 .font(.system(size: 13, design: .monospaced))
         }
         .padding(10)
@@ -235,7 +237,7 @@ struct ActivityWeekView: View {
     /// the seven days' focus intervals.
     private func focusLine(_ data: WeekData) -> some View {
         HStack {
-            Text("Fokus-Zeit")
+            Text(tr("Fokus-Zeit", "Focus time"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -251,7 +253,7 @@ struct ActivityWeekView: View {
     /// Past weeks say "KW 31" instead of a wrong "Diese Woche".
     private var scopeLabel: String {
         isCurrentWeek
-            ? "Diese Woche"
-            : "KW \(WeekData.calendar.component(.weekOfYear, from: anchor))"
+            ? tr("Diese Woche", "This week")
+            : tr("KW \(WeekData.calendar.component(.weekOfYear, from: anchor))", "W\(WeekData.calendar.component(.weekOfYear, from: anchor))")
     }
 }

@@ -72,6 +72,7 @@ public final class Preferences {
         static let floatingEnabled = "floatingEnabled"
         static let lastMode = "lastMode"
         static let blockedApps = "blockedApps"
+        static let language = "language"
         static let runLabel = "runLabel"
         static let hiddenByBlock = "hiddenByBlock"
         static let blockedDomains = "blockedDomains"
@@ -256,6 +257,24 @@ public final class Preferences {
                 defaults.removeObject(forKey: Key.hiddenByBlock)
             } else {
                 defaults.set(newValue, forKey: Key.hiddenByBlock)
+            }
+        }
+    }
+
+    /// Interface language. Never set means "follow the system", which is what
+    /// most people want and what a friend abroad needs without touching a
+    /// setting at all.
+    public var language: AppLanguage {
+        get {
+            guard let raw = defaults.string(forKey: Key.language),
+                  let value = AppLanguage(rawValue: raw) else { return .system }
+            return value
+        }
+        set {
+            if newValue == .system {
+                defaults.removeObject(forKey: Key.language)
+            } else {
+                defaults.set(newValue.rawValue, forKey: Key.language)
             }
         }
     }

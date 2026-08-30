@@ -61,6 +61,7 @@ struct HeatmapView: View {
     /// are skipped so labels never overlap.
     private var monthLabels: [(index: Int, text: String)] {
         let formatter = DateFormatter()
+        formatter.locale = L10n.locale
         formatter.dateFormat = "MMM"
         let calendar = Calendar.current
         var labels: [(Int, String)] = []
