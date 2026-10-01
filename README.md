@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/moritzthln/Timer/releases/latest"><img src="https://img.shields.io/github/v/release/moritzthln/Timer?label=download&color=3478F6" alt="Latest release"></a>
+  <a href="https://github.com/moritzthln/focus-timer-mac/releases/latest"><img src="https://img.shields.io/github/v/release/moritzthln/focus-timer-mac?label=download&color=3478F6" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-black?logo=apple" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-555" alt="Universal binary">
-  <a href="https://github.com/moritzthln/Timer/actions/workflows/ci.yml"><img src="https://github.com/moritzthln/Timer/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/moritzthln/focus-timer-mac/actions/workflows/ci.yml"><img src="https://github.com/moritzthln/focus-timer-mac/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
 
@@ -59,7 +59,7 @@ No account. No subscription. No network access at all: every number Timer shows 
 
 ## Install
 
-1. **Download** `Timer.zip` from the [latest release](https://github.com/moritzthln/Timer/releases/latest) and unzip it.
+1. **Download** `Timer.zip` from the [latest release](https://github.com/moritzthln/focus-timer-mac/releases/latest) and unzip it.
 2. **Move** `Timer.app` into your *Applications* folder.
 3. **Open it the first time with a right-click → Open**, then confirm with *Open* once more.
 
@@ -78,7 +78,7 @@ To start it with your Mac, turn on **Settings → General → Start at login**.
 
 ### Updating
 
-Download the newest `Timer.zip` from [Releases](https://github.com/moritzthln/Timer/releases/latest), quit Timer, and replace the app in your *Applications* folder. Your settings and history stay where they are.
+Download the newest `Timer.zip` from [Releases](https://github.com/moritzthln/focus-timer-mac/releases/latest), quit Timer, and replace the app in your *Applications* folder. Your settings and history stay where they are.
 
 Timer never checks for updates on its own — that would mean a network request, and it makes none. To hear about new versions, click **Watch → Custom → Releases** at the top of this page and GitHub will notify you.
 
@@ -156,8 +156,8 @@ Website tracking stores domains only, never full addresses, page titles or conte
 Requirements: macOS 13 or newer and Swift 5.9+ (Xcode or the Command Line Tools — `xcode-select --install` is enough).
 
 ```bash
-git clone https://github.com/moritzthln/Timer.git
-cd Timer
+git clone https://github.com/moritzthln/focus-timer-mac.git
+cd focus-timer-mac
 ./build.sh
 ```
 

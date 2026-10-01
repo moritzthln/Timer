@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.."
 
 PLIST="Resources/Info.plist"
 CHANGELOG="CHANGELOG.md"
-REPO_URL="https://github.com/moritzthln/Timer"
+REPO_URL="https://github.com/moritzthln/focus-timer-mac"
 
 fail() { echo "✗ $*" >&2; exit 1; }
 

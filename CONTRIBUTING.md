@@ -5,7 +5,7 @@ focused pull requests are very welcome.
 
 ## Ways to help
 
-- **Report a bug** — open an [issue](https://github.com/moritzthln/Timer/issues/new/choose)
+- **Report a bug** — open an [issue](https://github.com/moritzthln/focus-timer-mac/issues/new/choose)
   with your macOS version, what you did and what you expected. For anything
   around the focus block, mention whether the app was in fullscreen and whether
   Accessibility is granted (Settings → Permissions).
@@ -13,7 +13,7 @@ focused pull requests are very welcome.
   deliberately does few things; a short discussion saves you building something
   that will not be merged.
 - **Pick up an issue** — issues labelled
-  [`good first issue`](https://github.com/moritzthln/Timer/labels/good%20first%20issue)
+  [`good first issue`](https://github.com/moritzthln/focus-timer-mac/labels/good%20first%20issue)
   are small and self-contained. Comment on the issue so nobody does it twice.
 - **Translate** — the interface is English and German. Every string lives at its
   call site as `tr("Deutsch", "English")`.
@@ -26,8 +26,8 @@ You need macOS 13 or newer and Swift 5.9+. Xcode works; the Command Line Tools
 alone (`xcode-select --install`) are enough.
 
 ```bash
-git clone https://github.com/<your-username>/Timer.git
-cd Timer
+git clone https://github.com/<your-username>/focus-timer-mac.git
+cd focus-timer-mac
 swift build                    # debug build
 swift run TimerAppTestRunner   # test suite
 ./build.sh                     # build, sign and install to /Applications

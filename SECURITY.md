@@ -9,7 +9,7 @@ Only the latest release receives fixes.
 Please **do not open a public issue** for security problems.
 
 Report them privately through GitHub instead:
-[Report a vulnerability](https://github.com/moritzthln/Timer/security/advisories/new).
+[Report a vulnerability](https://github.com/moritzthln/focus-timer-mac/security/advisories/new).
 
 You will get an answer within a few days. Once a fix is released, the report
 is published with credit to you, unless you prefer otherwise.

@@ -23,5 +23,5 @@ First public release.
 - Global hotkeys, floating display, launch at login
 - English and German interface
 
-[Unreleased]: https://github.com/moritzthln/Timer/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/moritzthln/Timer/releases/tag/v1.0.0
+[Unreleased]: https://github.com/moritzthln/focus-timer-mac/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/moritzthln/focus-timer-mac/releases/tag/v1.0.0
