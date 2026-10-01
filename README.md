@@ -31,6 +31,7 @@ No account. No subscription. No network access at all: every number Timer shows 
 ## Contents
 
 - [Features](#features)
+- [Why Timer?](#why-timer)
 - [Install](#install) · [Updating](#updating)
 - [Permissions](#permissions)
 - [Using Timer](#using-timer)
@@ -56,6 +57,29 @@ No account. No subscription. No network access at all: every number Timer shows 
 <p align="center">
   <img src="docs/images/statistics.png" width="520" alt="Statistics: today, this week, total and average, a seven-day chart and a yearly heatmap">
 </p>
+
+## Why Timer?
+
+Most focus tools do one thing: a pomodoro app counts down, a blocker blocks, a tracker tracks. Each wants an account, a subscription or a browser extension — and the blockers that work at all usually do it by force-quitting your apps. Timer puts all three in one small menu bar app and does each of them the gentle way.
+
+- **It actually blocks fullscreen apps.** macOS lets a fullscreen app keep its own Space even after it was hidden, and only shows the windows of whichever app is active. Most blockers stop there. Timer walks every fullscreen app, follows browsers with several profile windows across Spaces, takes them out of fullscreen and only then hides them.
+- **Nothing is ever quit.** Blocked apps are hidden and come back exactly as they were when the session ends. Blocked websites stay open in their tabs. Unsaved work is never at risk.
+- **Websites without an extension.** Timer reads the front tab of Safari, Chrome and Arc through macOS itself — nothing to install in your browser, nothing to keep updated.
+- **An emergency mode with real friction.** From the menu or a hotkey, Timer locks the Mac down to a short list for up to an hour. Ending it early takes a ten-second hold — long enough to notice you are about to give in.
+- **Your data never leaves your Mac.** No account, no server, no analytics, no update check. Timer makes no network requests at all, and its full source is here to prove it.
+- **Free and open source.** MIT-licensed, no subscription, no "Pro" tier.
+
+| | Typical pomodoro app | Typical app/website blocker | Typical time tracker | **Timer** |
+|---|:---:|:---:|:---:|:---:|
+| Countdown and pomodoro cycles | ✓ | – | – | **✓** |
+| Blocks apps | – | ✓ | – | **✓** |
+| Takes apps out of fullscreen, across Spaces | – | rarely | – | **✓** |
+| Blocks websites without a browser extension | – | rarely | – | **✓** |
+| Never force-quits your apps | – | rarely | – | **✓** |
+| Records which apps and sites you used | – | – | ✓ | **✓** |
+| Shows only what happened *during* focus sessions | – | – | rarely | **✓** |
+| No account, no network access | sometimes | rarely | rarely | **✓** |
+| Free and open source | sometimes | rarely | rarely | **✓** |
 
 ## Install
 
