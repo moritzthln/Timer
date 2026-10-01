@@ -91,7 +91,3 @@ git push origin v1.1.0
 
 The release workflow runs the tests, builds the universal app and publishes it
 with a SHA-256 checksum.
-
-## Code of Conduct
-
-Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
