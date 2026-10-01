@@ -42,7 +42,7 @@ mainMenu.addItem(appMenuItem)
 // An app without a Dock icon still needs an Edit menu: the standard shortcuts
 // are *menu* commands, so without one ⌘C, ⌘V, ⌘X and ⌘A do nothing in every
 // text field the app has — the minute input, the domain fields, everywhere
-// (user: "Copy und paste von Links erlauben"). Nil targets send each command
+// (pasting a copied URL into a block list did nothing). Nil targets send each command
 // down the responder chain, which is where the focused field picks it up.
 let editMenuItem = NSMenuItem()
 let editMenu = NSMenu(title: tr("Bearbeiten", "Edit"))

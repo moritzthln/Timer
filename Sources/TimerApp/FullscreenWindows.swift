@@ -47,8 +47,8 @@ enum FullscreenWindows {
     /// This is the evidence that one visit is not enough: an app can hold
     /// several fullscreen Spaces, and only the current one is ever reachable —
     /// Accessibility lists it, keyboard shortcuts hit it, the rest may as well
-    /// not exist (user: "mehrere Chrome-Profile in zwei Vollbildern, nur eins
-    /// wurde rausgeholt").
+    /// not exist (two Chrome profiles in two fullscreen Spaces: only one came
+    /// out before this check existed).
     static func hasWindowOnAnotherSpace(pid: pid_t) -> Bool {
         let onScreen = onScreenNumbers()
         return windowList().contains { window in

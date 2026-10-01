@@ -1,0 +1,27 @@
+name: Release
+
+# Push a tag like v1.2.0 and this builds the universal app and publishes it.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: swift run TimerAppTestRunner
+      - name: Package universal app
+        run: ./package.sh
+      - name: Checksum
+        run: cd share && shasum -a 256 Timer.zip > Timer.zip.sha256
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" share/Timer.zip share/Timer.zip.sha256 \
+            --title "Timer ${GITHUB_REF_NAME#v}" --generate-notes

@@ -1,502 +1,192 @@
-# Timer
+<p align="center">
+  <img src="docs/images/icon.png" width="128" alt="Timer app icon">
+</p>
 
-Minimal macOS menu bar countdown timer (personal Onigiri replacement).
-Lives in the menu bar only — no Dock icon, no window.
+<h1 align="center">Timer</h1>
 
-## Usage
+<p align="center">
+  <strong>A calm menu bar timer for macOS — with pomodoro, a focus block that actually works in fullscreen, and statistics that never leave your Mac.</strong>
+</p>
 
-### Single timer
+<p align="center">
+  <a href="https://github.com/moritzthln/Timer/releases/latest"><img src="https://img.shields.io/github/v/release/moritzthln/Timer?label=download&color=3478F6" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B-black?logo=apple" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-555" alt="Universal binary">
+  <a href="https://github.com/moritzthln/Timer/actions/workflows/ci.yml"><img src="https://github.com/moritzthln/Timer/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
+</p>
 
-- Click the menu bar timer glyph → popover opens as one calm view
-  (no tabs since v6). The big minute input is auto-focused — type and
-  press Enter, hit a preset chip (defaults 5/15/25/45, editable in
-  Settings), or click the full-width "Start" button. The chip matching
-  the typed value is highlighted.
-- The ⌃⌥T → type → Enter flow works exactly as before.
-- While running, the menu bar shows **only the time** (no icon);
-  paused shows a pause icon plus the time. Settings → Allgemein →
-  Menüleiste can switch the time to a compact "25m" format or hide it
-  entirely.
-- When time is up: popover opens automatically and a ~5-second bell
-  swell plays (bundled synthesized sound; mute via "Ton" in the
-  popover's "⋯" menu, volume in Settings).
-- Pause/resume/stop from the popover; **"+5"** extends a running or
-  paused timer by five minutes (up to the 720-minute cap). Quit via ⌘Q
-  (popover open), the "⋯" menu → "Timer beenden", or right-click the
-  menu bar icon.
-- A running timer survives app restarts and Mac sleep.
+<p align="center">
+  <img src="docs/images/popover-idle.png" width="320" alt="The idle popover: minute input, presets, pomodoro, start">
+  &nbsp;&nbsp;
+  <img src="docs/images/popover-running.png" width="320" alt="A running session with its dedication above the countdown">
+</p>
 
-### Pomodoro mode
+---
 
-- No tab anymore: the full-width chip "Pomodoro · 25 / 5 · 4 Runden"
-  (live values from Settings) starts the cycle with one click.
-- Cycles focus → break → … automatically; after the configured number of
-  rounds the break is a long break, then the cycle restarts. Runs until
-  you stop it.
-- Every phase change auto-opens the popover. A completed focus phase
-  rings the full bell swell; a finished break plays a short soft chime
-  (back to work — noticeable, not startling). During breaks the menu
-  bar shows a cup symbol next to the time; focus phases show time only.
-- Controls while running: Pause/Weiter, **+5** (extend the current
-  phase by five minutes), **Skip** (jump to the next phase, silent),
-  Stopp — since v9 compact icon pills with tooltips (only "+5" stays
-  text).
-- Durations and rounds (defaults 25/5/15/4) are configured in Settings;
-  changes apply from the next start.
-- Sleep or relaunch past phase boundaries fast-forwards to the current
-  phase with at most one chime.
+Click the icon in the menu bar, type a number, press <kbd>Return</kbd>. That is the whole interface for most days. Everything else — pomodoro cycles, blocking distractions, a year of focus history — stays out of the way until you want it.
 
-### Popover footer
+No account. No subscription. No network access at all: every number Timer shows is computed from files on your own Mac.
 
-- Left: the **Fokus-Block** shield toggle (icon + caption, green when
-  armed). While the shield is on, a single mode chip showing the active
-  mode — "Blockieren" or "Nur Erlaubte" — appears next to it (the
-  shield collapses to its icon to make room); clicking the chip
-  switches to the other mode, the tooltip explains both, the choice
-  persists.
-- Right: a chart button opening the stats window, and an "⋯" menu with
-  "Ton", "Floating Display", "Notfall-Modus …" (v24, hidden while one
-  runs), "Einstellungen…", and "Timer beenden ⌘Q".
-- The old "Heute … · Woche …" caption line is gone — stats live in the
-  stats window.
+## Contents
 
-### Floating display
+- [Features](#features)
+- [Install](#install)
+- [Permissions](#permissions)
+- [Using Timer](#using-timer)
+- [Privacy](#privacy)
+- [Building from source](#building-from-source)
+- [Limitations](#limitations)
+- [License](#license)
 
-- Draggable always-on-top mini window: time, progress bar, and (in
-  Pomodoro mode) the phase. Shows over fullscreen apps and all Spaces.
-- Appears whenever a session runs and the floating toggle is on
-  (popover "⋯" menu or Settings → "Floating Display"; default on).
-- Hover reveals Pause/+5/Stopp (since v9 as icon buttons with
-  tooltips); drag anywhere on the panel to move it (position is
-  remembered). First appearance: top-right below the menu bar.
+## Features
 
-### Focus block
+| | |
+|---|---|
+| **Menu bar first** | No Dock icon, no main window. The menu bar shows the remaining time — or, if you prefer, a compact `25m` or just an icon. |
+| **One-keystroke start** | <kbd>⌃⌥T</kbd> opens the popover from anywhere, <kbd>⌃⌥S</kbd> starts your last duration without opening anything. |
+| **Pomodoro** | Focus, short break, long break — configurable, cycles on its own, survives sleep and restarts. |
+| **A dedication per session** | One optional line — *"what is this time for?"* — shown above the countdown. |
+| **Focus block** | Hide distracting apps and switch away from distracting websites while a session runs. Takes apps out of fullscreen first, so nothing escapes into its own Space. Nothing is ever quit. |
+| **Emergency mode** | Lock the Mac down to a short list for 1–60 minutes, independent of any timer. Cancelling takes a deliberate ten-second hold. |
+| **Statistics** | Focus time today, this week and in total, a seven-day chart and a twelve-month heatmap. |
+| **Activity** | A private timeline of which apps and websites you used and when — with a filter for *only the time inside focus sessions*. |
+| **English & German** | Follows your system language; switchable in Settings. |
 
-- Arm the **Fokus-Block** shield toggle at the left of the popover
-  footer (the state sticks). The shield has two modes (v15), switched
-  via the mode chip next to it:
-  - **Blockieren** (default): while a focus session runs, the block
-    intervenes on blocklisted apps and blocklisted websites' tabs.
-  - **Nur Erlaubte**: everything *except* the allowed list is blocked —
-    regular apps not on the allowed list and browser tabs on non-allowed
-    sites. The Timer itself, Finder, and System Settings are always
-    allowed; internal/new-tab pages are never touched. Each part guards
-    independently: an empty allowed-apps list blocks no apps, an empty
-    allowed-domains list blocks no tabs. Mode changes during a session
-    apply from the next launch/poll.
-- **Gentle since v16 — nothing is destroyed.** A blocked app is hidden
-  (macOS "Ausblenden"), never quit: it keeps running with every window
-  and unsaved change intact, and everything the block hid reappears
-  automatically when the session ends — also on pause, stop, a phase
-  change into a break, and when the Timer itself quits. Apps you hid
-  yourself stay hidden; re-opening a hidden blocked app during the
-  session just hides it again.
-- **Fullscreen-proof since v18, actually working since v21.** macOS
-  ignores "Ausblenden" for apps in native fullscreen (own Space), so
-  every block event walks an escalation ladder instead of hoping:
-  hide → check ~0.25 s later whether it worked → if the app is still
-  there, pull its windows out of fullscreen (needs the
-  Bedienungshilfen permission) and hide again → **if the app is still
-  in front, escape its Space** → cover the screen. The permission is
-  only ever asked for the first time the second rung is actually
-  needed — never at launch, never if plain hiding works.
-- **The Space escape (v21)** is the rung that makes fullscreen apps
-  blockable at all, and it needs no permission. A background app's
-  window is never drawn inside another app's fullscreen Space, so the
-  Timer puts its cover on its own Space and then *activates*: macOS
-  follows the activated app and takes the screen away from the
-  fullscreen app. Half a second later the ladder retries hiding — which
-  now usually works — and takes the cover down again, so you land on
-  your desktop with the app hidden and restorable as always. It fires
-  whenever the app is still in front after the gentler rungs, no matter
-  why they failed (Catalyst and Electron windows routinely refuse to
-  leave fullscreen even with the permission granted), at most once per
-  app per 3 s. ⌘-Tab back in and the 2 s poll pulls you out again.
-- **The cover overlay** is both the vehicle of that escape and the last
-  resort: an opaque window above everything (including fullscreen
-  windows and the menu bar) with the popup's wording — plus "Vollbild
-  beendet — zurück zum Fokus." when it came up for an escape. It
-  swallows clicks, so the app underneath is unusable, but never the
-  keyboard: ⌘Tab to another app and the cover disappears. It also goes
-  on session end, pause, shield off, and when the Timer quits.
-- **Relentless re-enforcement:** besides the launch and activation
-  watchers, the 2 s poll checks whatever app is frontmost right now and
-  runs the ladder again. Pushing a blocked app back into fullscreen or
-  switching Spaces posts no notification — this tick is what catches it.
-- **Blocked websites get covered first (v22), switched away second.**
-  Open a blocked site and within ~2 s the page — and only the page —
-  disappears behind the cover: "Fokus läuft · noch 12:34",
-  "<Domain> wartet bis zum Ende", "Tab wechseln oder warten — in 10 s
-  wechselt der Timer selbst." The browser's chrome stays untouched and
-  clickable (Arc's left sidebar included), because leaving the tab is
-  the way out and that needs the tab bar. Switch the tab yourself and
-  the cover goes; stay 10 s and the tab switch below runs. Covering
-  needs no new permission — the browser window's position and size come
-  from the window server, its title is never read. Only one site is
-  covered at a time, a different blocked site restarts the 10 s, and a
-  browser window too small for a readable cover skips straight to the
-  switch.
-- Blocked websites keep their tab: instead of closing it, the browser
-  switches to the neighboring tab — or to a fresh empty tab when the
-  neighbor is blocked too or the window has only that one tab. The
-  blocked tab waits in the background; after the session one click
-  resumes it exactly where it was (no ⌘⇧T needed). Re-activating it
-  during the session covers it again within ~2 s. Arc only: if
-  Arc's scripting rejects the tab switch at runtime, its blocked tabs
-  are closed as before — decided automatically, once per session.
-- App cover and site cover never fight: there is one cover window, and
-  the app ladder outranks the site cover. A blocked *app* in front means
-  no site cover goes up (and an existing one yields the window); a
-  blocked *tab* in the browser you are using is the site cover's case
-  alone. Browsers you are not looking at keep the immediate tab switch,
-  as before v22.
-- Every intervention shows a small centered popup (replacing the old
-  top toast): "Fokus läuft · noch 12:34" and "<App/Website> wartet bis
-  zum Ende" — the same wording in both modes. It ignores clicks,
-  disappears after 2.5 s, and announces each target at most once per
-  10 s.
-- Both lists live in Settings → Fokus → Fokus-Block, split into "Blockieren"
-  and "Nur Erlaubte" subsections with the same UI: the "App hinzufügen"
-  button opens a menu of running apps (or "Andere…" from /Applications),
-  the domain field takes entries like `instagram.com` (subdomains match
-  automatically) via Enter or "Hinzufügen". Adding the first entry to an
-  empty blocklist arms the shield automatically; the first entry into an
-  empty allowlist also switches the mode to "Nur Erlaubte". The section
-  header shows the live shield state ("Schild: an/aus").
-- Website blocking polls the frontmost tab of Safari, Google Chrome, and
-  Arc every 2 s via AppleScript — macOS asks for the automation
-  permission per browser on first contact; a denied browser is skipped
-  silently.
-- Pomodoro breaks and paused sessions never block — breaks and stepping
-  away are free time (everything hidden is restored on pause too).
-- **Honest limits:** this is determined nudging, not enforcement.
-  Stopping the timer (or toggling the shield off) lifts the block
-  immediately, the cover overlay never locks the keyboard, and there is
-  no system-wide network filter — that would need Apple entitlements an
-  ad-hoc-signed app cannot get.
+<p align="center">
+  <img src="docs/images/statistics.png" width="520" alt="Statistics: today, this week, total and average, a seven-day chart and a yearly heatmap">
+</p>
 
-### Notfall-Modus
+## Install
 
-One switch for the moment when nothing else works: the Mac is reduced
-to a short, pre-chosen set of apps and websites for a bounded stretch
-of time — independent of timers, pomodoro, and the shield.
+1. **Download** `Timer.zip` from the [latest release](https://github.com/moritzthln/Timer/releases/latest) and unzip it.
+2. **Move** `Timer.app` into your *Applications* folder.
+3. **Open it the first time with a right-click → Open**, then confirm with *Open* once more.
 
-- **Start:** popover "⋯" menu → "Notfall-Modus …". A small panel asks
-  for the minutes (default 25, **maximum 60** — the cap lives in the
-  model, not in the field) and starts on "Starten" or Enter.
-- **While it runs:** everything not on the emergency list is hidden and
-  tabs on unlisted sites are switched away, using exactly the gentle
-  machinery of the focus block (nothing is quit, nothing is closed).
-  Your emergency apps stay, and Timer, Finder and Systemeinstellungen
-  are always reachable on top of your list — the mode can never lock
-  you out of your own settings.
-- The menu bar shows a lock symbol; without a running timer it also
-  shows the emergency countdown, otherwise the timer keeps the time
-  text. The popover shows "Notfall-Modus · noch MM:SS" above the normal
-  controls — a focus session can run alongside, both coexist.
-- **End:** by itself when the time is up. Everything hidden is restored
-  and the usual bell plays (mute via "Ton").
-- **Cancel:** only by holding the "Abbrechen" button for ten seconds
-  while the ring fills; letting go early aborts. There is deliberately
-  no shortcut and no menu entry for it.
-- A running session survives a relaunch (only the end date is stored);
-  an end date that passed while the app was closed is discarded.
-- **Honest limit, also stated in the panel:** quitting the Timer lifts
-  the lock — an app cannot make itself unquittable, and everything it
-  hid is restored on quit by design. Start it again and the remaining
-  time continues.
-- The two lists and the default duration live in Settings → Fokus →
-  "Notfall-Modus". An empty list blocks nothing in that half (same rule
-  as "Nur Erlaubte").
+> [!IMPORTANT]
+> Timer is not distributed through the App Store and is not notarized by Apple, so macOS asks once before the first launch. After that, a normal double-click works.
+>
+> If macOS reports that the app *"is damaged and can't be opened"*, remove the download quarantine once in Terminal:
+>
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/Timer.app
+> ```
 
-### Statistics
+Timer then appears in the menu bar at the top right of your screen.
 
-- Focus time (running single timers + pomodoro focus phases) is counted
-  per day; breaks and pauses are not. Aborting a timer still credits the
-  elapsed minutes.
-- The chart button in the popover footer opens the stats window
-  (freely resizable, default 560 × 560, size and position remembered;
-  v9: the minimum size follows the content — the window only shrinks as
-  far as everything stays visible). Its "Fokus" tab shows four metric
-  tiles — Heute · Diese Woche · **Gesamt** (all-time focus total) ·
-  **Ø pro Tag** (all-time ÷ days with focus time, "–" before the first
-  one; hover explains the average) — in one row at the default width,
-  wrapping 2×2 near the window minimum (v14), a 7-day
-  bar chart with the minute value above each bar, and below it a
-  12-month GitHub-style heatmap with month labels (today outlined).
-  Heatmap shades are relative to the busiest day of the visible year —
-  there is no goal to measure against (the daily goal was removed
-  in v8).
-- Focus totals are stored locally in UserDefaults — kept forever (it is
-  tiny).
+To start it with your Mac, turn on **Settings → General → Start at login**.
 
-### Aktivität (activity tracking)
+## Permissions
 
-- Always-on local tracking answering three daily questions: **presence**
-  (at the Mac from when to when, with gaps — screen lock, sleep, pause,
-  and idle time past the threshold don't count), **apps** (which app was
-  frontmost, for how long), and **websites** (browser time split by
-  domain for Safari, Google Chrome, and Arc — same per-browser
-  automation permission as the focus block).
-- Stats window → "Aktivität" tab: navigate days with ‹ ›, see the
-  presence line ("09:12 – 17:43 · aktiv 6 h 51 min"), a colored day
-  timeline of app segments (gaps stay dark), and the app list with
-  expandable per-domain breakdowns for browsers. Apps under one minute
-  fold into "Sonstige"; empty days show "Keine Daten für diesen Tag".
-- v9: the timeline zooms 1–16× (−/＋/1× buttons, trackpad pinch, or
-  double-click on a spot; pan by scrolling horizontally), tick labels
-  refine from start/mid/end to hourly and quarter-hourly, and hovering
-  an app segment shows "App · 9:12–9:47 (35 min)". Zoom resets on date
-  change and window reopen.
-- v10 — week view: a "Tag | Woche" switcher tops the tab (defaults to
-  Tag on every window open). Woche shows the ISO week (Mon–Sun) with a
-  ‹ KW 32 · 4.–10. August › header (forward stops at the current week):
-  seven slim day rows sharing **one** time axis — from the week's
-  earliest first-activity to its latest last-activity, so columns align
-  vertically — with hour ticks under the bottom row only, the week
-  presence total ("Diese Woche · aktiv 32 h 10 min"), and the app list
-  aggregated over the week (same rows, week-aggregated domains). App
-  colors rank over week totals, so one app keeps one color in all seven
-  rows. Clicking a day row jumps to that day's day view; empty days stay
-  as blank rows.
-- v10 — drill-down + sparklines: clicking an app row selects it — its
-  timeline segments stay at full opacity while all other apps dim
-  (day bar and all seven week rows); click again or elsewhere to
-  deselect, and navigation or view switches reset the selection. Every
-  app row carries a small 7-bar sparkline (the 7 days ending on the
-  displayed day, or the displayed week), scaled to that app's own
-  7-day maximum.
-- v10 — focus traces: an accent line under the timelines marks where
-  focus sessions (timer or pomodoro focus) ran; in the day view
-  it zooms with the bar and shows "Fokus · 14:02–14:31" on hover.
-  Traces exist from v10 onward — earlier focus time was only counted,
-  not logged as intervals, and is not backfilled.
-- v11 — focus overlay + week zoom: focus windows now also tint the
-  timeline bars themselves (a light accent wash with 1 pt edge lines,
-  day and week — app segments stay readable underneath), and the traces
-  under the bars are thicker. The week view zooms and pans like the day
-  view: −/＋/1× buttons, pinch, or double-click, with all seven rows
-  moving synchronously while the day labels stay fixed; a single click
-  on a row (or its label) still jumps to that day. Zoom resets on week
-  navigation and view switches.
-- v12 — focus-only filter: a "Nur Fokus-Zeit" checkbox next to the
-  Tag | Woche switcher (per window session; survives switches and
-  navigation, resets on reopen) narrows the whole tab to what
-  overlapped focus sessions: app and domain durations are clipped to
-  the focus intervals (week: summed over the seven days), rows with no
-  focus time disappear and "Sonstige" folds the clipped rest, the
-  header line shows the focus total ("Fokus-Zeit · 2 h 25 min"),
-  sparklines use clipped seconds, and the timelines dim everything
-  outside focus windows to ~0.15 (the wash and edge lines stay). A day
-  or week without focus sessions shows the fully dimmed timeline plus
-  "Keine Fokus-Sessions in diesem Zeitraum".
-- v13 — promoted websites: a configurable domain list (Settings →
-  Aktivität → "Eigene Einträge (Websites)", defaults `instagram.com`
-  and `youtube.com`, both removable) whose usage appears as first-class
-  rows in the app list instead of hiding inside the browser: label =
-  the domain, cross-browser total (Safari + Chrome + Arc merge),
-  subdomains match automatically (`m.youtube.com` → `youtube.com`),
-  palette color and 7-day sparkline like any app row, clipped like the
-  rest under "Nur Fokus-Zeit". The browsers' rows show the remainder
-  (their domain breakdowns omit promoted domains), so nothing counts
-  twice. The list change is display-time only — history follows the
-  current list automatically.
-- v14 — usage percentages: every main row of the app list (apps,
-  promoted sites, browser remainders, "Sonstige") shows its share of
-  the displayed period right of the duration — "2 h 41 min · 39 %".
-  The basis is the sum of all rows including the folded rest; with
-  "Nur Fokus-Zeit" on it is the focus-time sum, so shares answer "what
-  fraction of my focus time went where". Whole percents, tiny shares
-  render "<1 %", and the per-domain disclosure rows stay
-  percentage-free.
-- v19 — website drill-down: promoted rows click like app rows. Select
-  instagram.com or youtube.com and the app segments dim while that
-  domain's browsing spans light up on top in the row's color — in the
-  day bar and in all seven week rows, on the same axis, so they stay
-  aligned while you zoom and pan. Spans merge across browsers and
-  include subdomains, "Nur Fokus-Zeit" trims them to the focus windows
-  like everything else, and hovering one shows "youtube.com ·
-  14:02–14:31 (29 min)". Click again to deselect; navigation and view
-  switches reset it, exactly as for apps.
-- v20 — the timeline mirrors the list: promoted time is cut out of the
-  browser's bar and drawn in its own row color, always — not only while
-  something is selected. A Chrome bar with two YouTube visits now reads
-  as Chrome · YouTube · Chrome · YouTube · Chrome instead of one solid
-  block, in the day bar and in all seven week rows. Selecting Chrome
-  lights up only what is really Chrome, hovering a cut-out piece shows
-  the site tooltip, and the numbers in the list and the colors in the
-  bar finally tell the same story. Non-promoted domains keep living
-  inside their browser.
-- v21 — fullscreen apps are blockable at all: the block no longer draws
-  into a Space you cannot see, it takes the screen away from the
-  fullscreen app by activating the Timer, then hides the app and gets
-  out of the way. Works without any permission, catches you again ~2 s
-  after every ⌘-Tab back, and can be tried on demand in Rechte →
-  "Vollbild-Block testen".
-- v22 — blocked websites are covered before the tab is switched away:
-  the page vanishes behind the shield within ~2 s while the tab bar
-  stays yours, and only staying 10 s costs the tab. Same window as the
-  app cover, no new permission, and a mini browser window still gets the
-  plain switch.
-- **Privacy:** everything stays on this Mac — one JSON file per day
-  under `~/Library/Application Support/Timer/activity/` (and, since
-  v10, focus intervals under `…/Timer/focus/`), no network, ever.
-  macOS exposes only the *age* of the last input, never what was
-  typed or clicked.
-- **Honest limits:** tracking runs only while the app runs (enable
-  launch at login); Firefox has no automation interface and appears as
-  a whole app without domain breakdown.
-- Pause any time via Settings → Aktivität ("Tracking pausieren");
-  paused stretches render as gaps. The idle threshold ("Inaktiv nach")
-  defaults to 5 minutes (1–30).
+Timer works without any special permission. Two features need one — and the **Permissions** tab in Settings shows the live state of each, with a button to check it and a link straight to the right place in System Settings.
 
-### Nicht stören (do not disturb)
+| Permission | Used for | Without it |
+|---|---|---|
+| **Accessibility** | Taking blocked apps out of fullscreen and hiding them | Apps in fullscreen are not blocked |
+| **Automation** (per browser: Safari, Chrome, Arc) | Reading the address of the front tab — for the website block and the website statistics | Websites are neither blocked nor listed |
+| **Shortcuts** *(optional)* | Turning macOS *Do Not Disturb* on and off with your sessions | Sessions do not touch Focus modes |
 
-- Opt-in coupling to the macOS Focus mode via two Shortcuts. v8: pick
-  them from two dropdowns listing your existing Shortcuts (refresh
-  button included) — no more typing exact names. Defaults stay
-  "Timer Fokus an" / "Timer Fokus aus", so v7 setups keep working.
-- On at focus start, off at pause/stop/break; best-effort off when the
-  app quits while a focus phase is active.
-- Settings → Fokus → Nicht stören has the toggle, the two dropdowns, setup
-  instructions (for users who have no suitable shortcut yet), a test
-  button per shortcut, and a one-line status when a shortcut is missing
-  or fails.
+> [!NOTE]
+> macOS ties these permissions to the exact build of an app. After installing a new version, you may have to grant **Accessibility** again: in *System Settings → Privacy & Security → Accessibility*, remove the old *Timer* entry with **−** and add the new one with **+**. Timer warns you when a block starts without it.
 
-### Global hotkeys
+## Using Timer
 
-Three system-wide shortcuts, configured in Settings → Allgemein →
-Hotkeys (click a recorder field, press a combo with ⌘/⌃/⌥; Esc
-cancels, "×" clears):
+### Timers and pomodoro
 
-- **Popover öffnen** — opens the popover with the input focused.
-- **Sofort-Start** — idle: starts the last duration; running: pauses;
-  paused: resumes; finished: dismisses and starts the last duration.
-- **Verlängern (+5 min)** — extends a running/paused timer; does
-  nothing otherwise. Opt-in: no default combo (avoids collisions).
+- Type minutes and press <kbd>Return</kbd>, click one of the four presets, or click **Pomodoro** for a full cycle.
+- While a session runs you can pause, add five minutes with **+5**, skip a pomodoro phase, or stop.
+- An optional floating display keeps the countdown on top of every window and Space.
 
-### Settings
+<p align="center">
+  <img src="docs/images/floating.png" width="220" alt="The floating countdown display">
+</p>
 
-Open via the popover's "⋯" menu → "Einstellungen…". Since v17 the
-window is split into tabs behind a segmented switcher at the top —
-**Timer**, **Fokus**, **Aktivität**, **Allgemein**, and since v18
-**Rechte** (opens on Timer; the window height fits the tallest tab, so
-nothing scrolls at default size). All changes save immediately — since v9 the number
-fields save while you type, and input that does not parse into the
-allowed range snaps back to the stored value when you leave the field
-(switching tabs counts as leaving the field).
+### The focus block
 
-Tab **Timer**:
+Turn it on with the shield at the bottom left of the popover, then choose a mode next to it:
 
-- **Presets:** the four quick-start chips (1–720 min each). A custom
-  six-preset set from before v6 falls back to the 5/15/25/45 default
-  (documented migration) — re-save your favorites once.
-- **Pomodoro:** focus/break/long-break minutes (1–720) and rounds until
-  long break (1–12).
-- **Alarm:** volume slider + test button — the test plays the ~5 s
-  bell swell (the mute toggle sits in the popover's "⋯" menu). The two
-  alarm sounds are bundled .caf files; if they are missing the app
-  falls back to the old four-chime Glass sequence, never silence.
+- **Block** hides the apps and websites you marked.
+- **Allowed only** hides everything *except* what you marked. Allowing a website keeps your browsers reachable, but only for those sites.
 
-Tab **Fokus**:
+The block is **gentle by design**: apps are hidden, never quit, and come back the moment the session ends. Blocked websites stay open — the browser simply switches to another tab. Timer, Finder and System Settings are always reachable, so you can never lock yourself out.
 
-- **Fokus-Block:** two subsections since v15. "Blockieren" holds the
-  blocked apps ("App hinzufügen" menu + "Andere…" file picker; the
-  Timer itself, Finder, and the default browser are not blockable) and
-  blocked domains (Enter or "Hinzufügen" commits; the list shows
-  exactly what was stored). "Nur Erlaubte" holds the allowed apps and
-  domains with the identical UI (the always-allowed Timer/Finder/System
-  Settings are hidden from its picker; browsers are pickable) plus the
-  caption "Leere Liste = dieser Teil blockt nichts." The first entry
-  arms the shield automatically — an allowlist entry also switches the
-  mode —, the header shows "Schild: an/aus", and captions explain when
-  blocking is active and the automation permission.
-- **Notfall-Modus** (v24): a third subsection with the same UI — the
-  apps and websites that stay reachable during an emergency session,
-  plus "Standard-Dauer (min)" (1–60) for the start panel. Nothing here
-  arms anything: the mode only runs while a session started from the
-  popover is running.
-- **Nicht stören:** the DND toggle, the two shortcut dropdowns with a
-  refresh button, setup instructions, and the two test buttons.
+**How it handles fullscreen.** macOS lets an app keep its own fullscreen Space even after it was hidden, and it only reveals the windows of the app that is currently active. So Timer first visits every app that fills a screen — one after another, following browsers with several profile windows across Spaces — takes each out of fullscreen, and only then hides them. You will see your Spaces flick through for a moment when a session starts.
 
-Tab **Aktivität**:
+### Emergency mode
 
-- **Aktivität:** "Tracking pausieren" toggle (pausing fully stops the
-  polling — no background wakeups while paused), the idle threshold
-  "Inaktiv nach (min)" (1–30, default 5), and v13 "Eigene Einträge
-  (Websites)" — the promoted-websites list (same domain UI as the
-  block list: Enter or "Hinzufügen" commits, rows removable, the list
-  shows exactly what was stored; an emptied list stays empty).
+From the popover's **⋯** menu (or its own hotkey): everything except a list you chose beforehand is hidden for 1 to 60 minutes — whether a timer runs or not. The lists freeze while it runs, and the only way out early is to hold a button for ten seconds. That friction is the point.
 
-Tab **Allgemein**:
+### Statistics and activity
 
-- **Allgemein:** "Beim Anmelden starten" with a live status line —
-  "Aktiv", "Wartet auf Freigabe" (plus a button opening the Login
-  Items pane), or "Aktiv (LaunchAgent)" when macOS rejected
-  `SMAppService` and the app fell back to a user LaunchAgent
-  (`~/Library/LaunchAgents/com.moritzthelen.timer.plist`). Toggling
-  off removes whichever mechanism is active. Plus the floating display
-  toggle.
-- **Menüleiste:** time format "Standard" (24:37) or "Kompakt" (whole
-  minutes rounded up — "25m", "1h 5m"), and "Nur Symbol" hiding the
-  time entirely (each state keeps a distinguishable icon; caption
-  recommends the floating display).
-- **Hotkeys:** three recorder fields (popover, quick-start, extend);
-  duplicate combos are rejected with an inline hint.
+The chart button in the popover opens the statistics window:
 
-Tab **Rechte** (v18) — every permission the app depends on, in one
-place, because macOS resets some of them on a reinstall. One row per
-item with a traffic-light badge (green granted/active, amber
-unknown/browser not open, red missing; hover for a one-line
-explanation) and its buttons:
+- **Focus** — time in focus sessions today, this week, in total and on an average active day, plus a seven-day chart and a twelve-month heatmap.
+- **Activity** — a zoomable timeline of your day or week: which apps you used, which websites, when you were away. Select a row to highlight it on the timeline; tick **Focus time only** to see what actually happened during your sessions.
 
-- **Bedienungshilfen (Vollbild-Block):** read live via
-  `AXIsProcessTrusted()` (never prompts), "Öffnen" jumps into System
-  Settings → Privacy → Accessibility. Nice to have, not required since
-  v21 — the Space escape works without it.
-- **Vollbild-Block testen (v21):** "Testen" starts a 3 s countdown —
-  switch into the app you want to check (fullscreen is the interesting
-  case) and the complete ladder runs against it once, without a block
-  list and without a running session. The result appears in the
-  caption: "WhatsApp — Space gewechselt", "… versteckt", "… aus
-  Vollbild geholt", "… kein Eingriff nötig" or "… überdeckt". The
-  tested app stays hidden, exactly as a real block would leave it (one
-  Dock click brings it back); the cover comes down on its own.
-- **Automation: Safari / Google Chrome / Arc:** one row each.
-  "Prüfen" runs a harmless read against the **running** browser — the
-  first one may raise the one-time macOS consent prompt, which is
-  exactly why nothing is probed automatically when the tab opens.
-  A browser that is not running reports "Browser nicht geöffnet".
-- **Kurzbefehle (Nicht stören):** checks that both configured shortcut
-  names appear in `shortcuts list`; the caption points to the Fokus tab
-  where they are selected.
-- **Beim Anmelden starten:** the same status as the Allgemein tab, with
-  a button into Login Items.
+### Settings at a glance
 
-"Alle prüfen" in the header re-runs everything at once. The
-non-prompting checks (Accessibility, login item, shortcuts list) also
-run when the window opens.
+<p align="center">
+  <img src="docs/images/settings.png" width="380" alt="Settings window with the Timer tab open">
+</p>
 
-## Build & install
+Five tabs: **Timer** (presets, pomodoro, alarm), **Focus** (block lists, emergency mode, Do Not Disturb), **Activity** (tracking, websites listed separately), **General** (language, login, menu bar format, hotkeys) and **Permissions**.
 
-    ./build.sh
+## Privacy
 
-Builds a release binary with Swift Package Manager (works with or
-without Xcode),
-assembles `Timer.app`, ad-hoc signs it, and installs to `/Applications`
-(falls back to `~/Applications`).
+Timer makes **no network requests** — there is no server, no telemetry, no update check.
 
-## Start at login
+Everything it records stays on your Mac:
 
-Settings → Allgemein → "Beim Anmelden starten". The status line under
-the toggle shows which mechanism is active; "Wartet auf Freigabe"
-offers a button into System Settings → Login Items. If `SMAppService`
-refuses the ad-hoc-signed app entirely, a user LaunchAgent takes over
-automatically. A duplicate-start guard quits a second instance
-immediately, so the two mechanisms can never double-launch the app.
+| What | Where |
+|---|---|
+| Settings and focus totals | `~/Library/Preferences/com.moritzthelen.timer.plist` |
+| Activity timeline (apps, website domains, presence) | `~/Library/Application Support/Timer/activity/` — one JSON file per day |
+| Focus session intervals | `~/Library/Application Support/Timer/focus/` |
 
-## Development
+Website tracking stores domains only, never full addresses, page titles or content. Window titles are never read. Activity tracking can be paused at any time in **Settings → Activity**; deleting the folders above erases the history.
 
-    swift run TimerAppTestRunner   # unit tests (custom runner — no XCTest with CLT)
-    swift build                    # debug build
-    .build/debug/TimerApp          # run unbundled
+## Building from source
+
+Requirements: macOS 13 or newer and Swift 5.9+ (Xcode or the Command Line Tools — `xcode-select --install` is enough).
+
+```bash
+git clone https://github.com/moritzthln/Timer.git
+cd Timer
+./build.sh
+```
+
+`build.sh` builds a release binary, assembles `Timer.app`, signs it and installs it to `/Applications`. Other commands:
+
+| Command | What it does |
+|---|---|
+| `swift build` | Debug build |
+| `swift run TimerAppTestRunner` | Runs the test suite (a small custom runner, so it works without Xcode) |
+| `./package.sh` | Builds a universal (Apple Silicon + Intel) `Timer.zip` into `share/` |
+
+### Project layout
+
+```
+Sources/
+  TimerCore/   Pure, unit-tested logic: the timer engine, pomodoro sequencing,
+               block rules, statistics and activity storage
+  TimerApp/    The macOS app: menu bar, popover, windows, SwiftUI views,
+               and everything that talks to other apps
+Tests/
+  TimerAppTestRunner/   The test suite
+Resources/     Info.plist, app icon, bundled alarm sounds
+```
+
+The rule of thumb: anything that can be decided without AppKit lives in `TimerCore` and has tests; `TimerApp` only gathers state from the system and acts on the decision.
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Limitations
+
+- **Blocking is a nudge, not a lock.** Quitting Timer ends any block and restores every hidden app. That is deliberate: a focus tool should never hold your Mac hostage.
+- **Fullscreen is not restored.** Apps the block took out of fullscreen come back as normal windows.
+- **Websites:** blocking and website statistics cover Safari, Chrome and Arc, and only the active tab of a browser's front window.
+- **Not notarized.** Without a paid Apple Developer ID, macOS shows the first-launch prompt described above and forgets granted permissions after updates.
+
+## License
+
+[MIT](LICENSE) © 2026 Moritz Thelen

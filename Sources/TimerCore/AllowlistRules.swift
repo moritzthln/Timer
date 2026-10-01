@@ -18,8 +18,8 @@ public enum AllowlistRules {
     ///
     /// Allowing a *website* has to imply allowing something to open it in:
     /// otherwise the browser is hidden as an unlisted app and the website
-    /// list can never do anything (user: "ich gebe eine Webseite ein, aber
-    /// Chrome ist nicht erlaubt — dann sollte Chrome doch offen bleiben"). It
+    /// list can never do anything (allowing a website without allowing Chrome
+    /// used to hide Chrome, and the website with it). It
     /// is no hole either: the tab arm restricts every supported browser to
     /// the allowed hosts, so a browser that stays reachable is still only
     /// good for the sites on the list. With no allowed website at all, the

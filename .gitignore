@@ -15,3 +15,9 @@ dist/
 *-secret*
 *-key*
 share/
+
+# Private development notes — kept locally, never published
+CLAUDE.md
+PROJECT_STATE.md
+NOTES.md
+docs/superpowers/

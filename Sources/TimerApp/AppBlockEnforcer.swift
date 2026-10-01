@@ -23,7 +23,7 @@ final class AppBlockEnforcer {
     /// Between two steps of the fullscreen sweep. Slower than the hide loop:
     /// every step waits on a Space switch or an exit animation. Tightening
     /// this to 0.1 s did make the sweep quicker, but it also made it jumpy —
-    /// the calmer pace is the one that works (user: "lieber wie davor").
+    /// the calmer pace is the one that works in practice.
     private static let sweepInterval = 0.25
     /// ~4 s per app, then the sweep moves on and the poll brings it back.
     private static let sweepAttempts = 16
