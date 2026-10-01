@@ -178,7 +178,7 @@ Resources/     Info.plist, app icon, bundled alarm sounds
 
 The rule of thumb: anything that can be decided without AppKit lives in `TimerCore` and has tests; `TimerApp` only gathers state from the system and acts on the decision.
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Changes per version are listed in the [CHANGELOG](CHANGELOG.md).
 
 ## Limitations
 
