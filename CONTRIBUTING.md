@@ -20,6 +20,9 @@ focused pull requests are very welcome.
 
 Security problems go through [private reporting](SECURITY.md), never a public issue.
 
+By contributing you agree that your contribution is licensed under the
+project's [PolyForm Noncommercial License](LICENSE), like the rest of the code.
+
 ## Setting up
 
 You need macOS 13 or newer and Swift 5.9+. Xcode works; the Command Line Tools

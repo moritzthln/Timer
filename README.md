@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/macOS-13%2B-black?logo=apple" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-555" alt="Universal binary">
   <a href="https://github.com/moritzthln/focus-timer-mac/actions/workflows/ci.yml"><img src="https://github.com/moritzthln/focus-timer-mac/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-green" alt="PolyForm Noncommercial license"></a>
 </p>
 
 <p align="center">
@@ -67,7 +67,7 @@ Most focus tools do one thing: a pomodoro app counts down, a blocker blocks, a t
 - **Websites without an extension.** Timer reads the front tab of Safari, Chrome and Arc through macOS itself — nothing to install in your browser, nothing to keep updated.
 - **An emergency mode with real friction.** From the menu or a hotkey, Timer locks the Mac down to a short list for up to an hour. Ending it early takes a ten-second hold — long enough to notice you are about to give in.
 - **Your data never leaves your Mac.** No account, no server, no analytics, no update check. Timer makes no network requests at all, and its full source is here to prove it.
-- **Free and open source.** MIT-licensed, no subscription, no "Pro" tier.
+- **Free, with the source in the open.** No subscription, no "Pro" tier — free for personal use, education and non-profits, with every line of code readable here.
 
 | | Typical pomodoro app | Typical app/website blocker | Typical time tracker | **Timer** |
 |---|:---:|:---:|:---:|:---:|
@@ -79,7 +79,7 @@ Most focus tools do one thing: a pomodoro app counts down, a blocker blocks, a t
 | Records which apps and sites you used | – | – | ✓ | **✓** |
 | Shows only what happened *during* focus sessions | – | – | rarely | **✓** |
 | No account, no network access | sometimes | rarely | rarely | **✓** |
-| Free and open source | sometimes | rarely | rarely | **✓** |
+| Free, with readable source code | sometimes | rarely | rarely | **✓** |
 
 ## Install
 
@@ -219,4 +219,10 @@ Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Changes pe
 
 ## License
 
-[MIT](LICENSE) © 2026 Moritz Thelen
+Timer is **free for any noncommercial use** — personal use, study, research, schools, universities, charities and other non-profit organisations. You may read, change and share the code for those purposes.
+
+**Commercial use is not permitted** under this license, including use inside a company or as part of a paid product or service. If you would like to use Timer commercially, open an issue and ask.
+
+Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). © 2026 Moritz Thelen.
+
+Versions up to and including 1.0.0 were published under the MIT License and remain available under it.
