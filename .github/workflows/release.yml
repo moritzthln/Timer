@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag like v1.2.0 and this builds the universal app and publishes it.
+# Runs when a version tag is pushed — normally by Scripts/release.sh.
 on:
   push:
     tags: ["v*"]
@@ -13,15 +13,43 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check that the tag matches the app version
+        run: |
+          APP_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          if [ "v$APP_VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Info.plist version $APP_VERSION"
+            exit 1
+          fi
+
       - name: Test
         run: swift run TimerAppTestRunner
+
       - name: Package universal app
         run: ./package.sh
+
       - name: Checksum
         run: cd share && shasum -a 256 Timer.zip > Timer.zip.sha256
+
+      - name: Release notes from the changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "---"
+            echo
+            echo "**Install:** download \`Timer.zip\`, unzip, move \`Timer.app\` to Applications,"
+            echo "then right-click → Open the first time. Details in the [README](https://github.com/${GITHUB_REPOSITORY}#install)."
+            echo
+            echo "**Updating:** quit Timer, replace the app in Applications. Your settings and history stay."
+            echo "macOS may ask for the Accessibility permission again after an update."
+          } >> notes.md
+          cat notes.md
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" share/Timer.zip share/Timer.zip.sha256 \
-            --title "Timer ${GITHUB_REF_NAME#v}" --generate-notes
+            --title "Timer ${GITHUB_REF_NAME#v}" --notes-file notes.md --latest

@@ -81,13 +81,19 @@ The body explains *why*, not what — the diff already shows what.
 
 ## Releases
 
-Maintainers only: update `CHANGELOG.md`, bump `CFBundleShortVersionString` in
-`Resources/Info.plist`, then push a tag:
+The project uses [Semantic Versioning](https://semver.org/): `patch` for fixes,
+`minor` for new features, `major` for changes that break existing behaviour.
+
+Every pull request adds a line to the `[Unreleased]` section of
+[`CHANGELOG.md`](CHANGELOG.md). A maintainer then cuts a release with one command:
 
 ```bash
-git tag -a v1.1.0 -m "Timer 1.1.0"
-git push origin v1.1.0
+Scripts/release.sh patch     # or minor / major / an explicit 1.4.2
 ```
 
-The release workflow runs the tests, builds the universal app and publishes it
-with a SHA-256 checksum.
+The script refuses to run unless `main` is clean and in sync, and unless the
+changelog actually says what changed. It runs the tests, bumps the version in
+`Resources/Info.plist`, dates the changelog entry, commits, tags and pushes.
+The tag starts the release workflow, which checks that tag and app version
+match, builds the universal app and publishes it on GitHub Releases with the
+changelog entry as release notes.

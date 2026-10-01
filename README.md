@@ -31,7 +31,7 @@ No account. No subscription. No network access at all: every number Timer shows 
 ## Contents
 
 - [Features](#features)
-- [Install](#install)
+- [Install](#install) · [Updating](#updating)
 - [Permissions](#permissions)
 - [Using Timer](#using-timer)
 - [Privacy](#privacy)
@@ -75,6 +75,12 @@ No account. No subscription. No network access at all: every number Timer shows 
 Timer then appears in the menu bar at the top right of your screen.
 
 To start it with your Mac, turn on **Settings → General → Start at login**.
+
+### Updating
+
+Download the newest `Timer.zip` from [Releases](https://github.com/moritzthln/Timer/releases/latest), quit Timer, and replace the app in your *Applications* folder. Your settings and history stay where they are.
+
+Timer never checks for updates on its own — that would mean a network request, and it makes none. To hear about new versions, click **Watch → Custom → Releases** at the top of this page and GitHub will notify you.
 
 ## Permissions
 

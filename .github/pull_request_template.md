@@ -17,3 +17,4 @@
 - [ ] No network access, telemetry or new data leaving the Mac
 - [ ] Files stay under 800 lines, functions under 80
 - [ ] Screenshots attached if the UI changed
+- [ ] A line in the `[Unreleased]` section of `CHANGELOG.md`
