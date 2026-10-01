@@ -7,7 +7,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
-- License changed from MIT to the PolyForm Noncommercial License 1.0.0: free for personal, educational and non-profit use; commercial use needs permission. Version 1.0.0 remains available under MIT.
+- License changed from MIT to the PolyForm Noncommercial License 1.0.0: free for personal, educational and non-profit use; commercial use needs permission.
 
 ## [1.0.0] - 2026-10-01
 

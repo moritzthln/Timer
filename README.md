@@ -224,5 +224,3 @@ Timer is **free for any noncommercial use** — personal use, study, research, s
 **Commercial use is not permitted** under this license, including use inside a company or as part of a paid product or service. If you would like to use Timer commercially, open an issue and ask.
 
 Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). © 2026 Moritz Thelen.
-
-Versions up to and including 1.0.0 were published under the MIT License and remain available under it.
