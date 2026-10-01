@@ -8,11 +8,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [1.0.1] - 2026-10-01
 
-### Changed
-- Licensed under the PolyForm Noncommercial License 1.0.0: free for personal, educational and non-profit use; commercial use needs permission.
-
-## [1.0.0] - 2026-10-01
-
 First public release.
 
 ### Added
@@ -29,5 +24,4 @@ First public release.
 - English and German interface
 
 [Unreleased]: https://github.com/moritzthln/focus-timer-mac/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/moritzthln/focus-timer-mac/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/moritzthln/focus-timer-mac/releases/tag/v1.0.0
+[1.0.1]: https://github.com/moritzthln/focus-timer-mac/releases/tag/v1.0.1
