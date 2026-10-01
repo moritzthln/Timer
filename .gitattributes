@@ -1,0 +1,9 @@
+# Normalize line endings; keep binary assets untouched.
+* text=auto eol=lf
+
+*.png  binary
+*.icns binary
+*.caf  binary
+
+# Keep GitHub's language bar about the app, not the docs.
+docs/** linguist-documentation

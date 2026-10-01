@@ -1,0 +1,75 @@
+name: Bug report
+description: Something does not work as described
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting. The more precise the steps, the faster it gets fixed.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      placeholder: Describe what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start a 25-minute session with the focus block on
+        2. Put Chrome into fullscreen
+        3. …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Timer / pomodoro
+        - Focus block (apps)
+        - Focus block (websites)
+        - Emergency mode
+        - Statistics / activity
+        - Settings / permissions
+        - Installation / updating
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Timer version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: chip
+    attributes:
+      label: Mac
+      options:
+        - Apple Silicon
+        - Intel
+    validations:
+      required: true
+  - type: checkboxes
+    id: permissions
+    attributes:
+      label: Permissions (Settings → Permissions)
+      options:
+        - label: Accessibility is granted
+        - label: Automation is granted for the browser involved

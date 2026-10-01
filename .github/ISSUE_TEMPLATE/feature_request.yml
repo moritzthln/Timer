@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an idea
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Timer deliberately does few things. Describing the *problem* first helps
+        find the smallest change that solves it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem do you want solved?
+      placeholder: When I …, I can't …
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How do you imagine it working?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
